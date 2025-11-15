@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name="family_member")
+@Table(name = "family_member")
 @Getter
 @Setter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
@@ -21,7 +21,7 @@ public class FamilyMember {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name="family_id", nullable = false)
+    @JoinColumn(name = "family_id", nullable = false)
     private Family family;
     @Column(nullable = false)
     private String firstName;
@@ -41,7 +41,7 @@ public class FamilyMember {
     @Column
     private String languages;
     @Column(nullable = false)
-    private boolean livesWithFamily=true;
+    private boolean livesWithFamily = true;
     @Column
     private String income;
     @Column
@@ -56,16 +56,23 @@ public class FamilyMember {
     private String phone;
     @Column
     private String email;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private LocalDateTime createdAt= LocalDateTime.now();
+    private RecordStatus status;
+    @Column(nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
     @Column(nullable = false)
     private String createdBy;
     @Column
     private LocalDateTime updatedAt;
     @Column
     private String updatedBy;
-    @Column(nullable = false)
-    private boolean deleted;
     @Column
-    private LocalDate deletedAt;
+    private LocalDateTime invalidAt;
+    @Column
+    private String invalidBy;
+
+    public  FamilyMember() {
+    }
 }

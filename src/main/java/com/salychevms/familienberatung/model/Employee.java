@@ -5,7 +5,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -36,6 +35,8 @@ public class Employee {
     private String password;
     @Column(nullable = false)
     private boolean passwordChangeRequired = false;
+    @Column
+    private String notes;
 
     @ManyToOne
     @JoinColumn(name = "role_id", nullable = false)
@@ -44,11 +45,7 @@ public class Employee {
     @Column(nullable = false)
     private boolean active = true;
     @Column(nullable = false)
-    private boolean deleted = false;
-    @Column
-    private LocalDate deletedAt;
-    @Column
-    private String notes;
+    private boolean archived = false;
     @Column(nullable = false)
     private LocalDateTime createdDate = LocalDateTime.now();
     @Column(length = 50)

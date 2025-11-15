@@ -46,10 +46,12 @@ public class Delegation {
     private LocalDateTime updatedAt;
     @Column
     private String updatedBy;
-    @Column(nullable = false)
-    private boolean deleted=false;
     @Column
-    private LocalDate deletedAt;
+    private boolean deletedManually;
+    @Column
+    private LocalDateTime deletedAt;
+    @Column
+    private String deletedBy;
 
     public Delegation() {}
 }

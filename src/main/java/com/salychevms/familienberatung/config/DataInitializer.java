@@ -36,7 +36,7 @@ public class DataInitializer implements CommandLineRunner {
             admin.setPasswordChangeRequired(true);
             admin.setRole(adminRole);
             admin.setActive(true);
-            admin.setDeleted(false);
+            admin.setArchived(false);
             admin.setCreatedBy("system");
             employeeRepository.save(admin);
             System.out.println("Admin user created admin/admin");

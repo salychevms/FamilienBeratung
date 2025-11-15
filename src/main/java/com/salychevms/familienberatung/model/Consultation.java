@@ -55,10 +55,13 @@ public class Consultation {
     private LocalDateTime updatedAt;
     @Column
     private String updatedBy;
-    @Column(nullable = false)
-    private boolean deleted = false;
+    @Enumerated(EnumType.STRING)
     @Column
-    private LocalDate deletedAt;
+    private RecordStatus status;
+    @Column
+    private LocalDateTime invalidAt;
+    @Column
+    private String invalidBy;
 
     public Consultation() {
     }

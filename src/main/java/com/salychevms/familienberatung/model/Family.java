@@ -5,7 +5,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -20,7 +19,7 @@ public class Family {
     @EqualsAndHashCode.Include
     private Long id;
 
-    @Column(nullable = false, length = 150)
+    @Column(nullable = false)
     private String familyName;
     @Column
     private String street;
@@ -40,17 +39,20 @@ public class Family {
     private String languages;
     @Column
     private String reasonDescription;
-    @Column
-    private String status;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private RecordStatus status;
     @Column
     private String notes;
 
     @ManyToOne
-    @JoinColumn(name = "assigned_employee_id")
+    @JoinColumn(name = "assigned_employee_id", nullable = false)
     private Employee assignedEmployee;
 
     @Column(nullable = false)
     private boolean caseClosed = false;
+    @Column
+    private LocalDateTime caseClosedAt;
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
     @Column(nullable = false)
@@ -59,10 +61,28 @@ public class Family {
     private LocalDateTime updatedAt;
     @Column
     private String updatedBy;
-    @Column(nullable = false)
-    private boolean deleted;
     @Column
-    private LocalDate deletedAt;
+    private LocalDateTime archivedAt;
+    @Column
+    private String archivedBy;
+    @Column
+    private LocalDateTime invalidAt;
+    @Column
+    private String invalidBy;
+    @Column
+    private LocalDateTime blockedAt;
+    @Column
+    private String blockedBy;
+    @Column
+    private String blockedReason;
+    @Column
+    private LocalDateTime restoredAt;
+    @Column
+    private String restoredBy;
+    @Column
+    private String restoredReason;
+    @Column
+    private LocalDateTime deletePlannedAt;
 
     public Family() {
     }

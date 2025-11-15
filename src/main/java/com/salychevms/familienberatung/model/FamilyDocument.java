@@ -5,7 +5,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -23,10 +22,6 @@ public class FamilyDocument {
     @ManyToOne
     @JoinColumn(name="family_id", nullable = false)
     private Family family;
-
-    @ManyToOne
-    @JoinColumn(name = "uploaded_by_employee_id", nullable = false)
-    private Employee uploadedByEmployee;
     @Column(nullable=false)
     private String originalFileName;
     @Column(nullable=false)
@@ -35,18 +30,24 @@ public class FamilyDocument {
     private String fileType;
     @Column(nullable=false)
     private long fileSizeBytes;
-    @Column(length=2000)
+    @Column(length=4000)
     private String description;
+
+    @ManyToOne
+    @JoinColumn(name = "uploaded_by_employee_id", nullable = false)
+    private Employee uploadedByEmployee;
     @Column(nullable = false)
     private LocalDateTime uploadedAt=LocalDateTime.now();
     @Column
     private LocalDateTime updatedAt;
     @Column
     private String updatedBy;
-    @Column(nullable=false)
-    private boolean deleted=false;
+    @Enumerated(EnumType.STRING)
+    private RecordStatus status;
     @Column
-    private LocalDate deletedAt;
+    private LocalDateTime invalidAt;
+    @Column
+    private String invalidBy;
 
     public FamilyDocument() {}
 }
