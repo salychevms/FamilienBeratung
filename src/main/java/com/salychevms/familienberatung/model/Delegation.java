@@ -36,10 +36,12 @@ public class Delegation {
     private LocalDate startDate;
     @Column(nullable = false)
     private LocalDate endDate;
+    @Column(nullable = false)
+    private boolean expired=false;
     @Column(nullable=false, length=2000)
     private String reason;
     @Column(nullable=false)
-    private LocalDateTime createdAt=LocalDateTime.now();
+    private LocalDateTime createdAt;
     @Column(nullable=false)
     private String createdBy;
     @Column
@@ -47,11 +49,11 @@ public class Delegation {
     @Column
     private String updatedBy;
     @Column
-    private boolean deletedManually;
+    private boolean abortedManually;
     @Column
-    private LocalDateTime deletedAt;
+    private LocalDateTime abortedAt;
     @Column
-    private String deletedBy;
+    private String abortedBy;
 
     public Delegation() {}
 }

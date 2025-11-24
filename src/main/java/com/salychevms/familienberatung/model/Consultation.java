@@ -5,9 +5,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 
 @Entity
 @Table(name = "consultation")
@@ -30,38 +28,39 @@ public class Consultation {
     private Family family;
 
     @Column(nullable = false)
-    private LocalDate realDate;
-    @Column(nullable = false)
-    private LocalTime realStartTime;
-    @Column(nullable = false)
-    private LocalTime realEndTime;
+    private LocalDateTime dateTime;
     @Column(nullable = false)
     private int durationMinutes;
     @Column
     private String topic;
-    @Column(length = 3000)
+    @Column(length = 4000)
     private String description;
-    @Column
+    @Column(length = 4000)
     private String result;
     @Column
     private LocalDateTime followUp;
     @Column
     private boolean backdated;
     @Column(nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
     @Column(nullable = false)
     private String createdBy;
     @Column
     private LocalDateTime updatedAt;
     @Column
     private String updatedBy;
-    @Enumerated(EnumType.STRING)
     @Column
-    private RecordStatus status;
+    private boolean invalid;
     @Column
     private LocalDateTime invalidAt;
     @Column
     private String invalidBy;
+    @Column
+    private String restoredBy;
+    @Column
+    private LocalDateTime restoredAt;
+    @Column
+    private String restoredReason;
 
     public Consultation() {
     }

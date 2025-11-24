@@ -47,11 +47,11 @@ public class Employee {
     @Column(nullable = false)
     private boolean archived = false;
     @Column(nullable = false)
-    private LocalDateTime createdDate = LocalDateTime.now();
-    @Column(length = 50)
+    private LocalDateTime createdDate;
+    @Column
     private String createdBy;
     private LocalDateTime updatedAt;
-    @Column(length = 50)
+    @Column
     private String updatedBy;
 
     public Employee() {

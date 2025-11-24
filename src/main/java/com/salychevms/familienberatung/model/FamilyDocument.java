@@ -37,17 +37,23 @@ public class FamilyDocument {
     @JoinColumn(name = "uploaded_by_employee_id", nullable = false)
     private Employee uploadedByEmployee;
     @Column(nullable = false)
-    private LocalDateTime uploadedAt=LocalDateTime.now();
+    private LocalDateTime uploadedAt;
     @Column
     private LocalDateTime updatedAt;
     @Column
     private String updatedBy;
-    @Enumerated(EnumType.STRING)
-    private RecordStatus status;
+    @Column
+    private boolean isInvalid=false;
     @Column
     private LocalDateTime invalidAt;
     @Column
     private String invalidBy;
+    @Column
+    private String restoredBy;
+    @Column
+    private LocalDateTime restoredAt;
+    @Column
+    private String restoredReason;
 
     public FamilyDocument() {}
 }

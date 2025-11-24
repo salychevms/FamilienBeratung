@@ -21,10 +21,10 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        createRole("ADMIN", "Administrator", "Voller Systemzugriff");
-        createRole("LEAD", "Projektleiter*in", "Leitet das Projekt und Team");
-        createRole("CONSULTANT", "Berater*in", "Beratungstätigkeit");
-        createRole("READONLY", "Nur Lesen", "Nur Anzeige der Daten");
+        createRole(100, "ADMIN", "Administrator", "Voller Systemzugriff");
+        createRole(80, "LEAD", "Projektleiter*in", "Leitet das Projekt und Team");
+        createRole(50, "CONSULTANT", "Berater*in", "Beratungstätigkeit");
+        createRole(10, "READONLY", "Nur Lesen", "Nur Anzeige der Daten");
 
         if (employeeRepository.count() == 0) {
             Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
@@ -44,10 +44,17 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
-    private void createRole(String name, String label, String description) {
-        roleRepository.findByName(name).orElseGet(() -> {
-            Role r = new Role(name, label, description);
-            return roleRepository.save(r);
+    private void createRole(int accessLevel, String name, String label, String description) {
+        roleRepository.findByName(name).ifPresentOrElse(existing->{
+            if(existing.getAccessLevel()!=accessLevel){
+                existing.setAccessLevel(accessLevel);
+                roleRepository.save(existing);
+                log.info("Role {} updated (access level {})", name, accessLevel);
+            }
+        }, ()->{
+            Role role = new Role(accessLevel, name, label, description);
+            roleRepository.save(role);
+            log.info("Role {} created (access level {})", name, accessLevel);
         });
     }
 }

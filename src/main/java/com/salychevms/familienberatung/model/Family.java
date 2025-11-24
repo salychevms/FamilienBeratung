@@ -37,7 +37,7 @@ public class Family {
     private String citizenship;
     @Column
     private String languages;
-    @Column
+    @Column(length = 4000)
     private String reasonDescription;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -54,7 +54,7 @@ public class Family {
     @Column
     private LocalDateTime caseClosedAt;
     @Column(nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
     @Column(nullable = false)
     private String createdBy;
     @Column

@@ -17,6 +17,9 @@ public class Role {
     @EqualsAndHashCode.Include
     private Long id;
 
+    @Column(nullable = false)
+    private int accessLevel;
+
     @Column(nullable = false, unique = true, length = 50)
     private String name;
 
@@ -29,7 +32,8 @@ public class Role {
     public Role() {
     }
 
-    public Role(String name, String label, String description) {
+    public Role(int accessLevel,String name, String label, String description) {
+        this.accessLevel = accessLevel;
         this.name = name;
         this.label = label;
         this.description = description;

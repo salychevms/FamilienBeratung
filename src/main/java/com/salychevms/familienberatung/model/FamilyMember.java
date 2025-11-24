@@ -44,24 +44,21 @@ public class FamilyMember {
     private boolean livesWithFamily = true;
     @Column
     private String income;
-    @Column
+    @Column(length = 4000)
     private String workInfo;
     @Column
     private String educationDegree;
-    @Column
+    @Column(length = 4000)
     private String educationInfo;
-    @Column
+    @Column(length = 1000)
     private String notes;
     @Column
     private String phone;
     @Column
     private String email;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private RecordStatus status;
-    @Column(nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
     @Column(nullable = false)
     private String createdBy;
     @Column
@@ -69,9 +66,17 @@ public class FamilyMember {
     @Column
     private String updatedBy;
     @Column
+    private boolean isInvalid=false;
+    @Column
     private LocalDateTime invalidAt;
     @Column
     private String invalidBy;
+    @Column
+    private LocalDateTime restoredAt;
+    @Column
+    private String restoredBy;
+    @Column
+    private String restoredReason;
 
     public  FamilyMember() {
     }
