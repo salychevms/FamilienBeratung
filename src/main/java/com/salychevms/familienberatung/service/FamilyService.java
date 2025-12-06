@@ -29,7 +29,7 @@ public class FamilyService {
     private final DelegationService delegationService;
 
     //admin and lead and consultant
-    public Family createFamily(String familyName, String street, String houseNumber, String zip, String city,
+    public Family createFamily(String zeusId, String familyName, String street, String houseNumber, String zip, String city,
                                String phone, String email, String citizenship, String languages, String reasonDescription,
                                String notes, Long assignedEmployeeId, String createdBy, String ip, String userBrowser) {
         try {
@@ -37,7 +37,6 @@ public class FamilyService {
                 log.error("Access Denied for {}", createdBy);
                 throw new RuntimeException("Access Denied for " + createdBy);
             }
-
 
             validator.validateText(familyName, 255);
             validator.validateText(street, 255);
@@ -59,6 +58,8 @@ public class FamilyService {
             }
 
             Family family = new Family();
+
+            family.setZeusId(zeusId);
             family.setFamilyName(familyName);
             family.setStreet(street);
             family.setHouseNumber(houseNumber);
@@ -90,9 +91,9 @@ public class FamilyService {
     }
 
     //admin and lead and consultant and delegated
-    public Family updateFamily(Long id, String familyName, String street, String houseNumber, String zip, String city,
-                               String phone, String email, String citizenship, String languages, String reasonDescription,
-                               String notes, String updatedBy, String ip, String userBrowser) {
+    public Family updateFamily(Long id, String zeusId, String familyName, String street, String houseNumber, String zip,
+                               String city, String phone, String email, String citizenship, String languages,
+                               String reasonDescription, String notes, String updatedBy, String ip, String userBrowser) {
         try {
             if (!employeeService.hasAccess(updatedBy, 50)) {
                 log.error("Access Denied for {}", updatedBy);
@@ -120,6 +121,7 @@ public class FamilyService {
             validator.validateText(notes, 255);
             validator.validateIp(ip);
 
+            family.setZeusId(zeusId);
             family.setFamilyName(familyName);
             family.setStreet(street);
             family.setHouseNumber(houseNumber);
@@ -361,8 +363,8 @@ public class FamilyService {
                 if (employee.getRole().getAccessLevel() == 50) {
                     log.error("Access Denied for {} after 14 days", updatedBy);
                     throw new RuntimeException("Access Denied for " + updatedBy + " after 14 days");
-                } else if(employee.getRole().getAccessLevel() >=80) {
-                    validator.validateText(restoreReason,255);
+                } else if (employee.getRole().getAccessLevel() >= 80) {
+                    validator.validateText(restoreReason, 255);
                     family.setRestoredReason(restoreReason);
                     log.info("Employee {} has been restored Family {} after 14 days. Reason: {}",
                             employee.getLogin(), family.getId(), restoreReason);
@@ -593,11 +595,11 @@ public class FamilyService {
                     log.error("Family assigned employee with login {} not found", login);
                     throw new RuntimeException("Family assigned employee with login: " + login + " not found");
                 }
-                List<Family> result=new ArrayList<>(families);
-                for(Family family : families) {
-                    if(family.getStatus().equals(RecordStatus.INVALID)){
+                List<Family> result = new ArrayList<>(families);
+                for (Family family : families) {
+                    if (family.getStatus().equals(RecordStatus.INVALID)) {
                         long days = java.time.Duration.between(family.getInvalidAt(), LocalDateTime.now()).toDays();
-                        if(days > 14) {
+                        if (days > 14) {
                             result.remove(family);
                         }
                     }

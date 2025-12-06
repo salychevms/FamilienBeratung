@@ -9,5 +9,5 @@ import java.util.List;
 public interface FamilyDocumentRepository extends JpaRepository<FamilyDocument, Long> {
     List<FamilyDocument> findByFamilyId(Long familyId);
 
-    List<FamilyDocument> findAllByFamilyIdAndIsInvalidFalse(Long familyId, boolean isInvalid);
+    List<FamilyDocument> findAllByFamilyIdAndIsInvalidFalse(Long familyId);
 }

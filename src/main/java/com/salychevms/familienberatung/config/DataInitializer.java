@@ -10,6 +10,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -17,7 +19,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private final EmployeeRepository employeeRepository;
     private final RoleRepository roleRepository;
-    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+    private final BCryptPasswordEncoder encoder;
 
     @Override
     public void run(String... args) {
@@ -38,6 +40,7 @@ public class DataInitializer implements CommandLineRunner {
             admin.setActive(true);
             admin.setArchived(false);
             admin.setCreatedBy("system");
+            admin.setCreatedDate(LocalDateTime.now());
             employeeRepository.save(admin);
             System.out.println("Admin user created admin/admin");
             log.info("Admin user created admin/admin");

@@ -142,7 +142,7 @@ public class FamilyDocumentService {
             if (family.getStatus().equals(RecordStatus.BLOCKED)) {
                 log.error("Family {} status is {}", family.getId(), family.getStatus());
                 throw new RuntimeException("Family " + family.getId() + " status is " + family.getStatus());
-            }else return familyDocumentRepository.findAllByFamilyIdAndIsInvalidFalse(family.getId(),  false);
+            }else return familyDocumentRepository.findAllByFamilyIdAndIsInvalidFalse(family.getId());
         }else return familyDocumentRepository.findByFamilyId(family.getId());
     }
 

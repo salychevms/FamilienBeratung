@@ -22,7 +22,7 @@ public class EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final AccessLogService accessLog;
     private final RoleRepository roleRepository;
-    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+    private final BCryptPasswordEncoder encoder;
     private final ValidationService validator;
 
     public boolean hasAccess(String login, int accessLevel) {
@@ -57,7 +57,7 @@ public class EmployeeService {
                 log.info("Employee with Login: {} already exists", login);
                 throw new RuntimeException("Employee with Login: " + login + " already exists");
             }
-            if (!roleRepository.isExist(role)) {
+            if (!roleRepository.existsByName(role.getName())) {
                 log.warn("Role {} doesn't exist", role);
                 throw new RuntimeException("Role " + role + " doesn't exist");
             }
@@ -105,7 +105,7 @@ public class EmployeeService {
             validator.validatePhone(landNumber);
             validator.validateIp(ip);
 
-            if (!roleRepository.isExist(role)) {
+            if (!roleRepository.existsByName(role.getName())) {
                 log.warn("Role {} doesn't exist", role);
                 throw new RuntimeException("Role " + role + " doesn't exist");
             }

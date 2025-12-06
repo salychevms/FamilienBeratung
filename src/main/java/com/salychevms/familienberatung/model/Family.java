@@ -49,6 +49,8 @@ public class Family {
     @JoinColumn(name = "assigned_employee_id", nullable = false)
     private Employee assignedEmployee;
 
+    @Column
+    private String zeusId;
     @Column(nullable = false)
     private boolean caseClosed = false;
     @Column
