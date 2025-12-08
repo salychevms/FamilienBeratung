@@ -2,6 +2,7 @@ package com.salychevms.familienberatung.ui;
 
 import com.salychevms.familienberatung.service.AuthService;
 import com.salychevms.familienberatung.ui.view.OverviewView;
+import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.H1;
@@ -43,6 +44,8 @@ public class LoginView extends VerticalLayout {
         Button loginButton = new Button("Login", e->
                 login(loginField.getValue(), passwordField.getValue()));
         loginButton.setWidth("250px");
+        loginButton.addClickShortcut(Key.ENTER);
+        loginButton.setDisableOnClick(true);
 
         add(title, loginField, passwordField, loginButton);
         setAlignItems(Alignment.CENTER);

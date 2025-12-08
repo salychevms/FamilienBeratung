@@ -48,8 +48,6 @@ public class EmployeeService {
             validator.validateText(lastName, 50);
             validator.validateText(login, 50);
             validator.validateEmail(email);
-            validator.validateMobile(mobileNumber);
-            validator.validatePhone(landNumber);
             validator.validateIp(ip);
             validator.validatePassword(rewPassword, null, login, email, mobileNumber, landNumber);
 
@@ -101,8 +99,6 @@ public class EmployeeService {
             validator.validateText(lastName, 50);
             validator.validateText(login, 50);
             validator.validateEmail(email);
-            validator.validateMobile(mobileNumber);
-            validator.validatePhone(landNumber);
             validator.validateIp(ip);
 
             if (!roleRepository.existsByName(role.getName())) {

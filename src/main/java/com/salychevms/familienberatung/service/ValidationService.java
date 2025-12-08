@@ -21,19 +21,6 @@ public class ValidationService {
         }
     }
 
-    public void validatePhone(String phone) {
-        if (phone == null || phone.isEmpty()) return;
-        String cleaned = phone.replaceAll("[ +()\\-]", "");
-        if (!cleaned.matches("\\d(5,)")) {
-            log.error("Invalid phone number");
-            throw new RuntimeException("Invalid phone number");
-        }
-    }
-
-    public void validateMobile(String mobile) {
-        validatePhone(mobile);
-    }
-
     public void validateIp(String ip) {
         if (ip == null || ip.isBlank()) return;
         InetAddressValidator v = InetAddressValidator.getInstance();

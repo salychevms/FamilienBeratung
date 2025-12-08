@@ -112,7 +112,7 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
 
     private int getFamiliesCount(Employee e, int lvl) {
         if (lvl == 50) {
-            return familyService.getFamiliesByAssignedEmployee(e.getLogin(), e.getId()).size();
+            return familyService.getFamiliesByAssignedEmployee(e.getLogin(), e).size();
         }
         return familyService.getFamilies(e.getLogin()).size();
     }
@@ -120,8 +120,7 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
     private int getHours(Employee e, int lvl) {
         List<Family> f;
         if (lvl == 50) {
-            f = familyService.getFamiliesByAssignedEmployee(e.getLogin(), e.getId());
-
+            f = familyService.getFamiliesByAssignedEmployee(e.getLogin(), e);
         } else {
             f = familyService.getFamilies(e.getLogin());
         }
@@ -141,7 +140,7 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
     private int getConsultationsCount(Employee e, int lvl) {
         List<Family> f;
         if (lvl == 50) {
-            f = familyService.getFamiliesByAssignedEmployee(e.getLogin(), e.getId());
+            f = familyService.getFamiliesByAssignedEmployee(e.getLogin(), e);
         } else {
             f = familyService.getFamilies(e.getLogin());
         }

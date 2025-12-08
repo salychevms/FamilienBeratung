@@ -351,14 +351,12 @@ public class ConsultationService {
         try {
             if (employee == null) {
                 log.error("Employee is null");
-                throw new RuntimeException("Employee is null");
             }
             if (employee.getRole().getAccessLevel() == 50) {
                 List<Consultation> consultations = consultationRepository.findAll();
                 List<Consultation> results = new ArrayList<>();
                 for (Consultation c : consultations) {
-                    if ((c.getFamily().getAssignedEmployee().getId().equals(employee.getId()) ||
-                            delegationService.isDelegated(c.getFamily(), employee)))
+                    if ((c.getFamily().getAssignedEmployee().getId().equals(employee.getId())))
                         results.add(c);
                 }
                 return results.stream().filter(r -> {

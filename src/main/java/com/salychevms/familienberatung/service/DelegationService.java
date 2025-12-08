@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -23,6 +24,7 @@ public class DelegationService {
     private final DelegationRepository delegationRepository;
     private final AccessLogService accessLog;
     private final ValidationService validator;
+    private final FamilyService familyService;
 
     public boolean hasAccessForUpdate(String login, Family family) {
         Employee e = employeeService.findByLogin(login);
@@ -196,7 +198,18 @@ public class DelegationService {
     }
 
     public List<Delegation> getDelegationsByToEmployee(Employee employee) {
-        return delegationRepository.findDelegationsByToEmployee(employee);
+        List<Delegation> delegations = new ArrayList<>();
+        if (employee == null) {
+            log.error("Employee is null");
+        } else {
+            Employee emp = employeeService.findByLogin(employee.getLogin());
+            if (emp == null) {
+                log.error("Employee with Login {} not found", employee.getLogin());
+            } else {
+                delegations = delegationRepository.findDelegationsByToEmployee(emp);
+            }
+        }
+        return delegations;
     }
 
     public List<Delegation> getDelegations() {
@@ -226,21 +239,37 @@ public class DelegationService {
         }
     }
 
-    public boolean isDelegated(Family family, Employee employee) {
-        try {
-            if (family == null) {
-                log.error("Family is null");
-                throw new RuntimeException("Family is null");
-            }
-            if (employee == null) {
-                log.error("Employee is null");
-                throw new RuntimeException("Employee is null");
-            }
-            Delegation d= delegationRepository.getDelegationByToEmployeeAndFamily(employee, family);
-            return d != null && !d.isExpired();
-        } catch (Exception e) {
-            log.error("Failed to check delegation: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to check delegation: " + e.getMessage(), e);
+    //all
+    public List<Family> getDelegatedFamilies(String login) {
+        validator.validateText(login, 255);
+
+        Employee requester = employeeService.findByLogin(login);
+        if (requester == null) {
+            log.error("Employee with login {} not found", login);
+            return List.of();
         }
+
+        List<Family> response = new ArrayList<>();
+        int lvl = requester.getRole().getAccessLevel();
+        //admin and lead and readonly
+        if (lvl == 100 || lvl == 80 || lvl == 10) {
+            List<Delegation> delegations = getDelegations();
+            for (Delegation delegation : delegations) {
+                if (delegation.getEndDate().isAfter(LocalDate.now()) && !delegation.isExpired())
+                    response.add(delegation.getFamily());
+            }
+        }
+
+        //consultant
+        if (lvl == 50) {
+            List<Delegation> delegations = getDelegationsByToEmployee(requester);
+
+            for (Delegation delegation : delegations) {
+                if (delegation.getEndDate().isAfter(LocalDate.now()) && !delegation.isExpired()) {
+                    response.add(delegation.getFamily());
+                }
+            }
+        }
+        return response;
     }
 }

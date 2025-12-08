@@ -52,7 +52,6 @@ public class FamilyMemberService {
             validator.validateText(educationDegree, 255);
             validator.validateText(educationInfo, 4000);
             validator.validateText(notes, 1000);
-            validator.validateMobile(phone);
             validator.validateEmail(email);
 
             FamilyMember member = new FamilyMember();
@@ -129,7 +128,6 @@ public class FamilyMemberService {
             validator.validateText(educationDegree, 255);
             validator.validateText(educationInfo, 4000);
             validator.validateText(notes, 1000);
-            validator.validateMobile(phone);
             validator.validateEmail(email);
 
             member.setFirstName(firstName);

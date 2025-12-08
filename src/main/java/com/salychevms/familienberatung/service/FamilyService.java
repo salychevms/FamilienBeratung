@@ -1,6 +1,5 @@
 package com.salychevms.familienberatung.service;
 
-import com.salychevms.familienberatung.model.Delegation;
 import com.salychevms.familienberatung.model.Employee;
 import com.salychevms.familienberatung.model.Family;
 import com.salychevms.familienberatung.model.RecordStatus;
@@ -11,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import jakarta.transaction.Transactional;
 
-import java.time.LocalDate;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,12 +25,11 @@ public class FamilyService {
     private final EmployeeService employeeService;
     private final ValidationService validator;
     private final AccessLogService accessLog;
-    private final DelegationService delegationService;
 
     //admin and lead and consultant
     public Family createFamily(String zeusId, String familyName, String street, String houseNumber, String zip, String city,
                                String phone, String email, String citizenship, String languages, String reasonDescription,
-                               String notes, Long assignedEmployeeId, String createdBy, String ip, String userBrowser) {
+                               String notes, Employee assignedEmployee, String createdBy, String ip, String userBrowser) {
         try {
             if (!employeeService.hasAccess(createdBy, 50)) {
                 log.error("Access Denied for {}", createdBy);
@@ -43,7 +41,6 @@ public class FamilyService {
             validator.validateText(houseNumber, 255);
             validator.validateText(zip, 255);
             validator.validateText(city, 255);
-            validator.validatePhone(phone);
             validator.validateEmail(email);
             validator.validateText(citizenship, 255);
             validator.validateText(languages, 255);
@@ -51,10 +48,9 @@ public class FamilyService {
             validator.validateText(notes, 255);
             validator.validateIp(ip);
 
-            Employee assignedEmployee = employeeService.findById(assignedEmployeeId);
             if (assignedEmployee == null) {
-                log.error("Employee with Id: {} not found", assignedEmployeeId);
-                throw new EntityNotFoundException("Employee with Id: " + assignedEmployeeId + " not found");
+                log.error("Employee not found");
+                throw new EntityNotFoundException("Employee not found");
             }
 
             Family family = new Family();
@@ -102,18 +98,12 @@ public class FamilyService {
 
             Family family = familyRepository.findById(id).orElseThrow(() ->
                     new EntityNotFoundException("Family with Id: " + id + " not found"));
-            if (!family.getAssignedEmployee().getLogin().equals(updatedBy) &&
-                    !delegationService.hasAccessForUpdate(updatedBy, family)) {
-                log.error("Access Denied for {}, no rights to this family", updatedBy);
-                throw new RuntimeException("Access Denied for " + updatedBy);
-            }
 
             validator.validateText(familyName, 255);
             validator.validateText(street, 255);
             validator.validateText(houseNumber, 255);
             validator.validateText(zip, 255);
             validator.validateText(city, 255);
-            validator.validatePhone(phone);
             validator.validateEmail(email);
             validator.validateText(citizenship, 255);
             validator.validateText(languages, 255);
@@ -207,8 +197,7 @@ public class FamilyService {
             Family family = familyRepository.findById(id).orElseThrow(() ->
                     new EntityNotFoundException("Family with Id: " + id + " not found"));
 
-            if (!family.getAssignedEmployee().getLogin().equals(updatedBy) &&
-                    !delegationService.hasAccessForUpdate(updatedBy, family)) {
+            if (!family.getAssignedEmployee().getLogin().equals(updatedBy)) {
                 log.error("Access Denied for {}, no rights to this family", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
@@ -256,8 +245,7 @@ public class FamilyService {
             Family family = familyRepository.findById(id).orElseThrow(() ->
                     new EntityNotFoundException("Family with Id: " + id + " not found"));
 
-            if (!family.getAssignedEmployee().getLogin().equals(updatedBy) &&
-                    !delegationService.hasAccessForUpdate(updatedBy, family)) {
+            if (!family.getAssignedEmployee().getLogin().equals(updatedBy)) {
                 log.error("Access Denied for {}, no rights to this family", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
@@ -302,8 +290,7 @@ public class FamilyService {
             Family family = familyRepository.findById(id).orElseThrow(() ->
                     new EntityNotFoundException("Family with Id: " + id + " not found"));
 
-            if (!family.getAssignedEmployee().getLogin().equals(updatedBy) &&
-                    !delegationService.hasAccessForUpdate(updatedBy, family)) {
+            if (!family.getAssignedEmployee().getLogin().equals(updatedBy)) {
                 log.error("Access Denied for {}, no rights to this family", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
@@ -548,12 +535,11 @@ public class FamilyService {
     //admin and lead and readonly
     public List<Family> getFamilies(String login) {
         validator.validateText(login, 255);
-        int accessLevel = employeeService.findByLogin(login).getRole().getAccessLevel();
-        if (accessLevel < 80 && accessLevel > 10) {
-            log.error("Access Denied for {}", login);
-            throw new RuntimeException("Access Denied for " + login);
+        int lvl = employeeService.findByLogin(login).getRole().getAccessLevel();
+        if (lvl == 100 || lvl ==80 || lvl ==10) {
+            return familyRepository.findAll();
         }
-        return familyRepository.findAll();
+        return List.of();
     }
 
     //all
@@ -564,8 +550,7 @@ public class FamilyService {
         }
         Family family = familyRepository.findById(familyId).orElseThrow(() ->
                 new RuntimeException("Family with Id: " + familyId + " not found"));
-        if (!family.getAssignedEmployee().getLogin().equals(login) &&
-                !delegationService.hasAccessForUpdate(login, family)) {
+        if (!family.getAssignedEmployee().getLogin().equals(login)) {
             log.error("Access Denied for {}, no rights to this family", login);
             throw new RuntimeException("Access Denied for " + login);
         }
@@ -573,103 +558,38 @@ public class FamilyService {
     }
 
     //all
-    public List<Family> getFamiliesByAssignedEmployee(String login, Long assignedEmployeeId) {
+    public List<Family> getFamiliesByAssignedEmployee(String login, Employee assignedEmployee) {
         validator.validateText(login, 255);
         Employee requester = employeeService.findByLogin(login);
-
-        if (requester == null) {
-            log.error("Employee with login {} not found", login);
-            throw new RuntimeException("Employee with login: " + login + " not found");
+        if (assignedEmployee == null) {
+            log.error("AssignedEmployee is null");
         }
+        Employee exists=employeeService.findByLogin(assignedEmployee.getLogin());
+        if(exists==null) {
+            log.error("AssignedEmployee not found");
+        }
+        if(requester == null) {
+            log.error("Employee (requester) not found");
+        }
+        int lvl=requester.getRole().getAccessLevel();
 
         //admin and lead and readonly
-        if (!(requester.getRole().getAccessLevel() < 80 && requester.getRole().getAccessLevel() > 10)) {
-            return familyRepository.findFamiliesByAssignedEmployeeId(assignedEmployeeId);
-        }
+        if (lvl == 100 || lvl == 80 || lvl == 10)
+            return familyRepository.findAllByAssignedEmployee(exists);
 
         //consultant
-        if (requester.getRole().getAccessLevel() == 50) {
-            if (requester.getId().equals(assignedEmployeeId)) {
-                List<Family> families = familyRepository.findFamiliesByAssignedEmployeeId(requester.getId());
-                if (families.isEmpty()) {
-                    log.error("Family assigned employee with login {} not found", login);
-                    throw new RuntimeException("Family assigned employee with login: " + login + " not found");
+        if (lvl == 50) {
+            List<Family> families = familyRepository.findAllByAssignedEmployee(exists);
+            List<Family> response = new ArrayList<>();
+            for (Family f : families) {
+                if (f.getStatus().equals(RecordStatus.INVALID)) {
+                    long days = Duration.between(f.getInvalidAt(), LocalDateTime.now()).toDays();
+                    if (days > 14) continue;
                 }
-                List<Family> result = new ArrayList<>(families);
-                for (Family family : families) {
-                    if (family.getStatus().equals(RecordStatus.INVALID)) {
-                        long days = java.time.Duration.between(family.getInvalidAt(), LocalDateTime.now()).toDays();
-                        if (days > 14) {
-                            result.remove(family);
-                        }
-                    }
-                }
-                return result;
+                response.add(f);
             }
+            return response;
         }
-        log.error("Access Denied for {}", login);
-        throw new RuntimeException("Access Denied for " + login);
-    }
-
-    //all
-    public Family getDelegatedFamily(String login, Long familyId) {
-        validator.validateText(login, 255);
-        if (familyId == null) {
-            log.error("Family id is null");
-            throw new RuntimeException("Family id is null");
-        }
-
-        Employee requester = employeeService.findByLogin(login);
-        if (requester == null) {
-            log.error("Employee with login {} not found", login);
-            throw new RuntimeException("Employee with login: " + login + " not found");
-        }
-
-        //admin and lead and readonly
-        if (!(requester.getRole().getAccessLevel() < 80 && requester.getRole().getAccessLevel() > 10)) {
-            return familyRepository.findById(familyId).orElseThrow(() ->
-                    new RuntimeException("Family with Id: " + familyId + " not found"));
-        }
-
-        //consultant
-        Delegation delegation = delegationService
-                .getDelegationByToEmployeeAndFamily(requester.getLogin(),
-                        familyRepository.findById(familyId)
-                                .orElseThrow(() ->
-                                        new RuntimeException("Family with Id: " + familyId + " not found")));
-
-        if (delegation == null) {
-            log.error("Access Denied for {}, no delegated access", login);
-            throw new RuntimeException("Access Denied for " + login);
-        }
-
-        return delegation.getFamily();
-    }
-
-    //all
-    public List<Family> getDelegatedFamilies(String login) {
-        validator.validateText(login, 255);
-
-        Employee requester = employeeService.findByLogin(login);
-        if (requester == null) {
-            log.error("Employee with login {} not found", login);
-            throw new RuntimeException("Employee with login: " + login + " not found");
-        }
-
-        //admin and lead and readonly
-        if (!(requester.getRole().getAccessLevel() < 80 && requester.getRole().getAccessLevel() > 10)) {
-            List<Delegation> delegations = delegationService.getDelegations();
-            return delegations.stream().map(Delegation::getFamily).toList();
-        }
-
-        //consultant
-        List<Delegation> delegations = delegationService.getDelegationsByToEmployee(requester);
-        List<Family> families = new ArrayList<>();
-        for (Delegation delegation : delegations) {
-            if (delegation.getEndDate().isBefore(LocalDate.now())) {
-                families.add(delegation.getFamily());
-            }
-        }
-        return families;
+        return List.of();
     }
 }
