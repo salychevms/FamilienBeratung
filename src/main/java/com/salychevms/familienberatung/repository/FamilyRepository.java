@@ -15,4 +15,6 @@ public interface FamilyRepository extends JpaRepository<Family, Long> {
     Family findByZeusIdContaining(String zeusId);
 
     Optional<Family> findByFamilyName(String familyName);
+
+    Optional<Family> getByAssignedEmployeeAndId(Employee employee, Long id);
 }

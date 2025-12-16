@@ -75,7 +75,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
     @Override
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
         Employee employee = authService.getCurrentEmployee();
-        if (employee == null) {
+        if (employee == null || !employee.isActive() || employee.isArchived()) {
             beforeEnterEvent.forwardTo("login");
             return;
         }
@@ -114,13 +114,11 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
     private void buildBreadcrumbs() {
         HorizontalLayout bcrumbs = new HorizontalLayout();
-        bcrumbs.setSpacing(false);
-        bcrumbs.setPadding(false);
+        bcrumbs.setSpacing(true);
+        bcrumbs.setPadding(true);
         bcrumbs.setAlignItems(Alignment.CENTER);
 
         RouterLink root = new RouterLink("Übersicht", OverviewView.class);
-        root.getStyle().set("font-size", "var(--lumo-font-size-s)")
-                .set("colot", "var(--lumo-secondary-text-color)");
 
         Span separator = new Span(" >> ");
         separator.getStyle().set("font-size", "var(--lumo-font-size-s)")
@@ -296,7 +294,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
             return span;
         })).setHeader("Zeus ID").setAutoWidth(true).setFlexGrow(0);
         familyGrid.addColumn(Family::getFamilyName).setHeader("Familienname").setAutoWidth(true).setFlexGrow(0);
-        familyGrid.addColumn(f -> f.isCaseClosed() ? "Schluss" : "läuft").setHeader("Ablauf").setAutoWidth(true);
+        familyGrid.addColumn(f -> f.isCaseClosed() ? "geschlossen" : "öffen").setHeader("Ablauf").setAutoWidth(true);
         familyGrid.addColumn(f -> f.getAssignedEmployee() != null
                         ? f.getAssignedEmployee().getFirstName() + " " + f.getAssignedEmployee().getLastName() : "-")
                 .setHeader("Berater*in").setAutoWidth(true).setFlexGrow(0);
@@ -319,7 +317,8 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                 .setHeader("Delegiert").setAutoWidth(true);
         familyGrid.addItemClickListener(e -> {
             Family family = e.getItem();
-            getUI().ifPresent(ui -> ui.navigate(FamilyDetailsView.class, family.getId()));
+            getUI().ifPresent(ui -> ui.navigate(FamilyDetailsView.class,
+                    new RouteParameters("id",family.getId().toString())));
         });
         add(familyGrid);
     }

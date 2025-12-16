@@ -26,6 +26,7 @@ public class ConsultationService {
     private final DelegationService delegationService;
     private final AccessLogService accessLog;
     private final ValidationService validator;
+    private final EmployeeService employeeService;
 
     public Consultation createConsultation(Family family, Employee employee, LocalDateTime dateTime,
                                            int durationMinutes, String topic, String description, String result,
@@ -320,25 +321,20 @@ public class ConsultationService {
         }
     }
 
-    public List<Consultation> getConsultationsByFamily(Family family, Employee employee) {
+    public List<Consultation> getConsultationsByFamily(Family family) {
         try {
             if (family == null) {
                 log.error("Family is null");
                 throw new RuntimeException("Family is null");
             }
-            if (employee == null) {
-                log.error("Employee is null");
-                throw new RuntimeException("Employee is null");
-            }
+
             List<Consultation> consultations = consultationRepository.findAllByFamily(family);
-            if (employee.getRole().getAccessLevel() == 50) {
-                List<Consultation> results = new ArrayList<>(consultations);
-                for (Consultation c : consultations) {
-                    long days = java.time.Duration.between(c.getInvalidAt(), LocalDateTime.now()).toDays();
-                    if (days > 14 && c.isInvalid()) results.remove(c);
-                }
-                return results;
-            } else return consultations;
+            List<Consultation> results = new ArrayList<>(consultations);
+            for (Consultation c : consultations) {
+                long days = java.time.Duration.between(c.getInvalidAt(), LocalDateTime.now()).toDays();
+                if (days > 14 && c.isInvalid()) results.remove(c);
+            }
+            return results;
         } catch (Exception e) {
             log.error("Failed to retrieve all consultations for family {}: {}",
                     family.getId(), e.getMessage(), e);

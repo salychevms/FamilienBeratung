@@ -72,8 +72,7 @@ public class MainLayout extends AppLayout {
         menu.add(overview);
 
         menu.add(new RouterLink("Familien", FamiliesView.class));
-        /*menu.add(new RouterLink("Mitglieder", MembersView.class));
-        menu.add(new RouterLink("Beratungen", ConsultationsView.class));
+        /*menu.add(new RouterLink("Beratungen", ConsultationsView.class));
         menu.add(new RouterLink("Delegationen", DelegationsView.class));
         menu.add(new RouterLink("Dokumente", DocumentsView.class));
         if (lvl >= 80) menu.add(new RouterLink("Mitarbeiter", EmployeesView.class));

@@ -52,6 +52,10 @@ public class FamilyService {
                 log.error("Employee not found");
                 throw new EntityNotFoundException("Employee not found");
             }
+            Employee e=employeeService.findByLogin(assignedEmployee.getLogin());
+            if(e==null){
+                log.error("Employee {} not found ", assignedEmployee.getLogin());
+            }
 
             Family family = new Family();
 
@@ -67,7 +71,7 @@ public class FamilyService {
             family.setLanguages(languages);
             family.setReasonDescription(reasonDescription);
             family.setNotes(notes);
-            family.setAssignedEmployee(assignedEmployee);
+            family.setAssignedEmployee(e);
 
             family.setStatus(RecordStatus.ACTIVE);
             family.setCaseClosed(false);
@@ -521,41 +525,32 @@ public class FamilyService {
     }
 
     //admin and lead and readonly
-    public Family getFamily(String login, Long familyId) {
+    public Family getFamilyById(String login, Long familyId) {
         validator.validateText(login, 255);
-        int accessLevel = employeeService.findByLogin(login).getRole().getAccessLevel();
-        if (accessLevel < 80 && accessLevel > 10) {
-            log.error("Access Denied for {}", login);
-            throw new RuntimeException("Access Denied for " + login);
+        Employee e = employeeService.findByLogin(login);
+        if (e == null) {
+            log.error("Employee with login {} not found", login);
+            throw new RuntimeException("Employee with login: " + login + " not found");
         }
-        return familyRepository.findById(familyId).orElseThrow(() ->
-                new RuntimeException("Family with Id: " + familyId + " not found"));
+        int accessLevel = e.getRole().getAccessLevel();
+        if (accessLevel == 50) {
+           return familyRepository.getByAssignedEmployeeAndId(e, familyId).orElseThrow(() ->
+                    new RuntimeException("Access Denied for family with Id: " + familyId));
+        } else
+            return familyRepository.findById(familyId).orElseThrow(() ->
+                    new RuntimeException("Family with Id: " + familyId + " not found"));
     }
 
     //admin and lead and readonly
     public List<Family> getFamilies(String login) {
         validator.validateText(login, 255);
         int lvl = employeeService.findByLogin(login).getRole().getAccessLevel();
-        if (lvl == 100 || lvl ==80 || lvl ==10) {
+        if (lvl == 100 || lvl == 80 || lvl == 10) {
             return familyRepository.findAll();
         }
         return List.of();
     }
 
-    //all
-    public Family getFamilyByAssignedEmployee(String login, Long familyId) {
-        if (familyId == null) {
-            log.error("Family id is null");
-            throw new RuntimeException("Family id is null");
-        }
-        Family family = familyRepository.findById(familyId).orElseThrow(() ->
-                new RuntimeException("Family with Id: " + familyId + " not found"));
-        if (!family.getAssignedEmployee().getLogin().equals(login)) {
-            log.error("Access Denied for {}, no rights to this family", login);
-            throw new RuntimeException("Access Denied for " + login);
-        }
-        return family;
-    }
 
     //all
     public List<Family> getFamiliesByAssignedEmployee(String login, Employee assignedEmployee) {
@@ -564,14 +559,14 @@ public class FamilyService {
         if (assignedEmployee == null) {
             log.error("AssignedEmployee is null");
         }
-        Employee exists=employeeService.findByLogin(assignedEmployee.getLogin());
-        if(exists==null) {
+        Employee exists = employeeService.findByLogin(assignedEmployee.getLogin());
+        if (exists == null) {
             log.error("AssignedEmployee not found");
         }
-        if(requester == null) {
+        if (requester == null) {
             log.error("Employee (requester) not found");
         }
-        int lvl=requester.getRole().getAccessLevel();
+        int lvl = requester.getRole().getAccessLevel();
 
         //admin and lead and readonly
         if (lvl == 100 || lvl == 80 || lvl == 10)

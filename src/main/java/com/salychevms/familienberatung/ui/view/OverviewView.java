@@ -37,8 +37,9 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
     @Override
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
         Employee employee = authService.getCurrentEmployee();
-        if (employee == null) {
+        if (employee == null || employee.isArchived()){
             beforeEnterEvent.forwardTo("login");
+            return;
         }
     }
 
@@ -76,9 +77,7 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
         HorizontalLayout nav = new HorizontalLayout();
         nav.setSpacing(true);
         nav.add(makeNavButton("Familien", FamiliesView.class));
-        /*nav.add(new Button("Mitglieder", ev ->
-                getUI().ifPresent(ui -> ui.navigate(MembersView.class))));
-        nav.add(new Button("Beratungen", ev ->
+        /*nav.add(new Button("Beratungen", ev ->
                 getUI().ifPresent(ui -> ui.navigate(ConsultationsView.class))));
         nav.add(new Button("Dokumente", ev ->
                 getUI().ifPresent(ui -> ui.navigate(DocumentsView.class))));
@@ -128,10 +127,8 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
         int countOfHours = 0;
         for (Family f2 : f) {
             if (!f2.getStatus().equals(RecordStatus.INVALID)) {
-                List<Consultation> c = consultationService.getConsultationsByFamily(f2, e);
-                for (Consultation c2 : c) {
-                    countOfHours += c2.getDurationMinutes();
-                }
+                countOfHours += (int) consultationService.getConsultationsByFamily(f2).stream().
+                        filter(f3 -> f3.getEmployee().equals(e)).count();
             }
         }
         return countOfHours;
@@ -147,7 +144,8 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
         int countOfConsultations = 0;
         for (Family f2 : f) {
             if (!f2.getStatus().equals(RecordStatus.INVALID))
-                countOfConsultations += consultationService.getConsultationsByFamily(f2, e).size();
+                countOfConsultations += (int) consultationService.getConsultationsByFamily(f2).stream().
+                        filter(f3 -> f3.getEmployee().equals(e)).count();
         }
         return countOfConsultations;
     }
