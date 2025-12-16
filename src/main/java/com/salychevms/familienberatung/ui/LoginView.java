@@ -34,34 +34,35 @@ public class LoginView extends VerticalLayout {
         buildUI();
     }
 
-    private void buildUI(){
+    private void buildUI() {
         H1 title = new H1("Familienberatung");
 
         TextField loginField = new TextField("Login");
         loginField.setWidth("250px");
         PasswordField passwordField = new PasswordField("Password");
         passwordField.setWidth("250px");
-        Button loginButton = new Button("Login", e->
-                login(loginField.getValue(), passwordField.getValue()));
+        Button loginButton = new Button("Login", e ->
+            login(loginField.getValue(), passwordField.getValue()));
         loginButton.setWidth("250px");
         loginButton.addClickShortcut(Key.ENTER);
-        loginButton.setDisableOnClick(true);
+        loginButton.setDisableOnClick(false);
 
         add(title, loginField, passwordField, loginButton);
         setAlignItems(Alignment.CENTER);
         setJustifyContentMode(JustifyContentMode.CENTER);
     }
 
-    private void login(String login, String password){
+    private void login(String login, String password) {
         try {
-            String ip= VaadinRequest.getCurrent().getRemoteAddr();
+            String ip = VaadinRequest.getCurrent().getRemoteAddr();
 
             String browser = VaadinRequest.getCurrent().getHeader("User-Agent");
 
             authService.login(login, password, ip, browser);
             UI.getCurrent().navigate(OverviewView.class);
-        }catch (Exception e){
+        } catch (Exception e) {
             Notification.show("Login fehlgeschlagen", 3000, Notification.Position.MIDDLE);
+            UI.getCurrent().getCurrentView();
         }
     }
 }

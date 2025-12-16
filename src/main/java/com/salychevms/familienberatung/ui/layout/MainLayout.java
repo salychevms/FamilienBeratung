@@ -72,8 +72,8 @@ public class MainLayout extends AppLayout {
         menu.add(overview);
 
         menu.add(new RouterLink("Familien", FamiliesView.class));
-        /*menu.add(new RouterLink("Beratungen", ConsultationsView.class));
-        menu.add(new RouterLink("Delegationen", DelegationsView.class));
+        menu.add(new RouterLink("Beratungen", ConsultationsView.class));
+        /*menu.add(new RouterLink("Delegationen", DelegationsView.class));
         menu.add(new RouterLink("Dokumente", DocumentsView.class));
         if (lvl >= 80) menu.add(new RouterLink("Mitarbeiter", EmployeesView.class));
         if (lvl == 100) menu.add(new RouterLink("Admin Panel", AdminView.class));*/
@@ -83,11 +83,14 @@ public class MainLayout extends AppLayout {
         bottom.setSpacing(false);
         bottom.setAlignItems(FlexComponent.Alignment.START);
 
+        Span labelSpan = new Span((e != null) ? e.getRole().getLabel() + ": " : "nicht gefunden");
+        Span loginSpan = new Span((e != null) ? e.getLogin() : "nicht gefunden");
+        bottom.add(labelSpan, loginSpan);
+
         timeSpan = new Span("30:00");
         timeSpan.getStyle().set("margin-top", "20px")
                 .set("font-weight", "bold")
                 .set("color", "red");
-        menu.add(timeSpan);
 
         Button logout = new Button("Logout", e2 -> authService.logout());
         bottom.add(timeSpan, logout);

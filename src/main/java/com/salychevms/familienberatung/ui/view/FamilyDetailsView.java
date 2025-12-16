@@ -4,13 +4,18 @@ import com.salychevms.familienberatung.model.*;
 import com.salychevms.familienberatung.service.*;
 import com.salychevms.familienberatung.ui.layout.MainLayout;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.datetimepicker.DateTimePicker;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextArea;
+import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.*;
+import com.vaadin.flow.server.VaadinRequest;
 import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,10 +24,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 
 @Slf4j
@@ -51,12 +53,13 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        this.currentEmployee = authService.getCurrentEmployee();
-        if (currentEmployee == null || !currentEmployee.isActive() || currentEmployee.isArchived()) {
+        Employee e = authService.getCurrentEmployee();
+        if (e == null || !e.isActive() || e.isArchived()) {
             event.forwardTo("login");
             return;
         }
 
+        this.currentEmployee = employeeService.findByLogin(e.getLogin());
         this.lvl = currentEmployee.getRole().getAccessLevel();
 
         Optional<Long> optId = event.getRouteParameters().getLong("id");
@@ -65,8 +68,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             return;
         }
 
-        long familyId = optId.get();
-        this.familyId = familyId;
+        this.familyId = optId.get();
         this.currentFamily = familyService.getFamilyById(currentEmployee.getLogin(), familyId);
 
         consultations = new ArrayList<>();
@@ -439,18 +441,161 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         bar.setAlignItems(Alignment.CENTER);
         bar.setSpacing(true);
 
-        Button viewBtn=new Button("Beratungen", e->getUI().ifPresent(ui->ui.navigate(
+        Button newBtn = new Button();
+        if (lvl != 10 || currentFamily.getStatus().equals(RecordStatus.ACTIVE))
+            newBtn = new Button("Neue Beratung", e -> buildCreateConsultationDialog());
+        Button viewBtn = new Button("Beratungen", e -> getUI().ifPresent(ui -> ui.navigate(
                 ConsultationsView.class, new RouteParameters("familyId", currentFamily.getId().toString()))));
-
-        if(!consultations.isEmpty()) {
-            Button newBtn = new Button("Neue Beratung", e -> buildConsultationDialog());
-            bar.add(viewBtn, newBtn);
-        }else bar.add(viewBtn);
+        bar.add(viewBtn, newBtn);
 
         return bar;
     }
 
-    private void buildConsultationDialog() {}
+    private void buildCreateConsultationDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setModal(true);
+        dialog.setResizable(false);
+        dialog.setDraggable(false);
+        dialog.setCloseOnOutsideClick(false);
+
+        DateTimePicker dateTime = new DateTimePicker("Datum und Uhrzeit (*)");
+        dateTime.setWidthFull();
+        dateTime.setRequiredIndicatorVisible(true);
+
+        dateTime.setValue(roundToNextQuarterHour(LocalDateTime.now()));
+
+        IntegerField duration = new IntegerField("Dauer (Minuten, 1-480) (*)");
+        duration.setRequiredIndicatorVisible(true);
+        duration.setWidthFull();
+        duration.setStep(15);
+        duration.setMin(15);
+        duration.setMax(480);
+        duration.setValue(60);
+
+        TextField topic = new TextField("Thema");
+        topic.setWidthFull();
+
+        TextArea description = new TextArea("Beschreibung");
+        description.setWidthFull();
+        description.setHeight("130px");
+
+        TextArea result = new TextArea("Ergebnis");
+        result.setWidthFull();
+        result.setHeight("130px");
+
+        DateTimePicker followUp = new DateTimePicker("Folgetermin");
+        followUp.setWidthFull();
+
+        Span mainTitle = new Span("Allgemeine Anganem");
+        mainTitle.getStyle().set("font-weight", "bold");
+
+        VerticalLayout mainBlock = new VerticalLayout();
+        mainBlock.setSpacing(false);
+        mainBlock.setPadding(true);
+        mainBlock.getStyle().set("border", "1px solid #ddd").set("padding", "10px").set("border-radius", "6px");
+
+        mainBlock.add(mainTitle, dateTime, duration);
+
+        Span detailsTitle = new Span("Details yur Beratung");
+        detailsTitle.getStyle().set("font-weight", "bold");
+
+        VerticalLayout detailsBlock = new VerticalLayout();
+        detailsBlock.setSpacing(false);
+        detailsBlock.setPadding(true);
+        detailsBlock.getStyle().set("border", "1px solid #ddd").set("padding", "10px").set("border-radius", "6px");
+
+        detailsBlock.add(detailsTitle, topic, description, result, followUp);
+
+        VerticalLayout content = new VerticalLayout();
+        content.setWidthFull();
+        content.add(mainBlock, detailsBlock);
+
+        dialog.add(content);
+
+        Button save = new Button("Speichern");
+        Button cancel = new Button("Abbrechen");
+
+        cancel.addClickListener(e -> handleConsultationCancel(dialog, topic.getValue(),
+                description.getValue(), result.getValue(), followUp.getValue()));
+
+        save.addClickListener(e -> handleConsultationSave(dialog, dateTime, duration, topic,
+                description, result, followUp));
+
+        HorizontalLayout buttons = new HorizontalLayout(cancel, save);
+        buttons.setWidthFull();
+        buttons.setJustifyContentMode(JustifyContentMode.END);
+
+        dialog.getFooter().add(buttons);
+        dialog.open();
+    }
+
+    private void handleConsultationCancel(Dialog dialog, String topic, String desc,
+                                          String result, LocalDateTime followUp) {
+
+        if ((topic == null || topic.isBlank()) && (desc == null || desc.isBlank()) &&
+                (result == null || result.isBlank()) && (followUp == null)) {
+            dialog.close();
+            return;
+        }
+        showConfirmDialog("Änderungen verwerfen", "Ihre Eingaben gehen verloren. Fortfahren?",
+                dialog::close, () -> {
+                });
+    }
+
+    private void handleConsultationSave(Dialog dialog, DateTimePicker dateTimeField, IntegerField durationField,
+                                        TextField topicField, TextArea descriptionField, TextArea resultField,
+                                        DateTimePicker followUpField) {
+        LocalDateTime dateTime = dateTimeField.getValue();
+        Integer duration = durationField.getValue();
+        String topic = topicField.getValue();
+        String description = descriptionField.getValue();
+        String result = resultField.getValue();
+        LocalDateTime followUp = followUpField.getValue();
+
+        List<String> errors = validateConsultationForm(dateTime, duration);
+        if (!errors.isEmpty()) {
+            showOkDialog("Fehler", String.join("\n", errors));
+            return;
+        }
+
+        String state = validateConsultationDate(dateTime, currentFamily.getCreatedAt());
+
+        if ("FUTURE".equals(state)) {
+            showOkDialog("Ungültiges Datum", "Datum darf nicht in der Zukunft liegen");
+            return;
+        }
+
+        if ("BEFORE_FAMILY".equals(state)) {
+            showOkDialog("Ungültiges Datum", "Datum liegt vor Erstellung der Familie");
+            return;
+        }
+
+        if ("BACKDATED".equals(state)) {
+            askBackdatedConfirmation(() -> handleOptionalFinalSave(dialog, dateTime, duration, topic, description,
+                    result, followUp));
+            return;
+        }
+
+        handleOptionalFinalSave(dialog, dateTime, duration, topic, description, result, followUp);
+    }
+
+    private void handleOptionalFinalSave(Dialog dialog, LocalDateTime dateTime, Integer duration, String topic,
+                                         String description, String result, LocalDateTime followUp) {
+        List<String> empty = new ArrayList<>();
+        if (topic == null || topic.isBlank()) empty.add("Thema");
+        if (description == null || description.isBlank()) empty.add("Beschreibung");
+        if (result == null || result.isBlank()) empty.add("Ergebnis");
+        if (followUp == null) empty.add("Folgetermin");
+
+        if (!empty.isEmpty()) {
+            askOptionalFieldsMissing(empty, () -> {
+                finalSave(dialog, dateTime, duration, topic, description, result, followUp);
+            });
+            return;
+        }
+
+        finalSave(dialog, dateTime, duration, topic, description, result, followUp);
+    }
 
     private Span makeAuditLine(String text) {
         Span s = new Span(text);
@@ -470,7 +615,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
     }
 
     private String zTime(LocalDateTime dt) {
-        DateTimeFormatter timeFormatter=DateTimeFormatter.ofPattern("HH:mm:ss");
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
         return dt.format(timeFormatter);
     }
 
@@ -480,5 +625,171 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
 
     private String empty(String v) {
         return (v == null || v.isBlank()) ? "nicht angegeben" : v.trim();
+    }
+
+    private LocalDateTime roundToNextQuarterHour(LocalDateTime dt) {
+        int minute = dt.getMinute();
+        int mod = minute % 15;
+        if (mod == 0) return dt.withSecond(0).withNano(0);
+
+        int add = 15 - mod;
+        dt = dt.plusMinutes(add);
+        return dt.withSecond(0).withNano(0);
+    }
+
+    private boolean changed(Object original, Object current) {
+        if (original == null && current == null) return false;
+        if (original == null) return true;
+        return !original.equals(current);
+    }
+
+    private void showOkDialog(String title, String message) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle(title);
+
+        Span msg = new Span(message);
+        dialog.add(msg);
+
+        Button ok = new Button("OK", e -> dialog.close());
+
+        HorizontalLayout btns = new HorizontalLayout(ok);
+        btns.setWidthFull();
+        btns.setJustifyContentMode(JustifyContentMode.END);
+
+        dialog.getFooter().add(btns);
+        dialog.open();
+    }
+
+    private void showConfirmDialog(String title, String message, Runnable yesAction, Runnable noAction) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle(title);
+
+        Span msg = new Span(message);
+        dialog.add(msg);
+
+        Button yes = new Button("Ja", e -> {
+            dialog.close();
+            if (yesAction != null) yesAction.run();
+        });
+
+        Button no = new Button("Nein", e -> {
+            dialog.close();
+            if (noAction != null) noAction.run();
+        });
+
+        HorizontalLayout btns = new HorizontalLayout(yes, no);
+        btns.setWidthFull();
+        btns.setJustifyContentMode(JustifyContentMode.END);
+
+        dialog.getFooter().add(btns);
+        dialog.open();
+    }
+
+    private List<String> validateConsultationForm(LocalDateTime dateTime, Integer durationMinutes) {
+        List<String> errors = new ArrayList<>();
+
+        if (dateTime == null) errors.add("Datum und Uhryeit müssen angegeben werden.");
+        if (durationMinutes == null || durationMinutes <= 0) errors.add("Dauer muss größer als 0 sein");
+        if (durationMinutes != null && durationMinutes > 480)
+            errors.add("Dauer muss nicht mehr als 480 Min bzw. 8 St. sein");
+
+        return errors;
+    }
+
+    private String validateConsultationDate(LocalDateTime dateTime, LocalDateTime familyCreatedAt) {
+        LocalDate today = LocalDate.now();
+
+        if (dateTime.toLocalDate().isAfter(today)) return "FUTURE";
+        if (dateTime.isBefore(familyCreatedAt)) return "BEFORE_FAMILY";
+        if (dateTime.toLocalDate().isBefore(today)) return "BACKDATED";
+
+        return "OK";
+    }
+
+    private void askBackdatedConfirmation(Runnable onConfirm) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Vergangene Beratung");
+
+        Span msg = new Span("Sie erstellen eine Beratung in der Vergangenheit. Möchten Sie fortfahren?");
+        dialog.add(msg);
+        Button yes = new Button("Ja", e -> {
+            dialog.close();
+            onConfirm.run();
+        });
+
+        Button no = new Button("Nein", e -> dialog.close());
+
+        HorizontalLayout btns = new HorizontalLayout(yes, no);
+        btns.setJustifyContentMode(JustifyContentMode.END);
+        btns.setWidthFull();
+
+        dialog.getFooter().add(btns);
+        dialog.open();
+    }
+
+    private void askOptionalFieldsMissing(List<String> emptyFields, Runnable onConfirm) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Leere Felder");
+
+        String text = "Folgende Felder sind leer: " + String.join(", ", emptyFields) + ". Trotzdem speichern?";
+
+        Span msg = new Span(text);
+        dialog.add(msg);
+
+        Button yes = new Button("Ja", e -> {
+            dialog.close();
+            onConfirm.run();
+        });
+
+        Button no = new Button("Nein", e -> dialog.close());
+
+        HorizontalLayout btns = new HorizontalLayout(yes, no);
+        btns.setJustifyContentMode(JustifyContentMode.END);
+        btns.setWidthFull();
+
+        dialog.getFooter().add(btns);
+        dialog.open();
+    }
+
+    private void finalSave(Dialog parent, LocalDateTime dateTime, int duration, String topic, String description,
+                           String result, LocalDateTime followUp) {
+        try {
+            VaadinRequest req = VaadinRequest.getCurrent();
+            String ip = req != null ? req.getRemoteAddr() : "UNKNOWN";
+            String browser = req != null ? req.getHeader("User-Agent") : "UNKNOWN";
+
+            consultationService.createConsultation(currentFamily, currentEmployee, dateTime, duration, topic,
+                    description, result, followUp, ip, browser);
+
+            parent.close();
+
+            showSuccessConsultationDialog();
+
+            getUI().ifPresent(ui -> ui.getPage().reload());
+        } catch (Exception ex) {
+            showErrorConsultationDialog(ex.getMessage());
+        }
+    }
+
+    private void showSuccessConsultationDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Gespeichert");
+
+        dialog.add(new Span("Beratung wurde erstellt"));
+
+        Button ok = new Button("OK", e -> dialog.close());
+        dialog.getFooter().add(ok);
+        dialog.open();
+    }
+
+    private void showErrorConsultationDialog(String message) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Fehler");
+
+        dialog.add(new Span(message));
+
+        Button ok = new Button("OK", e -> dialog.close());
+        dialog.getFooter().add(ok);
+        dialog.open();
     }
 }

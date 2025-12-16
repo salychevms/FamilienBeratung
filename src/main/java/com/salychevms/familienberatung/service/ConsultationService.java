@@ -68,6 +68,7 @@ public class ConsultationService {
                 log.error("Duration time can't be more than 480 minutes (8 hours)");
                 throw new RuntimeException("Duration time can't be more than 480 minutes (8 hours)");
             }
+
             validator.validateText(topic, 255);
             validator.validateText(description, 4000);
             validator.validateText(result, 4000);
@@ -93,7 +94,7 @@ public class ConsultationService {
             return saved;
         } catch (Exception e) {
             log.error("Failed to create consultation: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to create consultation" + e.getMessage(), e);
+            throw new RuntimeException("Failed to create consultation " + e.getMessage(), e);
         }
     }
 
@@ -331,8 +332,10 @@ public class ConsultationService {
             List<Consultation> consultations = consultationRepository.findAllByFamily(family);
             List<Consultation> results = new ArrayList<>(consultations);
             for (Consultation c : consultations) {
+                if(!c.isInvalid()) continue;
+                if(c.getInvalidAt()==null) continue;
                 long days = java.time.Duration.between(c.getInvalidAt(), LocalDateTime.now()).toDays();
-                if (days > 14 && c.isInvalid()) results.remove(c);
+                if (days > 14) results.remove(c);
             }
             return results;
         } catch (Exception e) {
