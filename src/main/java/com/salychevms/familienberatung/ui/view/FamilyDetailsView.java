@@ -42,10 +42,8 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
     private final ConsultationService consultationService;
     private final EmployeeService employeeService;
     private final FamilyMemberService familyMemberService;
-
     private Employee currentEmployee;
     private int lvl;
-
     private Long familyId;
     private Family currentFamily;
     private List<FamilyMember> members;
