@@ -558,6 +558,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         dialog.setResizable(false);
         dialog.setDraggable(false);
         dialog.setCloseOnOutsideClick(false);
+        dialog.setWidth("800px");
 
         TextField familyName = new TextField("Familienname (*)");
         familyName.setWidthFull();

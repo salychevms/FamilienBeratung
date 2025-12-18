@@ -283,7 +283,7 @@ public class FamilyMemberService {
     public List<FamilyMember> getMembers(Family family, String login) {
         List<FamilyMember> members = familyMemberRepository.findByFamilyId(family.getId());
         if (members.isEmpty()) {
-            log.error("FamilyMembers with family id: {} not found", family.getId());
+            //log.warn("FamilyMembers with family id: {} not found", family.getId());
             return members;
         }
 

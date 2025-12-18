@@ -4,6 +4,9 @@ import com.salychevms.familienberatung.model.*;
 import com.salychevms.familienberatung.service.*;
 import com.salychevms.familienberatung.ui.layout.MainLayout;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.checkbox.Checkbox;
+import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.datetimepicker.DateTimePicker;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Div;
@@ -212,9 +215,22 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         block.setWidthFull();
         block.getStyle().set("border", "1px solid #ddd").set("border-radius", "6px").set("padding", "10px");
 
+
+        HorizontalLayout header = new HorizontalLayout();
+        header.setWidthFull();
+        header.setAlignItems(Alignment.CENTER);
+        header.setJustifyContentMode(JustifyContentMode.BETWEEN);
+
         Span title = new Span("Familienmitglieder");
         title.getStyle().set("font-weight", "bold");
-        block.add(title);
+        header.add(title);
+
+        if(lvl!=10 || currentFamily.getStatus().equals(RecordStatus.ACTIVE)) {
+            Button member = new Button("Neues Mitglied", e->buildCreateMemberDialog());
+            header.add(member);
+        }
+
+        block.add(header);
 
         if (members == null || members.isEmpty()) {
             Span none = new Span("Noch keine Mitglieder...");
@@ -457,6 +473,10 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         dialog.setResizable(false);
         dialog.setDraggable(false);
         dialog.setCloseOnOutsideClick(false);
+        dialog.setWidth("800px");
+
+        H2 title = new H2("Beratung für die Familie "+currentFamily.getFamilyName());
+        dialog.add(title);
 
         DateTimePicker dateTime = new DateTimePicker("Datum und Uhrzeit (*)");
         dateTime.setWidthFull();
@@ -521,12 +541,217 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         save.addClickListener(e -> handleConsultationSave(dialog, dateTime, duration, topic,
                 description, result, followUp));
 
-        HorizontalLayout buttons = new HorizontalLayout(cancel, save);
+        HorizontalLayout buttons = new HorizontalLayout(save, cancel);
         buttons.setWidthFull();
         buttons.setJustifyContentMode(JustifyContentMode.END);
 
         dialog.getFooter().add(buttons);
         dialog.open();
+    }
+
+    private void buildCreateMemberDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setModal(true);
+        dialog.setResizable(false);
+        dialog.setDraggable(false);
+        dialog.setCloseOnOutsideClick(false);
+        dialog.setWidth("800px");
+
+        H2 title = new H2("Neues Mitglied der Familie "+currentFamily.getFamilyName());
+        dialog.add(title);
+
+        TextField firstName = new TextField("Vorname (*)");
+        TextField lastName = new TextField("Nachname (*)");
+        ComboBox<FamilyMemberGender> gender=new ComboBox<>("Gender (*)");
+        gender.setItems(FamilyMemberGender.values());
+        gender.setPlaceholder("Bitte wählen...");
+
+        DatePicker birthDate = new DatePicker("Geburtsdatum (*)");
+        TextField birthCity = new TextField("Geburtsstadt (*)");
+        TextField birthCountry = new TextField("Geburtsland (*)");
+
+        Checkbox livesWithFamily=new Checkbox("Lebt mit der Familie");
+        livesWithFamily.setValue(true);
+
+        firstName.setWidthFull();
+        lastName.setWidthFull();
+        gender.setWidthFull();
+        birthDate.setWidthFull();
+        birthCity.setWidthFull();
+        birthCountry.setWidthFull();
+
+        Span mainTitle = new Span("Persönliche Daten");
+        mainTitle.getStyle().set("font-weight", "bold");
+
+        VerticalLayout mainBlock = new VerticalLayout();
+        mainBlock.setSpacing(false);
+        mainBlock.setPadding(true);
+        mainBlock.getStyle().set("border", "1px solid #ddd").set("padding", "10px").set("border-radius", "6px");
+
+        mainBlock.add(mainTitle, firstName, lastName, gender, birthDate, birthCity, birthCountry, livesWithFamily);
+
+        TextField nationality = new TextField("Staatsangehörigkeit");
+        TextField languages=new TextField("Sprachen");
+        languages.setValue(currentFamily.getLanguages());
+        TextField income=new TextField("Einkommen");
+        TextArea workInfo=new TextArea("Berufliche Tätigkeit");
+        TextField educationDegree=new TextField("Bildungsabschluss");
+        TextArea educationInfo=new TextArea("Ausbildung / Studium");
+
+        nationality.setWidthFull();
+        languages.setWidthFull();
+        income.setWidthFull();
+        workInfo.setWidthFull();
+        educationDegree.setWidthFull();
+        educationInfo.setWidthFull();
+        workInfo.setHeight("130px");
+        educationInfo.setHeight("130px");
+
+        Span extraTitle = new Span("Weitere Angaben");
+        extraTitle.getStyle().set("font-weight", "bold");
+
+        VerticalLayout extraBlock = new VerticalLayout();
+        extraBlock.setSpacing(false);
+        extraBlock.setPadding(true);
+        extraBlock.getStyle().set("border", "1px solid #ddd").set("padding", "10px").set("border-radius", "6px");
+
+        extraBlock.add(extraTitle, nationality, languages, income, workInfo, educationDegree, educationInfo);
+
+        TextField phone=new TextField("Telefon");
+        TextField email=new TextField("E-Mail");
+        TextArea notes=new TextArea("Notizen");
+
+        phone.setWidthFull();
+        email.setWidthFull();
+        notes.setWidthFull();
+        notes.setHeight("130px");
+
+        Span contactTitle = new Span("Kontakt / Notizen");
+        contactTitle.getStyle().set("font-weight", "bold");
+
+        VerticalLayout contactBlock = new VerticalLayout();
+        contactBlock.setSpacing(false);
+        contactBlock.setPadding(true);
+        contactBlock.getStyle().set("border", "1px solid #ddd").set("padding", "10px").set("border-radius", "6px");
+
+        contactBlock.add(contactTitle, phone, email, notes);
+
+        VerticalLayout content = new VerticalLayout();
+        content.setWidthFull();
+        content.add(mainBlock, extraBlock, contactBlock);
+
+        dialog.add(content);
+
+        Button cancel=new Button("Abbrechen");
+        Button save=new Button("Speichern");
+
+        String oLanguages=currentFamily.getLanguages();
+
+        cancel.addClickListener(event -> {
+            if(!isMemberFormDirty(oLanguages, firstName.getValue(), lastName.getValue(), gender.getValue(),
+                    birthDate.getValue(), birthCity.getValue(), birthCountry.getValue(), nationality.getValue(),
+                    languages.getValue(),income.getValue(), workInfo.getValue(), educationDegree.getValue(),
+                    educationInfo.getValue(),notes.getValue(),phone.getValue(), email.getValue())){
+                dialog.close();
+                return;
+            }
+            showConfirmDialog("Änderungen verwerfen", "Ihre Eingaben gehen verloren. Fortfahren?",
+                    dialog::close, ()->{});
+        });
+
+        save.addClickListener(event -> handleMemberSave(dialog, firstName, lastName,
+                gender,birthDate,birthCity, birthCountry, nationality,languages,livesWithFamily, income, workInfo,
+                educationDegree, educationInfo, notes, phone, email));
+
+        HorizontalLayout buttons=new HorizontalLayout(save, cancel);
+        buttons.setWidthFull();
+        buttons.setJustifyContentMode(JustifyContentMode.END);
+
+        dialog.getFooter().add(buttons);
+        dialog.open();
+    }
+
+    private void handleMemberSave(Dialog dialog, TextField firstName, TextField lastName,
+                                  ComboBox<FamilyMemberGender> gender, DatePicker birthDate, TextField birthCity,
+                                  TextField birthCountry, TextField nationality, TextField languages,
+                                  Checkbox livesWithFamily, TextField income, TextArea workInfo, TextField education,
+                                  TextArea educationInfo, TextArea notes, TextField phone, TextField email) {
+        List<String> errors = validateMemberForm(firstName.getValue(), lastName.getValue(), gender.getValue(),
+                birthDate.getValue(), birthCity.getValue(), birthCountry.getValue());
+
+        firstName.getStyle().remove("border");
+        lastName.getStyle().remove("border");
+        gender.getStyle().remove("border");
+        birthDate.getStyle().remove("border");
+        birthCity.getStyle().remove("border");
+        birthCountry.getStyle().remove("border");
+
+        if (!errors.isEmpty()) {
+            if (firstName.getValue().isEmpty()) firstName.getStyle().set("border", "1px solid red");
+            if (lastName.getValue().isEmpty()) lastName.getStyle().set("border", "1px solid red");
+            if (gender.getValue() == null) gender.getStyle().set("border", "1px solid red");
+            if (birthDate.getValue() == null) birthDate.getStyle().set("border", "1px solid red");
+            if (birthCity.getValue().isEmpty()) birthCity.getStyle().set("border", "1px solid red");
+            if (birthCountry.getValue().isEmpty()) birthCountry.getStyle().set("border", "1px solid " +
+                    "red");
+
+            showOkDialog("Fehler", String.join("\n", errors));
+            return;
+        }
+
+        try {
+            VaadinRequest req = VaadinRequest.getCurrent();
+            String ip = req != null ? req.getRemoteAddr() : "UNKNOWN";
+            String browser = req != null ? req.getHeader("User-Agent") : "UNKNOWN";
+
+            familyMemberService.createMember(currentFamily,firstName.getValue(), lastName.getValue(), gender.getValue(),
+                    birthDate.getValue(), birthCity.getValue(),birthCountry.getValue(),nationality.getValue(),
+                    languages.getValue(), livesWithFamily.getValue(), income.getValue(), workInfo.getValue(),
+                    education.getValue(), educationInfo.getValue(), notes.getValue(), phone.getValue(), email.getValue(),
+                    currentEmployee.getLogin(), ip, browser);
+
+            dialog.close();
+            getUI().ifPresent(ui->ui.getPage().reload());
+        }catch (Exception e) {
+            showOkDialog("Fehler", String.join("\n", e.getMessage()));
+        }
+    }
+
+    private boolean isMemberFormDirty(String oLanguages, String currentFirstName, String currentLastName,
+                                      FamilyMemberGender currentGender, LocalDate currentBirthDate,
+                                      String currentBirthCity, String currentBirthCountry, String currentNationality,
+                                      String currentLanguages, String currentIncome, String currentWorkInfo,
+                                      String currentEducationDegree, String currentEducationInfo, String currentNotes,
+                                      String currentPhone, String currentEmail) {
+        if (!currentFirstName.isEmpty()) return true;
+        if (!currentLastName.isEmpty()) return true;
+        if (currentGender != null) return true;
+        if (currentBirthDate != null) return true;
+        if (!currentBirthCity.isEmpty()) return true;
+        if (!currentBirthCountry.isEmpty()) return true;
+        if (!currentNationality.isEmpty()) return true;
+        if (!currentLanguages.equals(oLanguages)) return true;
+        if (!currentIncome.isEmpty()) return true;
+        if (!currentWorkInfo.isEmpty()) return true;
+        if (!currentEducationDegree.isEmpty()) return true;
+        if (!currentEducationInfo.isEmpty()) return true;
+        if (!currentNotes.isEmpty()) return true;
+        if (!currentPhone.isEmpty()) return true;
+        if (!currentEmail.isEmpty()) return true;
+        return false;
+    }
+
+    private List<String> validateMemberForm(String firstName, String lastName, FamilyMemberGender gender,
+                                            LocalDate birthDate, String birthCity, String birthCountry) {
+        List<String> errors = new ArrayList<>();
+        if (firstName == null || firstName.isEmpty()) errors.add("Vorname ist erforderlich");
+        if (lastName == null || lastName.isEmpty()) errors.add("Nachname ist erforderlich");
+        if (gender == null) errors.add("Gender ist erforderlich");
+        if (birthDate == null) errors.add("Geburtsdatum ist erforderlich");
+        if (birthCity == null || birthCity.isEmpty()) errors.add("Geburtsstadt ist erforderlich");
+        if (birthCountry == null || birthCountry.isEmpty()) errors.add("Geburtsland ist erforderlich");
+
+        return errors;
     }
 
     private void handleConsultationCancel(Dialog dialog, String topic, String desc,
@@ -571,16 +796,16 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         }
 
         if ("BACKDATED".equals(state)) {
-            askBackdatedConfirmation(() -> handleOptionalFinalSave(dialog, dateTime, duration, topic, description,
+            askBackdatedConfirmation(() -> handleOptionalFinalConsultationSave(dialog, dateTime, duration, topic, description,
                     result, followUp));
             return;
         }
 
-        handleOptionalFinalSave(dialog, dateTime, duration, topic, description, result, followUp);
+        handleOptionalFinalConsultationSave(dialog, dateTime, duration, topic, description, result, followUp);
     }
 
-    private void handleOptionalFinalSave(Dialog dialog, LocalDateTime dateTime, Integer duration, String topic,
-                                         String description, String result, LocalDateTime followUp) {
+    private void handleOptionalFinalConsultationSave(Dialog dialog, LocalDateTime dateTime, Integer duration, String topic,
+                                                     String description, String result, LocalDateTime followUp) {
         List<String> empty = new ArrayList<>();
         if (topic == null || topic.isBlank()) empty.add("Thema");
         if (description == null || description.isBlank()) empty.add("Beschreibung");
@@ -635,12 +860,6 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         int add = 15 - mod;
         dt = dt.plusMinutes(add);
         return dt.withSecond(0).withNano(0);
-    }
-
-    private boolean changed(Object original, Object current) {
-        if (original == null && current == null) return false;
-        if (original == null) return true;
-        return !original.equals(current);
     }
 
     private void showOkDialog(String title, String message) {

@@ -62,7 +62,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
             mode = "Modus: Alle Beratungen";
         }
 
-        add(new Span("Consultation view is dtill in development..."));
+        add(new Span("Consultation view is still in development..."));
         add(new Span(mode));
     }
 }
