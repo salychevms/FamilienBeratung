@@ -1,0 +1,12 @@
+vaadin-app-layout {
+    --vaadin-app-layout-drawer-width: 150px;
+}
+
+vaadin-text-area::part(helper-text) {
+    display: none;
+}
+
+vaadin-button.edit-btn:hover::part(state-layer),
+vaadin-button.plus-btn:hover::part(state-layer) {
+    background-color: rgba(0, 0, 0, 0.12) !important;
+}

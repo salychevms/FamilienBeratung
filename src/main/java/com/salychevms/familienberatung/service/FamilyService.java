@@ -91,42 +91,45 @@ public class FamilyService {
     }
 
     //admin and lead and consultant and delegated
-    public Family updateFamily(Long id, String zeusId, String familyName, String street, String houseNumber, String zip,
-                               String city, String phone, String email, String citizenship, String languages,
-                               String reasonDescription, String notes, String updatedBy, String ip, String userBrowser) {
+    public Family updateFamily(Family f, String updatedBy, String ip, String userBrowser) {
         try {
             if (!employeeService.hasAccess(updatedBy, 50)) {
                 log.error("Access Denied for {}", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
 
-            Family family = familyRepository.findById(id).orElseThrow(() ->
-                    new EntityNotFoundException("Family with Id: " + id + " not found"));
+            if(f==null){
+                log.error("Family not found");
+                throw new EntityNotFoundException("Family not found");
+            }
 
-            validator.validateText(familyName, 255);
-            validator.validateText(street, 255);
-            validator.validateText(houseNumber, 255);
-            validator.validateText(zip, 255);
-            validator.validateText(city, 255);
-            validator.validateEmail(email);
-            validator.validateText(citizenship, 255);
-            validator.validateText(languages, 255);
-            validator.validateText(reasonDescription, 4000);
-            validator.validateText(notes, 255);
+            Family family = familyRepository.findById(f.getId()).orElseThrow(() ->
+                    new EntityNotFoundException("Family with Id: " + f.getId() + " not found"));
+
+            validator.validateText(f.getFamilyName(), 255);
+            validator.validateText(f.getStreet(), 255);
+            validator.validateText(f.getHouseNumber(), 255);
+            validator.validateText(f.getZip(), 255);
+            validator.validateText(f.getCity(), 255);
+            validator.validateEmail(f.getEmail());
+            validator.validateText(f.getCitizenship(), 255);
+            validator.validateText(f.getLanguages(), 255);
+            validator.validateText(f.getReasonDescription(), 4000);
+            validator.validateText(f.getNotes(), 255);
             validator.validateIp(ip);
 
-            family.setZeusId(zeusId);
-            family.setFamilyName(familyName);
-            family.setStreet(street);
-            family.setHouseNumber(houseNumber);
-            family.setZip(zip);
-            family.setCity(city);
-            family.setPhone(phone);
-            family.setEmail(email);
-            family.setCitizenship(citizenship);
-            family.setLanguages(languages);
-            family.setReasonDescription(reasonDescription);
-            family.setNotes(notes);
+            family.setZeusId(f.getZeusId());
+            family.setFamilyName(f.getFamilyName());
+            family.setStreet(f.getStreet());
+            family.setHouseNumber(f.getHouseNumber());
+            family.setZip(f.getZip());
+            family.setCity(f.getCity());
+            family.setPhone(f.getPhone());
+            family.setEmail(f.getEmail());
+            family.setCitizenship(f.getCitizenship());
+            family.setLanguages(f.getLanguages());
+            family.setReasonDescription(f.getReasonDescription());
+            family.setNotes(f.getNotes());
 
             family.setUpdatedAt(LocalDateTime.now());
             family.setUpdatedBy(updatedBy);
@@ -134,12 +137,12 @@ public class FamilyService {
             Family saved = familyRepository.save(family);
 
             accessLog.log(updatedBy, "FAMILY_UPDATE", "Family", saved.getId(),
-                    "Updated family " + familyName, ip, userBrowser);
-            log.info("Family {} updated by {}", familyName, updatedBy);
+                    "Updated family " + family.getFamilyName(), ip, userBrowser);
+            log.info("Family {} updated by {}", family.getFamilyName(), updatedBy);
             return saved;
         } catch (Exception e) {
-            log.error("Error while saving family {}, error: {}", familyName, e.getMessage(), e);
-            throw new RuntimeException("Error while saving family " + familyName, e);
+            log.error("Error while saving family, error: {}", e.getMessage(), e);
+            throw new RuntimeException("Error while saving family ", e);
         }
     }
 
@@ -200,12 +203,6 @@ public class FamilyService {
             }
             Family family = familyRepository.findById(id).orElseThrow(() ->
                     new EntityNotFoundException("Family with Id: " + id + " not found"));
-
-            if (!family.getAssignedEmployee().getLogin().equals(updatedBy)) {
-                log.error("Access Denied for {}, no rights to this family", updatedBy);
-                throw new RuntimeException("Access Denied for " + updatedBy);
-            }
-
             if (family.isCaseClosed()) {
                 log.warn("Case for family with id: {} is already closed.", id);
                 throw new RuntimeException("Case for family with id: " + id + " is already closed");
@@ -226,6 +223,8 @@ public class FamilyService {
             family.setCaseClosed(true);
             family.setCaseClosedAt(LocalDateTime.now());
             family.setDeletePlannedAt(family.getCaseClosedAt().plusYears(10));
+            family.setUpdatedAt(LocalDateTime.now());
+            family.setUpdatedBy(updatedBy);
 
             familyRepository.save(family);
             accessLog.log(updatedBy, "FAMILY_CLOSE_CASE", "Family", family.getId(),
@@ -248,11 +247,6 @@ public class FamilyService {
 
             Family family = familyRepository.findById(id).orElseThrow(() ->
                     new EntityNotFoundException("Family with Id: " + id + " not found"));
-
-            if (!family.getAssignedEmployee().getLogin().equals(updatedBy)) {
-                log.error("Access Denied for {}, no rights to this family", updatedBy);
-                throw new RuntimeException("Access Denied for " + updatedBy);
-            }
             if (!family.isCaseClosed()) {
                 log.error("Family case still open, family id: {}", id);
                 throw new RuntimeException("Family case still open, family id: " + id);
@@ -272,6 +266,8 @@ public class FamilyService {
             family.setCaseClosed(false);
             family.setCaseClosedAt(null);
             family.setDeletePlannedAt(null);
+            family.setUpdatedAt(LocalDateTime.now());
+            family.setUpdatedBy(updatedBy);
 
             familyRepository.save(family);
             accessLog.log(updatedBy, "FAMILY_CASE_OPEN_BACK", "Family", family.getId(),

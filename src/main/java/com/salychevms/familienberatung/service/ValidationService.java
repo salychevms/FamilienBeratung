@@ -32,7 +32,7 @@ public class ValidationService {
 
     public void validatePassword(String password, String oldPassword, String login,
                                  String email, String mobileNumber, String landNumber) {
-        if (password == null || password.isEmpty()) {
+        if (password == null || password.isBlank()) {
             log.error("Password is empty");
             throw new RuntimeException("Password cannot be empty");
         }

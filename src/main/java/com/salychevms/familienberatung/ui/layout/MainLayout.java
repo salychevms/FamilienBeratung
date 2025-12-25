@@ -54,7 +54,6 @@ public class MainLayout extends AppLayout {
 
     private void buildSidebar() {
         VerticalLayout menu = new VerticalLayout();
-        menu.setWidth("220px");
         menu.setPadding(false);
         menu.setSpacing(false);
         menu.setHeightFull();

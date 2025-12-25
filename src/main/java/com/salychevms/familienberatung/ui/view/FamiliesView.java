@@ -11,6 +11,7 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -146,8 +147,8 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         searchField.setClearButtonVisible(true);
         searchField.setWidth("250px");
 
-        searchButton = new Button("Finden", e -> applyFilters());
-        resetButton = new Button("Reset", e -> {
+        searchButton = new Button( VaadinIcon.SEARCH.create(), e -> applyFilters());
+        resetButton = new Button(VaadinIcon.REFRESH.create(), e -> {
             searchField.clear();
             statusFilter.clear();
             employeeFilter.clear();
@@ -170,11 +171,11 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         actionsRow.setSpacing(true);
         actionsRow.setAlignItems(Alignment.CENTER);
 
-        createButton = new Button("Neue Familie");
+        createButton = new Button("Neue Familie", VaadinIcon.PLUS.create());
         createButton.getStyle().set("font-size", "16px").set("padding", "8px 16px");
         createButton.addClickListener(e -> openCreateFamilyDialog());
 
-        trashButton = new Button("Papierkorb");
+        trashButton = new Button("Papierkorb", VaadinIcon.TRASH.create());
         trashButton.setWidth("90px");
         trashButton.setHeight("26px");
         trashButton.getStyle().set("font-size", "11px").set("padding", "2px 6px")

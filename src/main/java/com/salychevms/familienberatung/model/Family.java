@@ -88,4 +88,39 @@ public class Family {
 
     public Family() {
     }
+
+    public Family(Family f) {
+        this.id = f.getId();
+        this.familyName = f.getFamilyName();
+        this.street = f.getStreet();
+        this.houseNumber = f.getHouseNumber();
+        this.zip = f.getZip();
+        this.city = f.getCity();
+        this.phone = f.getPhone();
+        this.email = f.getEmail();
+        this.citizenship = f.getCitizenship();
+        this.languages = f.getLanguages();
+        this.reasonDescription = f.getReasonDescription();
+        this.status = f.getStatus();
+        this.notes = f.getNotes();
+        this.assignedEmployee = f.getAssignedEmployee();
+        this.zeusId = f.getZeusId();
+        this.caseClosed = f.isCaseClosed();
+        this.caseClosedAt = f.getCaseClosedAt();
+        this.createdAt = f.getCreatedAt();
+        this.createdBy = f.getCreatedBy();
+        this.updatedAt = f.getUpdatedAt();
+        this.updatedBy = f.getUpdatedBy();
+        this.archivedAt = f.getArchivedAt();
+        this.archivedBy = f.getArchivedBy();
+        this.invalidAt = f.getInvalidAt();
+        this.invalidBy = f.getInvalidBy();
+        this.blockedAt = f.getBlockedAt();
+        this.blockedBy = f.getBlockedBy();
+        this.blockedReason = f.getBlockedReason();
+        this.restoredAt = f.getRestoredAt();
+        this.restoredBy = f.getRestoredBy();
+        this.restoredReason = f.getRestoredReason();
+        this.deletePlannedAt = f.getDeletePlannedAt();
+    }
 }
