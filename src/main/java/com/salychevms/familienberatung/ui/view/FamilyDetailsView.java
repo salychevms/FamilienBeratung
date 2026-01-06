@@ -15,6 +15,7 @@ import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -22,6 +23,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.VaadinRequest;
 import jakarta.annotation.security.PermitAll;
@@ -187,7 +189,12 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
 
         familyHeader.add(h2Title);
 
-        String status = currentFamily.getStatus().name();
+        String status = "";
+        if (currentFamily.getStatus().equals(RecordStatus.ACTIVE)) status = "AKTIV";
+        else if (currentFamily.getStatus().equals(RecordStatus.BLOCKED)) status = "BLOCKIERT";
+        else if (currentFamily.getStatus().equals(RecordStatus.ARCHIVED)) status = "ARCHIV";
+        else if (currentFamily.getStatus().equals(RecordStatus.INVALID)) status = "GELÖSCHT";
+
         String caseState = currentFamily.isCaseClosed() ? "geschlossen" : "öffen";
 
         String line = "ID: " + currentFamily.getId() +
@@ -201,7 +208,20 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         content.setPadding(true);
         content.setWidthFull();
 
-        content.add(familyHeader, info);
+        String emp = currentFamily.getAssignedEmployee().getFirstName() +
+                " " + currentFamily.getAssignedEmployee().getLastName();
+        Span employee = new Span("Berater*in: " + emp);
+
+        String cnt = "Beratungen: " + getConsultationsCount();
+        Span consCount = new Span(cnt);
+
+        List<Consultation> consultations = consultationService.getConsultationsByFamily(currentFamily);
+        int mnts = 0;
+        for (Consultation c : consultations) {
+            mnts += c.getDurationMinutes();
+        }
+        Span hours = new Span("Beratungsstundenanzahl: " + (mnts / 60) + ":" + String.format("%02d", mnts % 60) + " St.");
+        content.add(familyHeader, info, employee, consCount, hours);
 
         box.add(content, buildButtonsBlock(), buildMembers());
 
@@ -692,22 +712,51 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         if ((lvl == 80 || lvl == 100) && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
             String zeusId = currentFamily.getZeusId();
             Button zeusIdBtn;
+            String zsId = empty(currentFamily.getZeusId());
             if (zeusId == null || zeusId.isEmpty()) {
                 zeusIdBtn = new Button("Zeus ID", VaadinIcon.PLUS.create());
                 zeusIdBtn.getStyle().set("color", "red");
             } else {
                 zeusIdBtn = new Button("Zeus ID", VaadinIcon.EDIT.create());
             }
-
+            zeusIdBtn.addClickListener(e -> EditDialogFactory.openEditDialog(
+                    "Zeus ID ändern", List.of(new EditField("zeusId", "Zeus ID", EditField.Type.TEXT, zsId,
+                            false, 255, null)), values -> {
+                        String zeusID = (String) values.get("zeusId");
+                        if (!EditDialogFactory.isValidText(zeusID, 255)) {
+                            showOkDialog("Fehler", "Zeus ID ist ungültigt oder zu lang");
+                            return;
+                        }
+                        showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
+                            VaadinRequest req = VaadinRequest.getCurrent();
+                            Family f = new Family(currentFamily);
+                            f.setZeusId(zeusID);
+                            familyService.updateFamily(f, currentEmployee.getLogin(),
+                                    req != null ? req.getRemoteAddr() : "UNKNOWN",
+                                    req != null ? req.getHeader("User-Agent") : "UNKNOWN");
+                            getUI().ifPresent(ui -> ui.getPage().reload());
+                        }, () -> {
+                        });
+                    }));
             bar.add(zeusIdBtn);
         }
 
         if ((lvl == 80 || lvl == 100)
                 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
-            bar.add(new Button("Berater*in", VaadinIcon.EDIT.create()));
+            Button employeeBtn = new Button("Berater*in", VaadinIcon.EDIT.create());
+            employeeBtn.addClickListener(e -> openChangeAssigneeDialog());
+            bar.add(employeeBtn);
         }
 
-        if (lvl == 80 || lvl == 100) bar.add(new Button("Status", VaadinIcon.EDIT.create()));
+        if ((lvl == 80 || lvl == 100) ||
+                (lvl == 50 && (currentFamily.getStatus().equals(RecordStatus.ACTIVE) ||
+                        currentFamily.getStatus().equals(RecordStatus.ARCHIVED)))) {
+            Button statusBtn = new Button("Status");
+
+            statusBtn.addClickListener(e -> openFamilyStatusDialog());
+
+            bar.add(statusBtn);
+        }
 
         if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE)) {
             boolean caseClosed = currentFamily.isCaseClosed();
@@ -750,6 +799,242 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         }
 
         return bar;
+    }
+
+    private void openFamilyStatusDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setModal(true);
+        dialog.setCloseOnOutsideClick(false);
+        dialog.setWidth("600px");
+
+        RecordStatus status = currentFamily.getStatus();
+
+        VerticalLayout content = new VerticalLayout();
+        content.setSpacing(true);
+
+        ComboBox<String> action = new ComboBox<>("Aktion");
+        action.setWidthFull();
+
+        if (status.equals(RecordStatus.ACTIVE)) {
+        }
+        if (lvl == 80 || lvl == 100)
+            if (!currentFamily.isCaseClosed()) action.setItems("BLOCKIEREN", "ARCHIVIEREN", "LÖSCHEN");
+            else action.setItems("BLOCKIEREN", "ARCHIVIEREN");
+        else if (lvl == 50)
+            if (!currentFamily.isCaseClosed()) action.setItems("ARCHIVIEREN", "LÖSCHEN");
+            else action.setItems("ARCHIVIEREN");
+
+        if (status.equals(RecordStatus.ARCHIVED) && (lvl == 80 || lvl == 100 || lvl == 50))
+            action.setItems("WIEDERHERSTELLEN");
+
+        if (status.equals(RecordStatus.BLOCKED) && (lvl == 80 || lvl == 100)) action.setItems("ENTSPERREN");
+
+        TextArea reason = new TextArea();
+        reason.setWidthFull();
+        reason.setVisible(false);
+        reason.setMinLength(5);
+
+        Span hint = new Span();
+        hint.getStyle().set("color", "#666");
+
+        action.addValueChangeListener(ev -> {
+            String v = ev.getValue();
+            if (v == null) return;
+
+            reason.setVisible(false);
+            hint.setText("");
+
+            switch (v) {
+                case "BLOCKIEREN" -> {
+                    reason.setVisible(true);
+                    reason.setLabel("Begründung der Blockierung");
+                    hint.setText("Familie wird gesperrt und ist nicht mehr editierbar. " +
+                            "Geben Sie bitte eine Begründung an. Mind. 5 Zeichen.");
+                }
+                case "LÖSCHEN" -> hint.setText(lvl == 50
+                        ? "Die Familie " + currentFamily.getFamilyName() + " wird gelöscht. " +
+                        "14 Tage Wiederherstellung möglich."
+                        : "Die Familie " + currentFamily.getFamilyName() + " wird gelöscht.");
+                case "ARCHIVIEREN" -> {
+                    if (!currentFamily.isCaseClosed())
+                        hint.setText("Archivierung nur möglich, wenn Ablauf geschlossen ist.");
+                    else hint.setText("Die Familie " + currentFamily.getFamilyName() + " wird archiviert.");
+                }
+                case "WIEDERHERSTELLEN" -> {
+                    reason.setVisible(true);
+                    reason.setLabel("Begründung der Wiederherstellung");
+                    hint.setText("Die Familie " + currentFamily.getFamilyName() + " wird wiederherstellt. " +
+                            "Geben Sie bitte eine Begründung an. Mind. 5 Zeichen.");
+                }
+                case "ENTSPERREN" -> {
+                    reason.setVisible(true);
+                    reason.setLabel("Begründung der Entsperrung.");
+                    hint.setText("Die Familie " + currentFamily.getFamilyName() + " wird entsperrt. " +
+                            "Geben Sie bitte eine Begründung an. Mind. 5 Zeichen.");
+                }
+            }
+        });
+
+        Button cancel = new Button("Abbrechen", e -> dialog.close());
+
+        Button save = new Button("Speichern", e -> {
+            String v = action.getValue();
+            if (v == null) return;
+
+            if (reason.isVisible() && (reason.getValue() == null || reason.getValue().length() < 5)) {
+                showOkDialog("Achtung!", "Begründung muss mindestens 5 Zeichen haben.");
+                return;
+            }
+
+            if ("ARCHIVIEREN".equals(v) && !currentFamily.isCaseClosed()) {
+                showOkDialog("Achtung!",
+                        "Archivierung nich möglich! Die Famile kann archiviert werden, wenn der Ablauf " +
+                                "geschlossen ist. Schließen Sie bitte den Dialogfenster und schließen bitte den Ablauf.");
+                return;
+            }
+
+            showConfirmDialog("Status ändern", "Aktion wirklich durchführen?", () -> {
+                VaadinRequest req = VaadinRequest.getCurrent();
+                String ip = req != null ? req.getRemoteAddr() : "UNKNOWN";
+                String browser = req != null ? req.getHeader("User-Agent") : "UNKNOWN";
+
+                switch (v) {
+                    case "BLOCKIEREN" -> {
+                        familyService.blockFamily(familyId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
+                        getUI().ifPresent(ui -> ui.getPage().reload());
+                    }
+                    case "ENTSPERREN" -> {
+                        familyService.unblockFamily(familyId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
+                        getUI().ifPresent(ui -> ui.getPage().reload());
+                    }
+                    case "ARCHIVIEREN" -> {
+                        familyService.archiveFamily(familyId, currentEmployee.getLogin(), ip, browser);
+                        getUI().ifPresent(ui -> ui.getPage().reload());
+                    }
+                    case "WIEDERHERSTELLEN" -> {
+                        familyService.unarchiveFamily(familyId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
+                        getUI().ifPresent(ui -> ui.getPage().reload());
+                    }
+                    case "LÖSCHEN" -> {
+                        familyService.invalidateFamily(familyId, currentEmployee.getLogin(), ip, browser);
+                        getUI().ifPresent(ui -> ui.navigate(FamiliesView.class));
+                    }
+                }
+                dialog.close();
+            }, () -> {
+            });
+        });
+
+        HorizontalLayout buttons = new HorizontalLayout(cancel, save);
+        buttons.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
+
+        content.add(action, reason, hint);
+        dialog.add(content);
+        dialog.getFooter().add(buttons);
+        dialog.open();
+    }
+
+    private void openChangeAssigneeDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setModal(true);
+        dialog.setCloseOnOutsideClick(false);
+        dialog.setWidth("600px");
+
+        ComboBox<Employee> combo = new ComboBox<>("Berater*in");
+        combo.setWidthFull();
+
+
+        List<Employee> items = employeeService.findAll().stream().filter(
+                employee -> !employee.isArchived()).toList();
+        combo.setItems(items);
+        combo.setItemLabelGenerator(emp -> emp.getFirstName() + " " + emp.getLastName());
+        combo.setRenderer(new ComponentRenderer<>(emp -> {
+            HorizontalLayout row = new HorizontalLayout();
+            row.setAlignItems(FlexComponent.Alignment.CENTER);
+            row.setSpacing(true);
+
+            if (!emp.isActive()) {
+                Icon icon = VaadinIcon.LOCK.create();
+                icon.getStyle().set("color", "red");
+                row.add(icon);
+            }
+
+            Span text = new Span(emp.getFirstName() + " " + emp.getLastName() + " : " + emp.getRole().getLabel());
+            if (!emp.isActive()) text.getStyle().set("color", "#888");
+
+            row.add(text);
+            return row;
+        }));
+
+        combo.setValue(currentFamily.getAssignedEmployee());
+
+        Icon icon = VaadinIcon.LOCK.create();
+        Span error = new Span();
+
+        error.add(icon, new Span(" Blockierte Berater können nicht zugewiesen werden"));
+        error.getStyle().set("color", "red");
+        error.setVisible(false);
+
+        Button cancel = new Button("Abbrechen", e -> dialog.close());
+
+        Button save = new Button("Speichern");
+        save.setEnabled(true);
+
+        combo.addValueChangeListener(ev -> {
+            Employee selected = ev.getValue();
+            if (selected == null) {
+                error.setVisible(false);
+                save.setEnabled(false);
+                return;
+            }
+            if (!selected.isActive()) {
+                error.setVisible(true);
+                save.setEnabled(false);
+                return;
+            }
+            if (selected.equals(currentFamily.getAssignedEmployee())) {
+                error.setVisible(false);
+                save.setEnabled(false);
+                return;
+            }
+
+            error.setVisible(false);
+            save.setEnabled(true);
+        });
+
+        save.addClickListener(e -> {
+            Employee selected = combo.getValue();
+            if (selected == null) {
+                return;
+            }
+            if (selected.equals(currentFamily.getAssignedEmployee())) {
+                dialog.close();
+                return;
+            }
+            showConfirmDialog("Berater*in wechseln", "Möchten Soe den Fall wirklich übertragen?",
+                    () -> {
+                        VaadinRequest req = VaadinRequest.getCurrent();
+                        familyService.updateAssignedEmployee(currentFamily.getId(), selected.getId(), currentEmployee.getLogin(),
+                                req != null ? req.getRemoteAddr() : "UNKNOWN",
+                                req != null ? req.getHeader("User-Agent") : "UNKNOWN");
+                        getUI().ifPresent(ui -> ui.getPage().reload());
+                    }, () -> {
+                    });
+        });
+
+        HorizontalLayout buttons = new HorizontalLayout(cancel, save);
+        buttons.setWidthFull();
+        buttons.setJustifyContentMode(HorizontalLayout.JustifyContentMode.END);
+
+        VerticalLayout content = new VerticalLayout();
+        content.setPadding(false);
+        content.setSpacing(true);
+
+        content.add(new Span("Berater*in zuweisen"), combo, error);
+
+        dialog.add(content);
+        dialog.getFooter().add(buttons);
+        dialog.open();
     }
 
     private void buildCreateConsultationDialog() {
@@ -1296,5 +1581,12 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         Button ok = new Button("OK", e -> dialog.close());
         dialog.getFooter().add(ok);
         dialog.open();
+    }
+
+    private int getConsultationsCount() {
+        List<Consultation> consultations = new ArrayList<>();
+        if (!currentFamily.getStatus().equals(RecordStatus.INVALID))
+            consultations.addAll(consultationService.getConsultationsByFamily(currentFamily));
+        return consultations.size();
     }
 }

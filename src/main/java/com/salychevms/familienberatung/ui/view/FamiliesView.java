@@ -303,13 +303,13 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
             RecordStatus status = f.getStatus();
             Span span = new Span();
             if (status == RecordStatus.ARCHIVED) {
-                span.setText("ARCHIVED");
-                span.getStyle().set("color", "yellow").set("font-weight", "bold");
+                span.setText("ARCHIV");
+                span.getStyle().set("color", "#b58900").set("font-weight", "bold");
             } else if (status == RecordStatus.BLOCKED) {
-                span.setText("BLOCKED");
+                span.setText("BLOCKIET");
                 span.getStyle().set("color", "red").set("font-weight", "bold");
             } else if (status == RecordStatus.ACTIVE) {
-                span.setText("ACTIVE");
+                span.setText("AKTIV");
                 span.getStyle().set("color", "green").set("font-weight", "bold");
             }
             return span;
@@ -522,6 +522,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                     trashGrid.setItems(loadTrashFamilies());
                     confirm.close();
                     Notification.show("Familie wurde wiederhergestellt", 3000, Notification.Position.MIDDLE);
+                    getUI().ifPresent(ui->ui.getPage().reload());
                 } catch (Exception ex) {
                     confirm.close();
                     Notification.show("Fehler" + ex.getMessage(), 3000, Notification.Position.MIDDLE);

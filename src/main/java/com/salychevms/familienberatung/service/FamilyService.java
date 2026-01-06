@@ -290,10 +290,6 @@ public class FamilyService {
             Family family = familyRepository.findById(id).orElseThrow(() ->
                     new EntityNotFoundException("Family with Id: " + id + " not found"));
 
-            if (!family.getAssignedEmployee().getLogin().equals(updatedBy)) {
-                log.error("Access Denied for {}, no rights to this family", updatedBy);
-                throw new RuntimeException("Access Denied for " + updatedBy);
-            }
             if (family.isCaseClosed()) {
                 log.warn("Case for family with id: {} is already closed.", id);
                 throw new RuntimeException("Case for family with id: " + id + " is already closed");
@@ -381,7 +377,7 @@ public class FamilyService {
     //admin and lead
     public void archiveFamily(Long id, String updatedBy, String ip, String userBrowser) {
         try {
-            if (!employeeService.hasAccess(updatedBy, 80)) {
+            if (!employeeService.hasAccess(updatedBy, 50)) {
                 log.error("Access Denied for {}", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
@@ -418,7 +414,7 @@ public class FamilyService {
     //admin and lead
     public void unarchiveFamily(Long id, String restoreReason, String updatedBy, String ip, String userBrowser) {
         try {
-            if (!employeeService.hasAccess(updatedBy, 80)) {
+            if (!employeeService.hasAccess(updatedBy, 50)) {
                 log.error("Access Denied for {}", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }

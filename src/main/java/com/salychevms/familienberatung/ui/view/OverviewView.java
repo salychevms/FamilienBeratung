@@ -22,6 +22,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -37,7 +38,7 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
     @Override
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
         Employee employee = authService.getCurrentEmployee();
-        if (employee == null || employee.isArchived()){
+        if (employee == null || employee.isArchived()) {
             beforeEnterEvent.forwardTo("login");
             return;
         }
@@ -64,11 +65,11 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
 
         int famCount = getFamiliesCount(e, lvl);
         int conCount = getConsultationsCount(e, lvl);
-        int hours = getHours(e, lvl);
+        int hours = getConsultationsHours(e, lvl);
 
         Paragraph p1 = new Paragraph("Familien: " + famCount);
         Paragraph p2 = new Paragraph("Beratungen: " + conCount);
-        Paragraph p3 = new Paragraph("Stunden (Min): " + hours);
+        Paragraph p3 = new Paragraph("Beratungsstundenanzahl: " + (hours / 60) + ":" + String.format("%02d", hours % 60) + " St.");
 
         VerticalLayout stats = new VerticalLayout(p1, p2, p3);
         stats.setPadding(false);
@@ -111,43 +112,50 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
 
     private int getFamiliesCount(Employee e, int lvl) {
         if (lvl == 50) {
-            return familyService.getFamiliesByAssignedEmployee(e.getLogin(), e).size();
+            return familyService.getFamiliesByAssignedEmployee(e.getLogin(), e)
+                    .stream().filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList().size();
         }
-        return familyService.getFamilies(e.getLogin()).size();
-    }
-
-    private int getHours(Employee e, int lvl) {
-        List<Family> f;
-        if (lvl == 50) {
-            f = familyService.getFamiliesByAssignedEmployee(e.getLogin(), e);
-        } else {
-            f = familyService.getFamilies(e.getLogin());
-        }
-
-        int countOfHours = 0;
-        for (Family f2 : f) {
-            if (!f2.getStatus().equals(RecordStatus.INVALID)) {
-                countOfHours += (int) consultationService.getConsultationsByFamily(f2).stream().
-                        filter(f3 -> f3.getEmployee().equals(e)).count();
-            }
-        }
-        return countOfHours;
+        return familyService.getFamilies(e.getLogin())
+                .stream().filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList().size();
     }
 
     private int getConsultationsCount(Employee e, int lvl) {
-        List<Family> f;
+        List<Family> families;
+        List<Consultation> consultations = new ArrayList<>();
         if (lvl == 50) {
-            f = familyService.getFamiliesByAssignedEmployee(e.getLogin(), e);
+            families = familyService.getFamiliesByAssignedEmployee(e.getLogin(), e);
+            for (Family f : families)
+                if (!f.getStatus().equals(RecordStatus.INVALID))
+                    consultations.addAll(consultationService.getConsultationsByFamily(f));
         } else {
-            f = familyService.getFamilies(e.getLogin());
+            families = familyService.getFamilies(e.getLogin());
+            for (Family f : families)
+                if (!f.getStatus().equals(RecordStatus.INVALID))
+                    consultations.addAll(consultationService.getConsultationsByFamily(f));
         }
-        int countOfConsultations = 0;
-        for (Family f2 : f) {
-            if (!f2.getStatus().equals(RecordStatus.INVALID))
-                countOfConsultations += (int) consultationService.getConsultationsByFamily(f2).stream().
-                        filter(f3 -> f3.getEmployee().equals(e)).count();
+        return consultations.size();
+    }
+
+    private int getConsultationsHours(Employee e, int lvl) {
+        List<Family> families;
+        List<Consultation> consultations = new ArrayList<>();
+        if (lvl == 50) {
+            families = familyService.getFamiliesByAssignedEmployee(e.getLogin(), e);
+            for (Family f : families)
+                if (!f.getStatus().equals(RecordStatus.INVALID))
+                    consultations.addAll(consultationService.getConsultationsByFamily(f));
+        } else {
+            families = familyService.getFamilies(e.getLogin());
+            for (Family f : families)
+                if (!f.getStatus().equals(RecordStatus.INVALID))
+                    consultations.addAll(consultationService.getConsultationsByFamily(f));
         }
-        return countOfConsultations;
+
+        int hours = 0;
+        for (Consultation c : consultations) {
+            hours += c.getDurationMinutes();
+        }
+        return hours;
     }
 
     private Button makeNavButton(String text, Class<? extends Component> target) {
