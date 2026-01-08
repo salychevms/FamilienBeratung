@@ -77,7 +77,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         }
 
         this.familyId = optId.get();
-        this.currentFamily = familyService.getFamilyById(currentEmployee.getLogin(), familyId);
+        this.currentFamily = familyService.getFamilyById(familyId);
 
         consultations = new ArrayList<>();
         List<Consultation> consultationList = consultationService.getConsultationsByFamily(currentFamily);

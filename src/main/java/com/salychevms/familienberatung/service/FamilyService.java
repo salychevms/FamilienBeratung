@@ -52,8 +52,8 @@ public class FamilyService {
                 log.error("Employee not found");
                 throw new EntityNotFoundException("Employee not found");
             }
-            Employee e=employeeService.findByLogin(assignedEmployee.getLogin());
-            if(e==null){
+            Employee e = employeeService.findByLogin(assignedEmployee.getLogin());
+            if (e == null) {
                 log.error("Employee {} not found ", assignedEmployee.getLogin());
             }
 
@@ -98,7 +98,7 @@ public class FamilyService {
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
 
-            if(f==null){
+            if (f == null) {
                 log.error("Family not found");
                 throw new EntityNotFoundException("Family not found");
             }
@@ -355,7 +355,7 @@ public class FamilyService {
                             "Family has been restored after 14 days. Reason: " + restoreReason, ip, userBrowser);
                 }
             } else {
-                family.setRestoredReason("Permitted before 14 days");
+                family.setRestoredReason("Restore permitted before 14 days");
                 log.info("Family {} has been restored by Employee {} before 14 days.", family.getId(), employee.getLogin());
             }
 
@@ -517,30 +517,14 @@ public class FamilyService {
     }
 
     //admin and lead and readonly
-    public Family getFamilyById(String login, Long familyId) {
-        validator.validateText(login, 255);
-        Employee e = employeeService.findByLogin(login);
-        if (e == null) {
-            log.error("Employee with login {} not found", login);
-            throw new RuntimeException("Employee with login: " + login + " not found");
-        }
-        int accessLevel = e.getRole().getAccessLevel();
-        if (accessLevel == 50) {
-           return familyRepository.getByAssignedEmployeeAndId(e, familyId).orElseThrow(() ->
-                    new RuntimeException("Access Denied for family with Id: " + familyId));
-        } else
-            return familyRepository.findById(familyId).orElseThrow(() ->
-                    new RuntimeException("Family with Id: " + familyId + " not found"));
+    public Family getFamilyById(Long familyId) {
+        return familyRepository.findById(familyId).orElseThrow(() ->
+                new RuntimeException("Family with Id: " + familyId + " not found"));
     }
 
     //admin and lead and readonly
-    public List<Family> getFamilies(String login) {
-        validator.validateText(login, 255);
-        int lvl = employeeService.findByLogin(login).getRole().getAccessLevel();
-        if (lvl == 100 || lvl == 80 || lvl == 10) {
-            return familyRepository.findAll();
-        }
-        return List.of();
+    public List<Family> getFamilies() {
+        return familyRepository.findAll();
     }
 
 

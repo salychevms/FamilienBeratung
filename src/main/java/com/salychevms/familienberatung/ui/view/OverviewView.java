@@ -115,7 +115,7 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
             return familyService.getFamiliesByAssignedEmployee(e.getLogin(), e)
                     .stream().filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList().size();
         }
-        return familyService.getFamilies(e.getLogin())
+        return familyService.getFamilies()
                 .stream().filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList().size();
     }
 
@@ -128,7 +128,7 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
                 if (!f.getStatus().equals(RecordStatus.INVALID))
                     consultations.addAll(consultationService.getConsultationsByFamily(f));
         } else {
-            families = familyService.getFamilies(e.getLogin());
+            families = familyService.getFamilies();
             for (Family f : families)
                 if (!f.getStatus().equals(RecordStatus.INVALID))
                     consultations.addAll(consultationService.getConsultationsByFamily(f));
@@ -145,7 +145,7 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
                 if (!f.getStatus().equals(RecordStatus.INVALID))
                     consultations.addAll(consultationService.getConsultationsByFamily(f));
         } else {
-            families = familyService.getFamilies(e.getLogin());
+            families = familyService.getFamilies();
             for (Family f : families)
                 if (!f.getStatus().equals(RecordStatus.INVALID))
                     consultations.addAll(consultationService.getConsultationsByFamily(f));

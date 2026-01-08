@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -93,7 +94,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
             delegations = delegationService.getDelegationsByToEmployee(currentEmployee);
             for (Delegation d : delegations)
                 if (!d.isExpired() && d.getEndDate().isAfter(LocalDate.now())) allFamilies.add(d.getFamily());
-        } else if (lvl == 100 || lvl == 80 || lvl == 10) allFamilies = familyService.getFamilies(employee.getLogin());
+        } else if (lvl == 100 || lvl == 80 || lvl == 10) allFamilies = familyService.getFamilies();
 
         if (!initialized) {
             initialized = true;
@@ -147,7 +148,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         searchField.setClearButtonVisible(true);
         searchField.setWidth("250px");
 
-        searchButton = new Button( VaadinIcon.SEARCH.create(), e -> applyFilters());
+        searchButton = new Button(VaadinIcon.SEARCH.create(), e -> applyFilters());
         resetButton = new Button(VaadinIcon.REFRESH.create(), e -> {
             searchField.clear();
             statusFilter.clear();
@@ -314,12 +315,18 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
             }
             return span;
         })).setHeader("Status").setAutoWidth(true).getFlexGrow();
+        familyGrid.addColumn(consultationService::getFamilyConsultationsCount)
+                .setHeader("Beratungen").setAutoWidth(true);
+        familyGrid.addColumn(f -> {
+            int minutes = consultationService.getDurationTimeMinutesForFamilyCount(f);
+            return String.format("%d:%02d", minutes / 60, minutes % 60);
+        }).setHeader("Gesamt St.").setAutoWidth(true);
         familyGrid.addColumn(f -> isDelegated(f) ? "Ja" : "")
                 .setHeader("Delegiert").setAutoWidth(true);
         familyGrid.addItemClickListener(e -> {
             Family family = e.getItem();
             getUI().ifPresent(ui -> ui.navigate(FamilyDetailsView.class,
-                    new RouteParameters("id",family.getId().toString())));
+                    new RouteParameters("id", family.getId().toString())));
         });
         add(familyGrid);
     }
@@ -328,7 +335,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         int lvl = accessLevel;
         List<Family> result = new ArrayList<>();
         if (lvl == 100 || lvl == 80 || lvl == 10) {
-            List<Family> all = familyService.getFamilies(currentEmployee.getLogin());
+            List<Family> all = familyService.getFamilies();
             for (Family f : all) {
                 if (!f.getStatus().equals(RecordStatus.INVALID)) result.add(f);
             }
@@ -347,7 +354,10 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
     }
 
     private void applyFilters() {
-        List<Family> filtered = new ArrayList<>(allFamilies);
+        List<Family> filtered = new ArrayList<>();
+        for (Family f : allFamilies) {
+            if (!f.getStatus().equals(RecordStatus.INVALID)) filtered.add(f);
+        }
 
         Employee employee = employeeFilter.getValue();
         RecordStatus status = statusFilter.getValue();
@@ -441,7 +451,9 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         trashGrid.addColumn(Family::getInvalidBy).setHeader("Wer gelöscht").setAutoWidth(true).setFlexGrow(0);
         trashGrid.addColumn(f -> {
             if (f.getInvalidAt() != null) {
-                return f.getInvalidAt().toString();
+                LocalDateTime dt = f.getInvalidAt();
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+                return dt.format(fmt) + " Uhr";
             }
             return "";
         }).setHeader("Ungültigt seit").setAutoWidth(true).setFlexGrow(0);
@@ -522,7 +534,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                     trashGrid.setItems(loadTrashFamilies());
                     confirm.close();
                     Notification.show("Familie wurde wiederhergestellt", 3000, Notification.Position.MIDDLE);
-                    getUI().ifPresent(ui->ui.getPage().reload());
+                    getUI().ifPresent(ui -> ui.getPage().reload());
                 } catch (Exception ex) {
                     confirm.close();
                     Notification.show("Fehler" + ex.getMessage(), 3000, Notification.Position.MIDDLE);
@@ -743,16 +755,16 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                 Button no = new Button("Nein", f -> {
                     askContact.close();
                     showCreateConfirmDialog(dialog, zeusId.getValue(), familyName.getValue(), street.getValue(),
-                            houseNumber.getValue(), zip.getValue(),city.getValue(), phone.getValue(), email.getValue(),
-                            citizenship.getValue(), languages.getValue(), reason.getValue(),notes.getValue(), finalEmp[0]);
+                            houseNumber.getValue(), zip.getValue(), city.getValue(), phone.getValue(), email.getValue(),
+                            citizenship.getValue(), languages.getValue(), reason.getValue(), notes.getValue(), finalEmp[0]);
                 });
                 askContact.getFooter().add(yes, no);
                 askContact.open();
                 return;
             }
             showCreateConfirmDialog(dialog, zeusId.getValue(), familyName.getValue(), street.getValue(),
-                    houseNumber.getValue(), zip.getValue(),city.getValue(), phone.getValue(), email.getValue(),
-                    citizenship.getValue(), languages.getValue(), reason.getValue(),notes.getValue(), finalEmp[0]);
+                    houseNumber.getValue(), zip.getValue(), city.getValue(), phone.getValue(), email.getValue(),
+                    citizenship.getValue(), languages.getValue(), reason.getValue(), notes.getValue(), finalEmp[0]);
         });
         HorizontalLayout buttons = new HorizontalLayout(save, cancel);
         buttons.setWidthFull();
@@ -811,7 +823,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         List<Family> result = new ArrayList<>();
 
         if (lvl == 100 || lvl == 80) {
-            source = familyService.getFamilies(login);
+            source = familyService.getFamilies();
             for (Family f : source)
                 if (f.getStatus().equals(RecordStatus.INVALID)) result.add(f);
         } else if (lvl == 50) {

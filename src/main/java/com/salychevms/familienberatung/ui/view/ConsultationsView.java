@@ -1,11 +1,8 @@
 package com.salychevms.familienberatung.ui.view;
 
-import com.salychevms.familienberatung.model.Employee;
-import com.salychevms.familienberatung.service.AuthService;
-import com.salychevms.familienberatung.service.EmployeeService;
-import com.salychevms.familienberatung.service.FamilyService;
+import com.salychevms.familienberatung.model.*;
+import com.salychevms.familienberatung.service.*;
 import com.salychevms.familienberatung.ui.layout.MainLayout;
-import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
@@ -15,6 +12,8 @@ import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -26,9 +25,15 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
     private final AuthService authService;
     private final FamilyService familyService;
     private final EmployeeService employeeService;
+    private final ConsultationService consultationService;
+    private final DelegationService delegationService;
 
     private Long familyId;
     private Employee currentEmployee;
+    private int lvl;
+    private List<Delegation> delegations = new ArrayList<>();
+    private List<Consultation> consultations = new ArrayList<>();
+    private boolean initialized = false;
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
@@ -38,31 +43,32 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
             return;
         }
 
-        currentEmployee=employeeService.findByLogin(e.getLogin());
+        this.currentEmployee = employeeService.findByLogin(e.getLogin());
+        this.lvl = currentEmployee.getRole().getAccessLevel();
 
         Optional<Long> fam = event.getRouteParameters().getLong("familyId");
         this.familyId = fam.orElse(null);
 
-        buildUI(e);
+        if (lvl == 50) this.delegations = delegationService.getDelegationsByToEmployee(currentEmployee);
+        else this.delegations = delegationService.getDelegations();
+
+        if (lvl == 50) {
+            List<Consultation> cList = consultationService.getAll();
+            for (Consultation c : cList) {
+                if ((c.getEmployee().equals(currentEmployee)
+                        || c.getFamily().getAssignedEmployee().equals(currentEmployee))
+                        && (!c.isInvalid() && !c.getFamily().getStatus().equals(RecordStatus.INVALID)))
+                    this.consultations.add(c);
+            }
+        } else this.consultations = consultationService.getAll();
+
+        if (!initialized) {
+            initialized = true;
+            buildUI();
+        }
     }
 
-    private void buildUI(Employee e) {
-        setPadding(true);
-        setSpacing(true);
+    private void buildUI() {
 
-        String mode;
-
-        if (familyId != null) {
-            mode = "Modus: Beratungen der Familie: " +
-                    familyService.getFamilyById(currentEmployee.getLogin(), familyId).getFamilyName();
-        } else if (e.getRole().getAccessLevel() == 50) {
-            mode = "Modus: Alle Beratungen für: "+currentEmployee.getLogin()+
-                    " : "+currentEmployee.getFirstName()+" "+currentEmployee.getLastName();
-        } else {
-            mode = "Modus: Alle Beratungen";
-        }
-
-        add(new Span("Consultation view is still in development..."));
-        add(new Span(mode));
     }
 }
