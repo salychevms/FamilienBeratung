@@ -170,7 +170,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                     }
 
                     showConfirmDialog("Speichern", "Änderunge speichern?", () -> {
-                        Family f = new Family(currentFamily);
+                        Family f = familyService.getFamilyById(currentFamily.getId());
                         f.setFamilyName(newName);
 
                         VaadinRequest req = VaadinRequest.getCurrent();
@@ -373,7 +373,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                         }
 
                         showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
-                            Family f = new Family(currentFamily);
+                            Family f = familyService.getFamilyById(currentFamily.getId());
                             f.setPhone((String) values.get("phone"));
                             f.setEmail((String) values.get("email"));
 
@@ -443,7 +443,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                             return;
                         }
                         showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
-                            Family f = new Family(currentFamily);
+                            Family f = familyService.getFamilyById(currentFamily.getId());
                             f.setStreet(street);
                             f.setHouseNumber(houseNumber);
                             f.setZip(zip);
@@ -524,7 +524,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                             return;
                         }
                         showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
-                            Family f = new Family(currentFamily);
+                            Family f = familyService.getFamilyById(currentFamily.getId());
                             f.setCitizenship(citizenship);
                             f.setLanguages(languages);
                             VaadinRequest req = VaadinRequest.getCurrent();
@@ -573,7 +573,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                             return;
                         }
                         showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
-                            Family f = new Family(currentFamily);
+                            Family f = familyService.getFamilyById(currentFamily.getId());
                             f.setReasonDescription(reason);
                             VaadinRequest req = VaadinRequest.getCurrent();
                             familyService.updateFamily(f, currentEmployee.getLogin(),
@@ -622,7 +622,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                                     return;
                                 }
                                 showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
-                                    Family f = new Family(currentFamily);
+                                    Family f = familyService.getFamilyById(currentFamily.getId());
                                     f.setNotes(notes);
                                     VaadinRequest req = VaadinRequest.getCurrent();
                                     familyService.updateFamily(f, currentEmployee.getLogin(),
@@ -729,7 +729,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                         }
                         showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
                             VaadinRequest req = VaadinRequest.getCurrent();
-                            Family f = new Family(currentFamily);
+                            Family f = familyService.getFamilyById(currentFamily.getId());
                             f.setZeusId(zeusID);
                             familyService.updateFamily(f, currentEmployee.getLogin(),
                                     req != null ? req.getRemoteAddr() : "UNKNOWN",
