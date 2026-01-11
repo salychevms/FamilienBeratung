@@ -6,6 +6,7 @@ import com.salychevms.familienberatung.ui.view.*;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Span;
@@ -66,12 +67,23 @@ public class MainLayout extends AppLayout {
         Employee e = authService.getCurrentEmployee();
         int lvl = (e != null) ? e.getRole().getAccessLevel() : 0;
 
-        RouterLink overview = new RouterLink("Übersicht", OverviewView.class);
-        overview.setHighlightCondition(HighlightConditions.sameLocation());
+        Button overview = new Button("Übersicht",
+                event->UI.getCurrent().navigate("overview"));
+        overview.setWidthFull();
+        overview.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         menu.add(overview);
 
-        menu.add(new RouterLink("Familien", FamiliesView.class));
-        menu.add(new RouterLink("Beratungen", ConsultationsView.class));
+        Button families=new Button("Familien",
+                event->UI.getCurrent().navigate("families"));
+        families.setWidthFull();
+        families.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        menu.add(families);
+
+        Button consultations=new Button("Beratungen",
+                event->UI.getCurrent().navigate(ConsultationsView.class));
+        consultations.setWidthFull();
+        consultations.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        menu.add(consultations);
         /*menu.add(new RouterLink("Delegationen", DelegationsView.class));
         menu.add(new RouterLink("Dokumente", DocumentsView.class));
         if (lvl >= 80) menu.add(new RouterLink("Mitarbeiter", EmployeesView.class));
