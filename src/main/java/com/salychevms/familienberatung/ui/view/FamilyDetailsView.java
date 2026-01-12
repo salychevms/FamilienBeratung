@@ -1478,7 +1478,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
     private List<String> validateConsultationForm(LocalDateTime dateTime, Integer durationMinutes) {
         List<String> errors = new ArrayList<>();
 
-        if (dateTime == null) errors.add("Datum und Uhryeit müssen angegeben werden.");
+        if (dateTime == null) errors.add("Datum und Uhrzeit müssen angegeben werden.");
         if (durationMinutes == null || durationMinutes <= 0) errors.add("Dauer muss größer als 0 sein");
         if (durationMinutes != null && durationMinutes > 480)
             errors.add("Dauer muss nicht mehr als 480 Min bzw. 8 St. sein");

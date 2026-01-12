@@ -45,9 +45,6 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
     private Employee currentEmployee;
     private int accessLevel;
-    private List<Family> families;
-
-    private Span breadcrumbs;
 
     private TextField searchField;
     private Button searchButton;
@@ -133,7 +130,6 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
         bcrumbs.add(root, separator, current);
         add(bcrumbs);
-        this.breadcrumbs = current;
     }
 
     private void buildTopBar() {
@@ -448,7 +444,10 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
             span.getStyle().set("color", "grey").set("font-weight", "bold");
             return span;
         })).setHeader("Status").setAutoWidth(true).getFlexGrow();
-        trashGrid.addColumn(Family::getInvalidBy).setHeader("Wer gelöscht").setAutoWidth(true).setFlexGrow(0);
+        trashGrid.addColumn(f->{
+            Employee e=employeeService.findByLogin(f.getInvalidBy());
+            return e.getFirstName()+" "+e.getLastName();
+        }).setHeader("Gelöscht von").setAutoWidth(true).setFlexGrow(0);
         trashGrid.addColumn(f -> {
             if (f.getInvalidAt() != null) {
                 LocalDateTime dt = f.getInvalidAt();
@@ -456,7 +455,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                 return dt.format(fmt) + " Uhr";
             }
             return "";
-        }).setHeader("Ungültigt seit").setAutoWidth(true).setFlexGrow(0);
+        }).setHeader("Gelöscht am").setAutoWidth(true).setFlexGrow(0);
         if (currentEmployee.getRole().getAccessLevel() == 50) {
             trashGrid.addColumn(new ComponentRenderer<>(f -> {
                 Span span = new Span();
@@ -556,7 +555,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         bottom.setJustifyContentMode(JustifyContentMode.END);
 
         dialog.add(new VerticalLayout(trashGrid, bottom));
-        dialog.setWidth("900px");
+        dialog.setWidth("1100px");
         dialog.setHeight("550px");
         dialog.setModal(true);
         dialog.setDraggable(false);
