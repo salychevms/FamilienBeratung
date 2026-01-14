@@ -81,11 +81,7 @@ public class FamilyMemberService {
         return saved;
     }
 
-    public FamilyMember updateMember(Family family, FamilyMember member, String firstName, String lastName, FamilyMemberGender gender,
-                                     LocalDate birthDate, String birthCity, String birthCountry, String nationality,
-                                     String languages, boolean livesWithFamily, String income, String workInfo,
-                                     String educationDegree, String educationInfo, String notes, String phone,
-                                     String email, String updatedBy, String ip, String userBrowser) {
+    public FamilyMember updateMember(Family family, FamilyMember currentMember, FamilyMember updated, String updatedBy, String ip, String userBrowser) {
         if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
             log.error("Failed to update FamilyMember: {}, because Family hasn't status ACTIVE. Family status: {}",
                     family.getId(), family.getStatus());
@@ -98,53 +94,53 @@ public class FamilyMemberService {
             throw new RuntimeException("Access Denied for " + updatedBy);
         }
 
-        if (!member.getFamily().equals(family)) {
-            log.error("FamilyMember {} does not match Family {}", member, family.getId());
-            throw new RuntimeException("FamilyMember " + member.getId() +
+        if (!currentMember.getFamily().equals(family)) {
+            log.error("FamilyMember {} does not match Family {}", currentMember, family.getId());
+            throw new RuntimeException("FamilyMember " + currentMember.getId() +
                     " does not match FamilyMember " + family.getId());
         }
 
-        if (member.isInvalid()) {
-            log.error("FamilyMember {} is invalid", member.getId());
+        if (currentMember.isInvalid()) {
+            log.error("FamilyMember {} is invalid", currentMember.getId());
             throw new RuntimeException("FamilyMember is invalid");
         }
 
-        validator.validateText(firstName, 255);
-        validator.validateText(lastName, 255);
-        validator.validateBirthday(birthDate);
-        validator.validateText(birthCity, 255);
-        validator.validateText(birthCountry, 255);
-        validator.validateText(nationality, 255);
-        validator.validateText(languages, 255);
-        validator.validateText(income, 255);
-        validator.validateText(workInfo, 4000);
-        validator.validateText(educationDegree, 255);
-        validator.validateText(educationInfo, 4000);
-        validator.validateText(notes, 1000);
-        validator.validateEmail(email);
+        validator.validateText(updated.getFirstName(), 255);
+        validator.validateText(updated.getLastName(), 255);
+        validator.validateBirthday(updated.getBirthDate());
+        validator.validateText(updated.getBirthCity(), 255);
+        validator.validateText(updated.getBirthCountry(), 255);
+        validator.validateText(updated.getNationality(), 255);
+        validator.validateText(updated.getLanguages(), 255);
+        validator.validateText(updated.getIncome(), 255);
+        validator.validateText(updated.getWorkInfo(), 4000);
+        validator.validateText(updated.getEducationDegree(), 255);
+        validator.validateText(updated.getEducationInfo(), 4000);
+        validator.validateText(updated.getNotes(), 1000);
+        validator.validateEmail(updated.getEmail());
 
-        member.setFirstName(firstName);
-        member.setLastName(lastName);
-        member.setGender(gender);
-        member.setBirthDate(birthDate);
-        member.setBirthCity(birthCity);
-        member.setBirthCountry(birthCountry);
-        member.setNationality(nationality);
-        member.setLanguages(languages);
-        member.setLivesWithFamily(livesWithFamily);
-        member.setIncome(income);
-        member.setWorkInfo(workInfo);
-        member.setEducationDegree(educationDegree);
-        member.setEducationInfo(educationInfo);
-        member.setNotes(notes);
-        member.setPhone(phone);
-        member.setEmail(email);
-        member.setUpdatedBy(updatedBy);
-        member.setUpdatedAt(LocalDateTime.now());
+        currentMember.setFirstName(updated.getFirstName());
+        currentMember.setLastName(updated.getLastName());
+        currentMember.setGender(updated.getGender());
+        currentMember.setBirthDate(updated.getBirthDate());
+        currentMember.setBirthCity(updated.getBirthCity());
+        currentMember.setBirthCountry(updated.getBirthCountry());
+        currentMember.setNationality(updated.getNationality());
+        currentMember.setLanguages(updated.getLanguages());
+        currentMember.setLivesWithFamily(updated.isLivesWithFamily());
+        currentMember.setIncome(updated.getIncome());
+        currentMember.setWorkInfo(updated.getWorkInfo());
+        currentMember.setEducationDegree(updated.getEducationDegree());
+        currentMember.setEducationInfo(updated.getEducationInfo());
+        currentMember.setNotes(updated.getNotes());
+        currentMember.setPhone(updated.getPhone());
+        currentMember.setEmail(updated.getEmail());
+        currentMember.setUpdatedBy(updatedBy);
+        currentMember.setUpdatedAt(LocalDateTime.now());
 
-        FamilyMember saved = familyMemberRepository.save(member);
+        FamilyMember saved = familyMemberRepository.save(currentMember);
 
-        accessLog.log(updatedBy, "FAMILY_MEMBER_UPDATE", "FamilyMember", member.getId(),
+        accessLog.log(updatedBy, "FAMILY_MEMBER_UPDATE", "FamilyMember", currentMember.getId(),
                 "FamilyMember updated", ip, userBrowser);
         log.info("FamilyMember Id: {} updated by {}", saved.getId(), updatedBy);
         return saved;

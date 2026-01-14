@@ -10,6 +10,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
@@ -60,8 +61,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
     private ComboBox<String> closedFilter;
     private ComboBox<String> delegatedFilter;
     private ComboBox<Employee> employeeFilter;
-    private ComboBox<String> sortFilter;
-    private VerticalLayout filterLayout;
+    private HorizontalLayout filterLayout;
 
     private Grid<Family> familyGrid;
 
@@ -105,6 +105,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         setSpacing(true);
 
         buildBreadcrumbs();
+        buildTitle();
         buildFilters();
         buildTopBar();
         buildGrid();
@@ -130,6 +131,28 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
         bcrumbs.add(root, separator, current);
         add(bcrumbs);
+    }
+
+    private void buildTitle() {
+        VerticalLayout content = new VerticalLayout();
+        content.setSpacing(false);
+        content.setPadding(false);
+        content.setWidthFull();
+
+        HorizontalLayout title = new HorizontalLayout();
+        title.setSpacing(false);
+        title.setPadding(false);
+        title.setWidthFull();
+
+        H2 titleText = new H2("Familien");
+        titleText.getStyle().set("margin-bottom", "0");
+        title.add(titleText);
+
+        Employee e = employeeService.findByLogin(currentEmployee.getLogin());
+        Span emp = new Span(e.getRole().getLabel() + ": " + e.getFirstName() + " " + e.getLastName());
+
+        content.add(title, emp);
+        add(content);
     }
 
     private void buildTopBar() {
@@ -212,8 +235,8 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
     }
 
     private void buildFilters() {
-        filterLayout = new VerticalLayout();
-        filterLayout.setWidthFull();
+        filterLayout = new HorizontalLayout();
+        filterLayout.setAlignItems(Alignment.START);
         filterLayout.setSpacing(true);
         filterLayout.setPadding(true);
         filterLayout.getStyle().set("background-color", "#fff3cd")
@@ -221,59 +244,82 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                 .set("border-radius", "6px");
         filterLayout.setVisible(false);
 
+        VerticalLayout empLayout = new VerticalLayout();
+        empLayout.setSpacing(false);
+        empLayout.setPadding(false);
+        empLayout.setWidthFull();
+
+        VerticalLayout statusLayout = new VerticalLayout();
+        statusLayout.setSpacing(false);
+        statusLayout.setPadding(false);
+        statusLayout.setWidthFull();
+
+        VerticalLayout caseCloseLayout = new VerticalLayout();
+        caseCloseLayout.setSpacing(false);
+        caseCloseLayout.setPadding(false);
+        caseCloseLayout.setWidthFull();
+
+        VerticalLayout delegatedLayout = new VerticalLayout();
+        delegatedLayout.setSpacing(false);
+        delegatedLayout.setPadding(false);
+        delegatedLayout.setWidthFull();
+
         Span statusLabel = new Span("Status:");
+        statusLabel.getStyle().set("margin-bottom", "0");
         statusLabel.getStyle().set("font-weight", "bold");
 
         ComboBox<RecordStatus> statusFilter = new ComboBox<>();
         statusFilter.setItems(RecordStatus.ACTIVE, RecordStatus.ARCHIVED, RecordStatus.BLOCKED);
         statusFilter.setPlaceholder("Status wählen...");
         statusFilter.setClearButtonVisible(true);
+        statusFilter.getStyle().set("margin-bottom", "0");
         this.statusFilter = statusFilter;
 
-        Span closeLabel = new Span("Case closed:");
+        statusLayout.add(statusLabel, statusFilter);
+
+        Span closeLabel = new Span("Ablauf abgeschlossen:");
+        closeLabel.getStyle().set("margin-bottom", "0");
         closeLabel.getStyle().set("font-weight", "bold");
 
         ComboBox<String> closedFilter = new ComboBox<>();
         closedFilter.setItems("Ja", "Nein", "Alle");
         closedFilter.setPlaceholder("Alle");
         closedFilter.setClearButtonVisible(true);
+        closedFilter.getStyle().set("margin-bottom", "0");
         this.closedFilter = closedFilter;
 
+        caseCloseLayout.add(closeLabel, closedFilter);
+
         Span delegatedLabel = new Span("Delegiert:");
+        delegatedLabel.getStyle().set("margin-bottom", "0");
         delegatedLabel.getStyle().set("font-weight", "bold");
 
         ComboBox<String> delegatedFilter = new ComboBox<>();
         delegatedFilter.setItems("Ja", "Nein", "Alle");
         delegatedFilter.setPlaceholder("Alle");
         delegatedFilter.setClearButtonVisible(true);
+        delegatedFilter.getStyle().set("margin-bottom", "0");
         this.delegatedFilter = delegatedFilter;
+
+        delegatedLayout.add(delegatedLabel, delegatedFilter);
 
         if (accessLevel != 50) {
             Span employeeLabel = new Span("Berater*in:");
+            employeeLabel.getStyle().set("margin-bottom", "0");
             employeeLabel.getStyle().set("font-weight", "bold");
             ComboBox<Employee> employeeFilter = new ComboBox<>();
             employeeFilter.setItems(employeeService.findAll());
             employeeFilter.setItemLabelGenerator(emp -> emp.getFirstName() + " " + emp.getLastName());
             employeeFilter.setPlaceholder("Mitarbeiter*in wählen:");
             employeeFilter.setClearButtonVisible(true);
+            employeeFilter.getStyle().set("margin-bottom", "0");
             this.employeeFilter = employeeFilter;
 
-            filterLayout.add(employeeLabel, employeeFilter);
+            empLayout.add(employeeLabel, employeeFilter);
+            filterLayout.add(empLayout);
         }
 
-        Span sortLabel = new Span("Sortierung:");
-        sortLabel.getStyle().set("font-weight", "bold");
-
-        ComboBox<String> sortFilter = new ComboBox<>();
-        sortFilter.setItems("Name A-Z", "Name Z-A", "Neu zuerst", "Alt zuerst", "Nach Berater*in", "Nach Status");
-        sortFilter.setPlaceholder("Sortierung wählen");
-        sortFilter.setClearButtonVisible(true);
-        this.sortFilter = sortFilter;
-
-        filterLayout.add(statusLabel, statusFilter,
-                closeLabel, closedFilter,
-                delegatedLabel, delegatedFilter,
-                sortLabel, sortFilter);
+        filterLayout.add(statusLayout,  caseCloseLayout, delegatedLayout);
         add(filterLayout);
     }
 
@@ -281,44 +327,68 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         familyGrid = new Grid<>(Family.class, false);
         familyGrid.setWidthFull();
         familyGrid.setHeight("100%");
-        familyGrid.addColumn(Family::getId).setHeader("ID").setWidth("70px").setFlexGrow(0);
+
+        familyGrid.addColumn(Family::getId).setHeader("ID").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Family::getId);
+
         familyGrid.addColumn(new ComponentRenderer<>(f -> {
-            String zeusId = f.getZeusId();
-            Span span = new Span();
-            if (zeusId == null || zeusId.isBlank()) {
-                span.setText("kein");
-                span.getStyle().set("color", "red").set("font-weight", "bold");
-            } else span.setText(zeusId);
-            return span;
-        })).setHeader("Zeus ID").setAutoWidth(true).setFlexGrow(0);
-        familyGrid.addColumn(Family::getFamilyName).setHeader("Familienname").setAutoWidth(true).setFlexGrow(0);
-        familyGrid.addColumn(f -> f.isCaseClosed() ? "geschlossen" : "öffen").setHeader("Ablauf").setAutoWidth(true);
+                    String zeusId = f.getZeusId();
+                    Span span = new Span();
+                    if (zeusId == null || zeusId.isBlank()) {
+                        span.setText("kein");
+                        span.getStyle().set("color", "red").set("font-weight", "bold");
+                    } else span.setText(zeusId);
+                    return span;
+                })).setHeader("Zeus ID").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(f -> {
+                    String zeusId = f.getZeusId();
+                    return zeusId == null ? "" : zeusId;
+                });
+
+        familyGrid.addColumn(Family::getFamilyName)
+                .setHeader("Familienname").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Family::getFamilyName);
+
+        familyGrid.addColumn(f -> f.isCaseClosed() ? "geschlossen" : "öffen")
+                .setHeader("Ablauf").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Family::isCaseClosed);
+
         familyGrid.addColumn(f -> f.getAssignedEmployee() != null
                         ? f.getAssignedEmployee().getFirstName() + " " + f.getAssignedEmployee().getLastName() : "-")
-                .setHeader("Berater*in").setAutoWidth(true).setFlexGrow(0);
+                .setHeader("Berater*in").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(f -> f.getAssignedEmployee() != null ? f.getAssignedEmployee().getFirstName() : "-");
+
         familyGrid.addColumn(new ComponentRenderer<>(f -> {
-            RecordStatus status = f.getStatus();
-            Span span = new Span();
-            if (status == RecordStatus.ARCHIVED) {
-                span.setText("ARCHIV");
-                span.getStyle().set("color", "#b58900").set("font-weight", "bold");
-            } else if (status == RecordStatus.BLOCKED) {
-                span.setText("BLOCKIET");
-                span.getStyle().set("color", "red").set("font-weight", "bold");
-            } else if (status == RecordStatus.ACTIVE) {
-                span.setText("AKTIV");
-                span.getStyle().set("color", "green").set("font-weight", "bold");
-            }
-            return span;
-        })).setHeader("Status").setAutoWidth(true).getFlexGrow();
+                    RecordStatus status = f.getStatus();
+                    Span span = new Span();
+                    if (status == RecordStatus.ARCHIVED) {
+                        span.setText("ARCHIV");
+                        span.getStyle().set("color", "#b58900").set("font-weight", "bold");
+                    } else if (status == RecordStatus.BLOCKED) {
+                        span.setText("BLOCKIET");
+                        span.getStyle().set("color", "red").set("font-weight", "bold");
+                    } else if (status == RecordStatus.ACTIVE) {
+                        span.setText("AKTIV");
+                        span.getStyle().set("color", "green").set("font-weight", "bold");
+                    }
+                    return span;
+                })).setHeader("Status").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Family::getStatus);
+
         familyGrid.addColumn(consultationService::getFamilyConsultationsCount)
-                .setHeader("Beratungen").setAutoWidth(true);
+                .setHeader("Beratungen").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(consultationService::getFamilyConsultationsCount);
+
         familyGrid.addColumn(f -> {
-            int minutes = consultationService.getDurationTimeMinutesForFamilyCount(f);
-            return String.format("%d:%02d", minutes / 60, minutes % 60);
-        }).setHeader("Gesamt St.").setAutoWidth(true);
+                    int minutes = consultationService.getDurationTimeMinutesForFamilyCount(f);
+                    return String.format("%d:%02d", minutes / 60, minutes % 60);
+                }).setHeader("Gesamt St.").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(consultationService::getDurationTimeMinutesForFamilyCount);
+
         familyGrid.addColumn(f -> isDelegated(f) ? "Ja" : "")
-                .setHeader("Delegiert").setAutoWidth(true);
+                .setHeader("Delegiert").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(this::isDelegated);
+
         familyGrid.addItemClickListener(e -> {
             Family family = e.getItem();
             getUI().ifPresent(ui -> ui.navigate(FamilyDetailsView.class,
@@ -359,7 +429,6 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         RecordStatus status = statusFilter.getValue();
         String caseClosed = closedFilter.getValue();
         String onlyDelegated = delegatedFilter.getValue();
-        String sort = sortFilter.getValue();
 
         String search = searchField.getValue();
 
@@ -393,23 +462,6 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
         }
 
-        if (sort != null && !sort.isEmpty()) {
-            switch (sort) {
-                case "Name A-Z" -> filtered.sort(Comparator.comparing(Family::getFamilyName,
-                        Comparator.nullsLast(String::compareToIgnoreCase)));
-                case "Name Z-A" -> filtered.sort(Comparator.comparing(Family::getFamilyName,
-                        Comparator.nullsLast(String::compareToIgnoreCase)).reversed());
-                case "Neu zuerst" -> filtered.sort(Comparator.comparing(Family::getCreatedAt,
-                        Comparator.nullsLast(LocalDateTime::compareTo)).reversed());
-                case "Alt zuerst" -> filtered.sort(Comparator.comparing(Family::getCaseClosedAt,
-                        Comparator.nullsLast(LocalDateTime::compareTo)));
-                case "Nach Berater*in" -> filtered.sort(Comparator.comparing(f -> {
-                    if (f.getAssignedEmployee() != null) return "";
-                    return f.getAssignedEmployee().getLastName();
-                }, Comparator.nullsLast(String::compareToIgnoreCase)));
-                case "Nach Status" -> filtered.sort(Comparator.comparing(f -> f.getStatus().name()));
-            }
-        }
         familyGrid.setItems(filtered);
     }
 
@@ -423,57 +475,88 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         trashGrid.setWidthFull();
         trashGrid.setHeight("400px");
 
-        trashGrid.addColumn(Family::getId).setHeader("ID").setWidth("70px").setFlexGrow(0);
+        trashGrid.addColumn(Family::getId)
+                .setHeader("ID").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Family::getId);
         trashGrid.addColumn(new ComponentRenderer<>(f -> {
-            String zeusId = f.getZeusId();
-            Span span = new Span();
-            if (zeusId == null || zeusId.isBlank()) {
-                span.setText("kein");
-                span.getStyle().set("color", "red").set("font-weight", "bold");
-            } else span.setText(zeusId);
-            return span;
-        })).setHeader("Zeus ID").setAutoWidth(true).setFlexGrow(0);
-        trashGrid.addColumn(Family::getFamilyName).setHeader("Familienname").setAutoWidth(true).setFlexGrow(0);
-        trashGrid.addColumn(f -> f.isCaseClosed() ? "Schluss" : "läuft").setHeader("Ablauf").setAutoWidth(true);
+                    String zeusId = f.getZeusId();
+                    Span span = new Span();
+                    if (zeusId == null || zeusId.isBlank()) {
+                        span.setText("kein");
+                        span.getStyle().set("color", "red").set("font-weight", "bold");
+                    } else span.setText(zeusId);
+                    return span;
+                })).setHeader("Zeus ID").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(f -> {
+                    String zeusId = f.getZeusId();
+                    return zeusId == null ? "" : zeusId;
+                });
+        trashGrid.addColumn(Family::getFamilyName)
+                .setHeader("Familienname").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Family::getFamilyName);
+
+        trashGrid.addColumn(f -> f.isCaseClosed() ? "Schluss" : "läuft")
+                .setHeader("Ablauf").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Family::isCaseClosed);
+
         trashGrid.addColumn(f -> f.getAssignedEmployee() != null
                         ? f.getAssignedEmployee().getFirstName() + " " + f.getAssignedEmployee().getLastName() : "-")
-                .setHeader("Berater*in").setAutoWidth(true).setFlexGrow(0);
+                .setHeader("Berater*in").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(f -> f.getAssignedEmployee().getFirstName() + " " +
+                        f.getAssignedEmployee().getLastName());
+
         trashGrid.addColumn(new ComponentRenderer<>(f -> {
-            Span span = new Span();
-            span.setText(f.getStatus().name());
-            span.getStyle().set("color", "grey").set("font-weight", "bold");
-            return span;
-        })).setHeader("Status").setAutoWidth(true).getFlexGrow();
-        trashGrid.addColumn(f->{
-            Employee e=employeeService.findByLogin(f.getInvalidBy());
-            return e.getFirstName()+" "+e.getLastName();
-        }).setHeader("Gelöscht von").setAutoWidth(true).setFlexGrow(0);
+                    Span span = new Span();
+                    span.setText(f.getStatus().name());
+                    span.getStyle().set("color", "grey").set("font-weight", "bold");
+                    return span;
+                })).setHeader("Status").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Family::getStatus);
+
         trashGrid.addColumn(f -> {
-            if (f.getInvalidAt() != null) {
-                LocalDateTime dt = f.getInvalidAt();
-                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
-                return dt.format(fmt) + " Uhr";
-            }
-            return "";
-        }).setHeader("Gelöscht am").setAutoWidth(true).setFlexGrow(0);
+                    Employee e = employeeService.findByLogin(f.getInvalidBy());
+                    return e.getFirstName() + " " + e.getLastName();
+                }).setHeader("Gelöscht von").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(f -> {
+                    Employee e = employeeService.findByLogin(f.getInvalidBy());
+                    return e.getFirstName() + " " + e.getLastName();
+                });
+
+        trashGrid.addColumn(f -> {
+                    if (f.getInvalidAt() != null) {
+                        LocalDateTime dt = f.getInvalidAt();
+                        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+                        return dt.format(fmt);
+                    }
+                    return "";
+                }).setHeader("Gelöscht am").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(f -> {
+                    LocalDateTime dt = f.getInvalidAt();
+                    return dt == null ? "" : dt.toString();
+                });
+
         if (currentEmployee.getRole().getAccessLevel() == 50) {
             trashGrid.addColumn(new ComponentRenderer<>(f -> {
-                Span span = new Span();
-                if (f.getInvalidAt() != null) {
-                    long days = Duration.between(f.getInvalidAt(), LocalDateTime.now()).toDays();
-                    int left = 14 - (int) days;
-                    span = new Span(String.valueOf(left));
-                    if (left <= 4) {
-                        span.getStyle().set("color", "red").set("font-weight", "bold");
-                    } else {
-                        span.getStyle().set("color", "black").set("font-weight", "bold");
-                    }
-                } else {
-                    span.setText("kA");
-                    span.getStyle().set("color", "red").set("font-weight", "bold");
-                }
-                return span;
-            })).setHeader("Noch verfügbar").setAutoWidth(true).setFlexGrow(0);
+                        Span span = new Span();
+                        if (f.getInvalidAt() != null) {
+                            long days = Duration.between(f.getInvalidAt(), LocalDateTime.now()).toDays();
+                            int left = 14 - (int) days;
+                            span = new Span(String.valueOf(left));
+                            if (left <= 4) {
+                                span.getStyle().set("color", "red").set("font-weight", "bold");
+                            } else {
+                                span.getStyle().set("color", "black").set("font-weight", "bold");
+                            }
+                        } else {
+                            span.setText("kA");
+                            span.getStyle().set("color", "red").set("font-weight", "bold");
+                        }
+                        return span;
+                    })).setHeader("Noch verfügbar").setAutoWidth(true).setFlexGrow(0)
+                    .setComparator(f -> {
+                        LocalDateTime dt = f.getInvalidAt();
+                        return dt == null ? "" : dt.toString();
+                    });
         }
 
         trashGrid.setItems(trashFamilies);

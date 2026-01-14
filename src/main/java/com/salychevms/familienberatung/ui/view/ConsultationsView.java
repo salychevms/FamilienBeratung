@@ -18,6 +18,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.VaadinRequest;
 import jakarta.annotation.security.PermitAll;
@@ -29,7 +30,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -52,7 +52,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
     private List<Employee> currentEmployees = new ArrayList<>();
     private LocalDate dateFrom = null;
     private LocalDate dateTo = null;
-    private VerticalLayout filterLayout;
+    private HorizontalLayout filterLayout;
     private boolean filterVisible = false;
     private Button searchButton;
     private Button resetButton;
@@ -63,7 +63,6 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
     ComboBox<Employee> employeeFilter;
     private DatePicker fromDate;
     private DatePicker toDate;
-    private ComboBox<String> sortFilter;
     private Grid<Consultation> consultationGrid;
     private Family selectedFamily;
 
@@ -112,8 +111,10 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         setSpacing(true);
 
         buildBreadCrumbs();
+        buildTitle();
         buildTopBar();
         buildFilters();
+        buildActionButtons();
         buildGrid();
         refreshGrid();
     }
@@ -155,6 +156,35 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         add(bcrumbs);
     }
 
+    private void buildTitle(){
+        VerticalLayout content = new VerticalLayout();
+        content.setSpacing(false);
+        content.setPadding(false);
+        content.setWidthFull();
+
+        HorizontalLayout title = new HorizontalLayout();
+        title.setSpacing(false);
+        title.setPadding(false);
+        title.setWidthFull();
+
+        String text="Beratungen: ";
+        if(familyId != null){
+            Family f= familyService.getFamilyById(familyId);
+            text+=f.getFamilyName();
+        }else
+            text+="alle";
+
+        H2 titleText=new H2(text);
+        titleText.getStyle().set("margin-bottom", "0");
+        title.add(titleText);
+
+        Employee e = employeeService.findByLogin(currentEmployee.getLogin());
+        Span emp = new Span(e.getRole().getLabel() + ": " + e.getFirstName() + " " + e.getLastName());
+
+        content.add(title, emp);
+        add(content);
+    }
+
     private void buildTopBar() {
         HorizontalLayout searchRow = new HorizontalLayout();
         searchRow.setWidthFull();
@@ -178,6 +208,10 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
 
         searchRow.add(searchField, searchButton, resetButton, filterToggleButton);
 
+        add(searchRow);
+    }
+
+    private void buildActionButtons(){
         HorizontalLayout actionsRow = new HorizontalLayout();
         actionsRow.setSpacing(true);
         actionsRow.setAlignItems(Alignment.CENTER);
@@ -200,12 +234,12 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
 
         actionsRow.add(createButton, trashButton);
 
-        add(searchRow, actionsRow);
+        add(actionsRow);
     }
 
     private void buildFilters() {
-        filterLayout = new VerticalLayout();
-        filterLayout.setWidthFull();
+        filterLayout = new HorizontalLayout();
+        filterLayout.setAlignItems(Alignment.START);
         filterLayout.setSpacing(true);
         filterLayout.setPadding(true);
         filterLayout.setVisible(false);
@@ -213,30 +247,58 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         filterLayout.getStyle().set("background-color", "#fff3cd").set("border", "1px solid #e0c97f")
                 .set("border-radius", "6px");
 
-        employeeFilter = new ComboBox<>("Berater*in");
+        VerticalLayout empLayout = new VerticalLayout();
+        empLayout.setSpacing(false);
+        empLayout.setPadding(false);
+        empLayout.setWidthFull();
+
+        VerticalLayout dateFromLayout = new VerticalLayout();
+        dateFromLayout.setSpacing(false);
+        dateFromLayout.setPadding(false);
+        dateFromLayout.setWidthFull();
+
+        VerticalLayout dateToLayout = new VerticalLayout();
+        dateToLayout.setSpacing(false);
+        dateToLayout.setPadding(false);
+        dateToLayout.setWidthFull();
+
+        Span empLabel=new Span("Berater*in");
+        empLabel.getStyle().set("margin-bottom", "0");
+        empLabel.getStyle().set("font-weight", "bold");
+
+        employeeFilter = new ComboBox<>();
         employeeFilter.setItems(currentEmployees);
         employeeFilter.setItemLabelGenerator(e -> e.getFirstName() + " " + e.getLastName());
         employeeFilter.setClearButtonVisible(true);
         employeeFilter.addValueChangeListener(e -> refreshGrid());
 
-        fromDate = new DatePicker("Von");
+        empLayout.add(empLabel, employeeFilter);
+
+        Span fromDateLabel = new Span("Von");
+        fromDateLabel.getStyle().set("margin-bottom", "0");
+        fromDateLabel.getStyle().set("font-weight", "bold");
+
+        fromDate = new DatePicker();
         fromDate.addValueChangeListener(e -> {
             dateFrom = e.getValue();
             refreshGrid();
         });
 
-        toDate = new DatePicker("Bis");
+        dateFromLayout.add(fromDateLabel, fromDate);
+
+        Span toDateLabel = new Span("Bis");
+        toDateLabel.getStyle().set("margin-bottom", "0");
+        toDateLabel.getStyle().set("font-weight", "bold");
+
+        toDate = new DatePicker("");
         toDate.addValueChangeListener(e -> {
             dateTo = e.getValue();
             refreshGrid();
         });
 
-        sortFilter = new ComboBox<>("Sortierung");
-        sortFilter.setItems("Datum ↓", "Datum ↑", "Familie A-Z", "Familie Z-A", "Berater*in A-Z", "Berater*in Z-A");
-        sortFilter.setClearButtonVisible(true);
-        sortFilter.addValueChangeListener(e -> refreshGrid());
+        dateToLayout.add(toDateLabel, toDate);
 
-        filterLayout.add(employeeFilter, fromDate, toDate, sortFilter);
+        filterLayout.add(empLayout, dateFromLayout, dateToLayout);
         add(filterLayout);
     }
 
@@ -246,21 +308,29 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         consultationGrid.setSelectionMode(Grid.SelectionMode.SINGLE);
 
         consultationGrid.addColumn(Consultation::getId)
-                .setHeader("ID").setAutoWidth(true);
+                .setHeader("ID").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Consultation::getId);
         consultationGrid.addColumn(c -> c.getFamily().getFamilyName())
-                .setHeader("Familie").setAutoWidth(true);
+                .setHeader("Familie").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(c -> c.getFamily().getFamilyName());
         consultationGrid.addColumn(c ->
                         c.getFamily().getAssignedEmployee().getFirstName() + " " +
                                 c.getFamily().getAssignedEmployee().getLastName())
-                .setHeader("Berater*in").setAutoWidth(true);
+                .setHeader("Berater*in").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(c -> c.getFamily().getAssignedEmployee().getFirstName() + " " +
+                        c.getFamily().getAssignedEmployee().getLastName());
         consultationGrid.addColumn(c -> c.getEmployee().getFirstName() + " " + c.getEmployee().getLastName())
-                .setHeader("Durchgeführt von").setAutoWidth(true);
+                .setHeader("Durchgeführt von").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(c -> c.getEmployee().getFirstName() + " " + c.getEmployee().getLastName());
         consultationGrid.addColumn(c -> formatDate(c.getDateTime().toLocalDate()))
-                .setHeader("Datum").setAutoWidth(true);
+                .setHeader("Datum").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(c -> formatDate(c.getDateTime().toLocalDate()));
         consultationGrid.addColumn(c -> formatDuration(c.getDurationMinutes()))
-                .setHeader("Dauer St.").setAutoWidth(true);
+                .setHeader("Dauer St.").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(c -> formatDuration(c.getDurationMinutes()));
         consultationGrid.addColumn(c -> isDelegatedAt(c) ? "Ja" : "Nein")
-                .setHeader("Delegiert").setAutoWidth(true);
+                .setHeader("Delegiert").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(c -> isDelegatedAt(c) ? "Ja" : "Nein");
         consultationGrid.addItemClickListener(e -> {
             Consultation c = e.getItem();
             UI.getCurrent().navigate(ConsultationDetailsView.class,
@@ -285,18 +355,6 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
             result.add(c);
         }
 
-        String sort = sortFilter != null ? sortFilter.getValue() : null;
-        if ("Datum ↓".equals(sort))
-            result.sort((a, b) -> b.getDateTime().compareTo(a.getDateTime()));
-        if ("Datum ↑".equals(sort)) result.sort(Comparator.comparing(Consultation::getDateTime));
-        if ("Familie A-Z".equals(sort)) result.sort((a, b) -> a.getFamily().getFamilyName()
-                .compareToIgnoreCase(b.getFamily().getFamilyName()));
-        if ("Familie Z-A".equals(sort)) result.sort((a, b) -> b.getFamily().getFamilyName()
-                .compareToIgnoreCase(a.getFamily().getFamilyName()));
-        if ("Berater*in A-Z".equals(sort)) result.sort((a, b) -> a.getEmployee().getLastName()
-                .compareToIgnoreCase(b.getEmployee().getLastName()));
-        if ("Berater*in Z-A".equals(sort)) result.sort((a, b) -> b.getEmployee().getLastName()
-                .compareToIgnoreCase(a.getEmployee().getLastName()));
         consultationGrid.setItems(result);
     }
 
@@ -467,21 +525,70 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         grid.setSelectionMode(Grid.SelectionMode.SINGLE);
 
         grid.addColumn(Consultation::getId)
-                .setHeader("ID").setAutoWidth(true);
+                .setHeader("ID").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Consultation::getId);
+
         grid.addColumn(c -> c.getFamily().getFamilyName())
-                .setHeader("Familie").setAutoWidth(true);
+                .setHeader("Familie").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(c -> c.getFamily().getFamilyName());
+
+        grid.addColumn(c -> c.getFamily().getAssignedEmployee().getFirstName() + " " +
+                        c.getFamily().getAssignedEmployee().getLastName())
+                .setHeader("Berater*in").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(c -> c.getFamily().getAssignedEmployee().getFirstName() + " " +
+                        c.getFamily().getAssignedEmployee().getLastName());
+
         grid.addColumn(c -> c.getEmployee().getFirstName() + " " + c.getEmployee().getLastName())
-                .setHeader("Berater*in").setAutoWidth(true);
+                .setHeader("Dürchgeführt von").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(c -> c.getEmployee().getFirstName() + " " + c.getEmployee().getLastName());
+
         grid.addColumn(c -> formatDate(c.getDateTime().toLocalDate()))
-                .setHeader("Datum").setAutoWidth(true);
+                .setHeader("Datum").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(c -> c.getDateTime().toLocalDate());
+
         grid.addColumn(c -> formatDuration(c.getDurationMinutes()))
-                .setHeader("Duration").setAutoWidth(true);
+                .setHeader("Duration").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Consultation::getDurationMinutes);
+
         grid.addColumn(c -> formatDate(c.getInvalidAt().toLocalDate()))
-                .setHeader("Gelöscht am").setAutoWidth(true);
+                .setHeader("Gelöscht am").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(c -> {
+                    LocalDate d = c.getInvalidAt().toLocalDate();
+                    return d == null ? "" : d.toString();
+                });
+
         grid.addColumn(c -> {
-            Employee e = employeeService.findByLogin(c.getInvalidBy());
-            return e.getFirstName() + " " + e.getLastName();
-        }).setHeader("Gelöscht von").setAutoWidth(true);
+                    Employee e = employeeService.findByLogin(c.getInvalidBy());
+                    return e.getFirstName() + " " + e.getLastName();
+                }).setHeader("Gelöscht von").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(c -> {
+                    Employee e = employeeService.findByLogin(c.getInvalidBy());
+                    return c.getInvalidBy() == null ? "" : e.getFirstName() + " " + e.getLastName();
+                });
+
+        if (currentEmployee.getRole().getAccessLevel() == 50) {
+            grid.addColumn(new ComponentRenderer<>(c -> {
+                        Span span = new Span();
+                        if (c.getInvalidAt() != null) {
+                            long days = Duration.between(c.getInvalidAt(), LocalDateTime.now()).toDays();
+                            int left = 14 - (int) days;
+                            span = new Span(String.valueOf(left));
+                            if (left <= 4) {
+                                span.getStyle().set("color", "red").set("font-weight", "bold");
+                            } else {
+                                span.getStyle().set("color", "black").set("font-weight", "bold");
+                            }
+                        } else {
+                            span.setText("kA");
+                            span.getStyle().set("color", "red").set("font-weight", "bold");
+                        }
+                        return span;
+                    })).setHeader("Noch verfügbar").setAutoWidth(true).setFlexGrow(0)
+                    .setComparator(c -> {
+                        LocalDateTime dt = c.getInvalidAt();
+                        return dt == null ? "" : dt.toString();
+                    });
+        }
 
         grid.setItems(loadTrashConsultations());
 
@@ -549,20 +656,20 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
                         consultationService.restoreConsultation(c, c.getFamily(), currentEmployee,
                                 reason.getValue().trim(),
                                 req != null ? req.getRemoteAddr() : "UNKNOWN",
-                                req != null ? req.getHeader("User-Agent"):"UNKNOWN");
+                                req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         reasonDialog.close();
                         dialog.close();
                         refreshGrid();
-                    }catch (Exception ex) {
+                    } catch (Exception ex) {
                         showOkDialog("Fehler", ex.getMessage());
                     }
                 });
-                HorizontalLayout btns=new HorizontalLayout(cancel, save);
+                HorizontalLayout btns = new HorizontalLayout(cancel, save);
                 btns.setWidthFull();
                 btns.setJustifyContentMode(JustifyContentMode.END);
 
                 VerticalLayout content = new VerticalLayout();
-                content.add(t,reason, error);
+                content.add(t, reason, error);
 
                 reasonDialog.add(content);
                 reasonDialog.getFooter().add(btns);
@@ -837,24 +944,6 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         }
         return result;
     }
-
-/*
-    private void resetFilter() {
-        if (searchField != null) searchField.clear();
-        if (employeeFilter != null) employeeFilter.clear();
-        if (fromDate != null) fromDate.clear();
-        if (toDate != null) toDate.clear();
-        if (sortFilter != null) sortFilter.clear();
-
-        dateFrom = null;
-        dateTo = null;
-        familyId = null;
-
-        filterVisible = false;
-        if (filterLayout != null) filterLayout.setVisible(false);
-        if (filterToggleButton != null) filterToggleButton.setText("Filter öffnen");
-    }
-*/
 
     private String formatDuration(int durationMinutes) {
         if (durationMinutes < 0) return "00:00";

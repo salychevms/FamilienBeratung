@@ -3,6 +3,7 @@ package com.salychevms.familienberatung.ui.dialog;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -103,43 +104,43 @@ public class EditDialogFactory {
     }
 
     public static boolean isValidFile(String originalName, long size, String type) {
-        if(originalName==null) return false;
-        if(originalName.contains("..") || originalName.contains("/") || originalName.contains("\\")) return false;
+        if (originalName == null) return false;
+        if (originalName.contains("..") || originalName.contains("/") || originalName.contains("\\")) return false;
 
-        if(size<=0 || size >10_000_000) return false;
+        if (size <= 0 || size > 10_000_000) return false;
 
-        return  type!=null && type.matches("(?i)pdf|jpg|jpeg|png|docx");
+        return type != null && type.matches("(?i)pdf|jpg|jpeg|png|docx");
     }
 
     public static boolean isValidPassword(String password, String oldPassword, String login, String email,
                                           String mobileNumber, String landNumber) {
-        if(password==null || password.isBlank()) return false;
+        if (password == null || password.isBlank()) return false;
 
-        if(password.length()<12) return false;
+        if (password.length() < 12) return false;
         if (!password.matches(".*[A-Z].*")) return false;
         if (!password.matches(".*[a-z].*")) return false;
         if (!password.matches(".*\\d.*")) return false;
         if (!password.matches(".*[^A-Za-z0-9].*")) return false;
 
-        if(!password.equals(password.trim())) return false;
+        if (!password.equals(password.trim())) return false;
 
-        if(login !=null && password.equalsIgnoreCase(login)) return false;
-        if(email !=null && password.equalsIgnoreCase(email)) return false;
-        if(mobileNumber !=null && password.equalsIgnoreCase(mobileNumber)) return false;
-        if(landNumber !=null && password.equalsIgnoreCase(landNumber)) return false;
+        if (login != null && password.equalsIgnoreCase(login)) return false;
+        if (email != null && password.equalsIgnoreCase(email)) return false;
+        if (mobileNumber != null && password.equalsIgnoreCase(mobileNumber)) return false;
+        if (landNumber != null && password.equalsIgnoreCase(landNumber)) return false;
 
-        if(oldPassword !=null && similarity(password, oldPassword) >0.8) return false;
+        if (oldPassword != null && similarity(password, oldPassword) > 0.8) return false;
         return true;
     }
 
     private static double similarity(String a, String b) {
-        int max=Math.max(a.length(), b.length());
-        int same=0;
+        int max = Math.max(a.length(), b.length());
+        int same = 0;
 
-        for(int i=0; i<Math.min(a.length(), b.length()); i++) {
-            if(a.charAt(i)==b.charAt(i)) same++;
+        for (int i = 0; i < Math.min(a.length(), b.length()); i++) {
+            if (a.charAt(i) == b.charAt(i)) same++;
         }
-        return (double)same / (double)max;
+        return (double) same / (double) max;
     }
 
     private static Component buildComponent(EditField field) {
@@ -178,6 +179,17 @@ public class EditDialogFactory {
             return cb;
         }
 
+        if (field.getType() == EditField.Type.DATE) {
+            DatePicker dp = new DatePicker(field.getLabel());
+            dp.setWidthFull();
+
+            if (field.getInitialValue() != null)
+                dp.setValue((LocalDate) field.getInitialValue());
+
+            dp.setRequiredIndicatorVisible(field.isRequired());
+            return dp;
+        }
+
         throw new IllegalStateException("Unknown field type");
     }
 
@@ -185,6 +197,7 @@ public class EditDialogFactory {
         if (c instanceof TextField tf) return tf.getValue();
         if (c instanceof TextArea ta) return ta.getValue();
         if (c instanceof ComboBox<?> cb) return cb.getValue();
+        if (c instanceof DatePicker dp) return dp.getValue();
         return null;
     }
 
@@ -207,11 +220,25 @@ public class EditDialogFactory {
             ta.setInvalid(false);
             ta.setErrorMessage(null);
         }
+        if (c instanceof DatePicker dp) {
+            dp.setInvalid(false);
+            dp.setErrorMessage(null);
+        }
 
         Object value = readValue(c);
         if (field.isRequired() && isValueEmpty(value)) {
             setInvalid(c, "Pflichtfeld");
             return false;
+        }
+        if (field.getType() == EditField.Type.DATE) {
+            if (!(value instanceof LocalDate)) {
+                setInvalid(c, "Ungültiges Datum");
+                return false;
+            }
+            if (!isValidBirthday((LocalDate) value)) {
+                setInvalid(c, "Datum von 01.01.1990 bis heute");
+                return false;
+            }
         }
         if (value instanceof String s && field.getMaxLength() != null && s.length() > field.getMaxLength()) {
             setInvalid(c, "Maximal " + field.getMaxLength() + " Zeichen");

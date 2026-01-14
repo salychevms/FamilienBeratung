@@ -11,7 +11,8 @@ public class EditField {
     public enum Type{
         TEXT,
         TEXTAREA,
-        SELECT
+        SELECT,
+        DATE
     }
 
     private final String key;

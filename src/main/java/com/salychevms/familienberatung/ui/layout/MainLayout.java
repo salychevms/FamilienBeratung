@@ -64,6 +64,11 @@ public class MainLayout extends AppLayout {
         top.setPadding(false);
         top.setSpacing(false);
 
+        VerticalLayout buttons=new VerticalLayout();
+        buttons.setWidthFull();
+        buttons.setSpacing(true);
+        buttons.setPadding(true);
+
         Employee e = authService.getCurrentEmployee();
         int lvl = (e != null) ? e.getRole().getAccessLevel() : 0;
 
@@ -71,23 +76,25 @@ public class MainLayout extends AppLayout {
                 event->UI.getCurrent().navigate("overview"));
         overview.setWidthFull();
         overview.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        menu.add(overview);
+        buttons.add(overview);
 
         Button families=new Button("Familien",
                 event->UI.getCurrent().navigate("families"));
         families.setWidthFull();
         families.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        menu.add(families);
+        buttons.add(families);
 
         Button consultations=new Button("Beratungen",
                 event->UI.getCurrent().navigate(ConsultationsView.class));
         consultations.setWidthFull();
         consultations.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        menu.add(consultations);
+        buttons.add(consultations);
         /*menu.add(new RouterLink("Delegationen", DelegationsView.class));
         menu.add(new RouterLink("Dokumente", DocumentsView.class));
-        if (lvl >= 80) menu.add(new RouterLink("Mitarbeiter", EmployeesView.class));
-        if (lvl == 100) menu.add(new RouterLink("Admin Panel", AdminView.class));*/
+        if (lvl >= 80) buttons.add(new RouterLink("Mitarbeiter", EmployeesView.class));
+        if (lvl == 100) buttons.add(new RouterLink("Admin Panel", AdminView.class));*/
+
+        top.add(buttons);
 
         VerticalLayout bottom = new VerticalLayout();
         bottom.setPadding(false);
