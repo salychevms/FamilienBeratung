@@ -22,9 +22,9 @@ public class ConsultationService {
     private final AccessLogService accessLog;
     private final ValidationService validator;
 
-    public Consultation createConsultation(Family family, Employee employee, LocalDateTime dateTime,
-                                           int durationMinutes, String topic, String description, String result,
-                                           LocalDateTime followUp, String ip, String browser) {
+    public void createConsultation(Family family, Employee employee, LocalDateTime dateTime,
+                                   int durationMinutes, String topic, String description, String result,
+                                   LocalDateTime followUp, String ip, String browser) {
         if (family == null) {
             log.error("Family is null");
             throw new RuntimeException("Family is null");
@@ -84,12 +84,10 @@ public class ConsultationService {
         accessLog.log(employee.getLogin(), "CONSULTATION CREATE", "Consultation", saved.getId(),
                 "Consultation has been created. Backdated: " + saved.isBackdated(), ip, browser);
         log.info("Consultation has been created by {}. Backdated: {}", employee.getLogin(), saved.isBackdated());
-        return saved;
     }
 
-    public Consultation updateConsultation(Consultation consultation, Family family, Employee employee,
-                                           LocalDateTime dateTime, int durationMinutes, String topic, String description,
-                                           String result, LocalDateTime followUp, String ip, String browser) {
+    public void updateConsultation(Consultation consultation, Consultation updated, Family family, Employee employee,
+                                   String ip, String browser) {
         if (family == null) {
             log.error("Family is null");
             throw new RuntimeException("Family is null");
@@ -118,46 +116,45 @@ public class ConsultationService {
             log.error("Employee {} has no access level", employee.getLogin());
             throw new RuntimeException("Employee " + employee.getLogin() + " has no access level");
         }
-        if (dateTime == null) {
+        if (updated.getDateTime() == null) {
             log.error("dateTime is null");
             throw new RuntimeException("dateTime is null");
         }
-        if (dateTime.toLocalDate().isAfter(LocalDate.now())) {
+        if (updated.getDateTime().toLocalDate().isAfter(LocalDate.now())) {
             log.error("dateTime is after now");
             throw new RuntimeException("dateTime is after now");
         }
-        if (dateTime.isBefore(family.getCreatedAt())) {
+        if (updated.getDateTime().isBefore(family.getCreatedAt())) {
             log.error("Consultation date is before family created");
             throw new RuntimeException("Consultation date is before family created");
         }
-        if (durationMinutes <= 0) {
+        if (updated.getDurationMinutes() <= 0) {
             log.error("Duration time can't be 0 or negative");
             throw new RuntimeException("Duration time can't be 0 or negative");
         }
-        if (durationMinutes > 480) {
+        if (updated.getDurationMinutes() > 480) {
             log.error("Duration time can't be more than 480 minutes (8 hours)");
             throw new RuntimeException("Duration time can't be more than 480 minutes (8 hours)");
         }
-        validator.validateText(topic, 255);
-        validator.validateText(description, 4000);
-        validator.validateText(result, 4000);
+        validator.validateText(updated.getTopic(), 255);
+        validator.validateText(updated.getDescription(), 4000);
+        validator.validateText(updated.getResult(), 4000);
 
-        consultation.setDateTime(dateTime);
-        consultation.setBackdated(dateTime.toLocalDate().isBefore(LocalDate.now()));
-        consultation.setDurationMinutes(durationMinutes);
-        consultation.setTopic(topic);
-        consultation.setDescription(description);
-        consultation.setResult(result);
-        consultation.setFollowUp(followUp);
+        consultation.setDateTime(updated.getDateTime());
+        consultation.setBackdated(updated.getDateTime().toLocalDate().isBefore(LocalDate.now()));
+        consultation.setDurationMinutes(updated.getDurationMinutes());
+        consultation.setTopic(updated.getTopic());
+        consultation.setDescription(updated.getDescription());
+        consultation.setResult(updated.getResult());
+        consultation.setFollowUp(updated.getFollowUp());
         consultation.setUpdatedAt(LocalDateTime.now());
         consultation.setUpdatedBy(employee.getLogin());
 
-        Consultation updated = consultationRepository.save(consultation);
+        Consultation result = consultationRepository.save(consultation);
 
-        accessLog.log(employee.getLogin(), "CONSULTATION_UPDATE", "Consultation", updated.getId(),
+        accessLog.log(employee.getLogin(), "CONSULTATION_UPDATE", "Consultation", result.getId(),
                 "Consultation has been updated", ip, browser);
-        log.info("Consultation {} has been updated by {}", updated.getId(), employee.getLogin());
-        return updated;
+        log.info("Consultation {} has been updated by {}", result.getId(), employee.getLogin());
     }
 
     public void invalidateConsultation(Consultation consultation, Family family, Employee employee, String ip, String browser) {
@@ -296,8 +293,39 @@ public class ConsultationService {
         return results;
     }
 
-    public List<Consultation> getConsultationsByEmployee(Employee employee) {
-        return consultationRepository.getConsultationsByEmployee(employee);
+    public void deleteFollowUp(Family family, Consultation consultation, Employee employee, String ip, String browser) {
+        if (family == null) {
+            log.error("Family is null");
+        }
+        if (consultation == null) {
+            log.error("Consultation is null");
+        }
+        if (employee == null) {
+            log.error("Employee is null");
+        }
+        if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
+            log.error("Family status is not ACTIVE");
+            throw new RuntimeException("Family status is not ACTIVE");
+        }
+        if (!consultation.getFamily().equals(family)) {
+            log.error("Consultation does not match family");
+            throw new RuntimeException("Consultation does not match family");
+        }
+        if (consultation.isInvalid()) {
+            log.error("Consultation is already invalid (soft delete)");
+            throw new RuntimeException("Consultation is already invalid (soft delete)");
+        }
+        if (employee.getRole().getAccessLevel() <= 10) {
+            log.error("Employee {} has no access level", employee.getLogin());
+            throw new RuntimeException("Employee " + employee.getLogin() + " has no access level");
+        }
+
+        consultation.setFollowUp(null);
+        consultationRepository.save(consultation);
+
+        accessLog.log(employee.getLogin(), "CONSULTATION_DELETE_FOLLOW_UP", "Consultation",
+                consultation.getId(), "The next appointment has been deleted", ip, browser);
+        log.info("Consultation {} has no appointment {}", consultation.getId(), employee.getLogin());
     }
 
     public List<Consultation> getAll() {

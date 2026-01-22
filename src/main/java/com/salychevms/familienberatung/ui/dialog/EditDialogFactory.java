@@ -92,7 +92,7 @@ public class EditDialogFactory {
         if (text == null || text.isBlank()) return true;
         String v = text.trim();
         if (v.length() > maxLength) return false;
-        return v.chars().allMatch(c -> c >= 32);
+        return v.chars().allMatch(c -> c >= 32 || c == 10 || c == 13);
     }
 
     public static boolean isValidBirthday(LocalDate birthday) {

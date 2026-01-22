@@ -12,11 +12,13 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.datetimepicker.DateTimePicker;
 import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -30,6 +32,7 @@ import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
@@ -93,7 +96,8 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         }
 
         members = new ArrayList<>();
-        members = familyMemberService.getMembers(currentFamily, currentEmployee.getLogin());
+        members = familyMemberService.getMembers(currentFamily, currentEmployee.getLogin()).stream().filter(
+                fm -> !fm.isInvalid()).toList();
 
         if (!initialized) {
             initialized = true;
@@ -119,7 +123,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         HorizontalLayout bcrumbs = new HorizontalLayout();
         bcrumbs.setSpacing(true);
         bcrumbs.setPadding(true);
-        bcrumbs.setAlignItems(Alignment.CENTER);
+        bcrumbs.setAlignItems(FlexComponent.Alignment.CENTER);
 
         RouterLink l1 = new RouterLink("Übersicht", OverviewView.class);
         RouterLink l2 = new RouterLink("Familien", FamiliesView.class);
@@ -144,15 +148,16 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         VerticalLayout box = new VerticalLayout();
         box.setSpacing(false);
         box.setPadding(false);
+        box.setWidthFull();
 
         HorizontalLayout familyHeader = new HorizontalLayout();
         familyHeader.setWidthFull();
-        familyHeader.setAlignItems(Alignment.CENTER);
+        familyHeader.setAlignItems(FlexComponent.Alignment.CENTER);
         familyHeader.setJustifyContentMode(JustifyContentMode.BETWEEN);
 
         HorizontalLayout h2Title = new HorizontalLayout();
         h2Title.setAlignItems(FlexComponent.Alignment.CENTER);
-        h2Title.setSpacing(true);
+        h2Title.setSpacing(false);
 
         if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
             Button h2EditBtn = new Button(VaadinIcon.EDIT.create());
@@ -205,7 +210,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         Span info = new Span(line);
         VerticalLayout content = new VerticalLayout();
         content.setSpacing(false);
-        content.setPadding(true);
+        content.setPadding(false);
         content.setWidthFull();
 
         String emp = currentFamily.getAssignedEmployee().getFirstName() +
@@ -293,6 +298,17 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         Span title = new Span("Familienmitglieder");
         title.getStyle().set("font-weight", "bold");
         header.add(title);
+
+        if (lvl != 10) {
+            Button memberTrash = new Button("Papierkorb", VaadinIcon.TRASH.create());
+            memberTrash.setWidth("90px");
+            memberTrash.setHeight("26px");
+            memberTrash.getStyle().set("font-size", "11px").set("padding", "2px 6px")
+                    .set("color", "#666").set("background", "#f2f2f2");
+            memberTrash.addClickListener(e -> openTrashDialog());
+            header.add(memberTrash);
+        }
+
         block.add(header);
 
         if (members == null || members.isEmpty()) {
@@ -664,31 +680,31 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
 
         Family family = currentFamily;
 
-        if (family.getCreatedAt() != null) block.add(makeAuditLine("Erstellt am " + zDate(family.getCreatedAt()) +
-                " um " + zTime(family.getCreatedAt()) + " von " + empty(family.getCreatedBy())));
+        if (family.getCreatedAt() != null) block.add(makeAuditLine("Erstellt am " + formatDate(family.getCreatedAt()) +
+                " um " + formatTime(family.getCreatedAt()) + " von " + empty(family.getCreatedBy())));
 
-        if (family.getUpdatedAt() != null) block.add(makeAuditLine("Geändert am " + zDate(family.getUpdatedAt()) +
-                " um " + zTime(family.getUpdatedAt()) + " von " + empty(family.getUpdatedBy())));
+        if (family.getUpdatedAt() != null) block.add(makeAuditLine("Geändert am " + formatDate(family.getUpdatedAt()) +
+                " um " + formatTime(family.getUpdatedAt()) + " von " + empty(family.getUpdatedBy())));
 
         if (family.getInvalidAt() != null && family.getStatus().equals(RecordStatus.INVALID))
-            block.add(makeAuditLine("Gelöscht am " + zDate(family.getInvalidAt()) +
-                    " um " + zTime(family.getInvalidAt()) + " von " + empty(family.getInvalidBy())));
+            block.add(makeAuditLine("Gelöscht am " + formatDate(family.getInvalidAt()) +
+                    " um " + formatTime(family.getInvalidAt()) + " von " + empty(family.getInvalidBy())));
 
         if (family.getRestoredAt() != null && family.getStatus().equals(RecordStatus.ACTIVE)) {
-            block.add(makeAuditLine("Wiederherstellt am " + zDate(family.getRestoredAt()) +
-                    " um " + zTime(family.getRestoredAt()) + " von " + empty(family.getRestoredBy())));
+            block.add(makeAuditLine("Wiederherstellt am " + formatDate(family.getRestoredAt()) +
+                    " um " + formatTime(family.getRestoredAt()) + " von " + empty(family.getRestoredBy())));
             block.add(makeAuditReason("Grund: " + empty(family.getRestoredReason())));
         }
 
         if (family.getBlockedAt() != null && family.getStatus().equals(RecordStatus.BLOCKED)) {
-            block.add(makeAuditLine("Blockiert am " + zDate(family.getBlockedAt()) +
-                    " um " + zTime(family.getBlockedAt()) + " von " + empty(family.getBlockedBy())));
+            block.add(makeAuditLine("Blockiert am " + formatDate(family.getBlockedAt()) +
+                    " um " + formatTime(family.getBlockedAt()) + " von " + empty(family.getBlockedBy())));
             block.add(makeAuditReason("Grund: " + empty(family.getBlockedReason())));
         }
 
         if (family.getArchivedAt() != null && family.getStatus().equals(RecordStatus.ARCHIVED))
-            block.add(makeAuditLine("Archiviert am " + zDate(family.getArchivedAt()) +
-                    " um " + zTime(family.getArchivedAt()) + " von " + empty(family.getArchivedBy())));
+            block.add(makeAuditLine("Archiviert am " + formatDate(family.getArchivedAt()) +
+                    " um " + formatTime(family.getArchivedAt()) + " von " + empty(family.getArchivedBy())));
 
         add(block);
     }
@@ -696,7 +712,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
     private HorizontalLayout buildButtonsBlock() {
         HorizontalLayout bar = new HorizontalLayout();
         bar.setWidthFull();
-        bar.setAlignItems(Alignment.CENTER);
+        bar.setAlignItems(FlexComponent.Alignment.CENTER);
         bar.setSpacing(true);
 
         Button viewBtn = new Button("Beratungen", e -> getUI().ifPresent(ui -> ui.navigate(
@@ -1164,7 +1180,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         TextField languages = new TextField("Sprachen");
         languages.setValue(currentFamily.getLanguages());
         TextField income = new TextField("Einkommen");
-        TextArea workInfo = new TextArea("Berufliche Tätigkeit");
+        TextArea workInfo = new TextArea("Berufliche Tätigkeit / Erfahrung");
         TextField educationDegree = new TextField("Bildungsabschluss");
         TextArea educationInfo = new TextArea("Ausbildung / Studium");
 
@@ -1239,6 +1255,127 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         buttons.setJustifyContentMode(JustifyContentMode.END);
 
         dialog.getFooter().add(buttons);
+        dialog.open();
+    }
+
+    private void openTrashDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Papierkorb: Familienmitglieder");
+
+        List<FamilyMember> trashMembers = new ArrayList<>();
+        if (lvl == 50)
+            trashMembers = familyMemberService.getMembers(currentFamily, currentEmployee.getLogin()).stream()
+                    .filter(member -> member.isInvalid() &&
+                            Duration.between(member.getInvalidAt(), LocalDateTime.now()).toDays() <= 14).toList();
+        else if (lvl == 80 || lvl == 100)
+            trashMembers = familyMemberService.getMembers(currentFamily, currentEmployee.getLogin()).stream()
+                    .filter(FamilyMember::isInvalid).toList();
+
+        Grid<FamilyMember> grid = new Grid<>(FamilyMember.class, false);
+        grid.setWidthFull();
+        grid.setHeight("400px");
+
+        grid.addColumn(FamilyMember::getId).setHeader("ID").setAutoWidth(true).setFlexGrow(0);
+        grid.addColumn(fm -> fm.getFirstName() + " " + fm.getLastName())
+                .setHeader("Vor- und Nachname").setAutoWidth(true).setFlexGrow(0);
+        grid.addColumn(fm -> {
+            if (fm.getGender() == FamilyMemberGender.DIVERS) return "DIVERS";
+            if (fm.getGender().equals(FamilyMemberGender.MAENNLICH)) return "MÄNNLICH";
+            if (fm.getGender().equals(FamilyMemberGender.WEIBLICH)) return "WEIBLICH";
+            return "kA";
+        }).setHeader("Gender").setAutoWidth(true).setFlexGrow(0);
+        grid.addColumn(fm -> {
+            if (fm.getBirthDate() == null) return "kA";
+            return Period.between(fm.getBirthDate(), LocalDate.now()).getYears();
+        }).setHeader("Alter").setAutoWidth(true).setFlexGrow(0);
+        grid.addColumn(fm -> {
+            if (fm.getInvalidBy() == null) return "kA";
+            Employee emp = employeeService.findByLogin(fm.getInvalidBy());
+            return emp.getFirstName() + " " + emp.getLastName();
+        }).setHeader("Gelöscht von").setAutoWidth(true).setFlexGrow(0);
+        grid.addColumn(fm -> {
+            if (fm.getInvalidAt() == null) return "-";
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+            return fm.getInvalidAt().format(fmt);
+        }).setHeader("Gelöscht am").setAutoWidth(true).setFlexGrow(0);
+        if (lvl == 50)
+            grid.addColumn(fm -> {
+                if (fm.getInvalidAt() == null) return "-";
+                long days = Duration.between(fm.getInvalidAt(), LocalDateTime.now()).toDays();
+                return (14 - days);
+            }).setHeader("Noch verfügbar").setAutoWidth(true).setFlexGrow(0);
+        grid.setItems(trashMembers);
+
+        Button restore = new Button("Wiederherstellen");
+        restore.setEnabled(false);
+
+        grid.asSingleSelect().addValueChangeListener(
+                e -> restore.setEnabled(e.getValue() != null));
+
+        restore.addClickListener(e -> {
+            FamilyMember fm = grid.asSingleSelect().getValue();
+            if (fm == null) return;
+            long days = Duration.between(fm.getInvalidAt(), LocalDateTime.now()).toDays();
+
+            boolean needReason = (lvl >= 80 && days > 14);
+            Dialog confirm = new Dialog();
+            confirm.setHeaderTitle("Mitglied wiederherstellen");
+
+            VerticalLayout content = new VerticalLayout();
+            content.add(new Span("Familienmitglied \"" + fm.getFirstName() + " " + fm.getLastName() +
+                    "\" wiederherstellen?"));
+
+            TextArea reason = null;
+            if (needReason) {
+                reason = new TextArea("Begründung");
+                reason.setWidthFull();
+                reason.setMaxLength(255);
+                content.add(reason);
+            }
+
+            TextArea finalReason = reason;
+
+            Button ok = new Button("Bestätigen", ev -> {
+                String r = "Wiederherstellt";
+                if (finalReason != null) {
+                    r = finalReason.getValue();
+                    if (r == null || r.trim().length() < 5) {
+                        Notification.show("Mindestens 5 Yeichen erforderlich", 3000,
+                                Notification.Position.MIDDLE);
+                        return;
+                    }
+                }
+
+                VaadinRequest req = VaadinRequest.getCurrent();
+
+                familyMemberService.restoreMember(currentFamily, fm, currentEmployee.getLogin(), r,
+                        req != null ? req.getRemoteAddr() : "UNKNOWN",
+                        req != null ? req.getHeader("User-Agent") : "UNKNOWN");
+                confirm.close();
+                dialog.close();
+                getUI().ifPresent(ui -> ui.getPage().reload());
+            });
+
+            Button cancel=new Button("Abbrechen", ev -> confirm.close());
+
+            HorizontalLayout buttons = new HorizontalLayout(ok, cancel);
+            buttons.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
+
+            confirm.add(content, buttons);
+            confirm.setWidth("600px");
+            confirm.open();
+        });
+
+        Button close=new Button("Schließen", ev->dialog.close());
+
+        HorizontalLayout bottom=new HorizontalLayout(restore, close);
+        bottom.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
+
+        dialog.add(new VerticalLayout(grid, bottom));
+        dialog.setWidth("1100px");
+        dialog.setHeight("550px");
+        dialog.setModal(true);
+        dialog.setCloseOnOutsideClick(false);
         dialog.open();
     }
 
@@ -1405,12 +1542,12 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         return s;
     }
 
-    private String zDate(LocalDateTime dt) {
+    private String formatDate(LocalDateTime dt) {
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
         return dt.format(dateFormatter);
     }
 
-    private String zTime(LocalDateTime dt) {
+    private String formatTime(LocalDateTime dt) {
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
         return dt.format(timeFormatter);
     }

@@ -79,18 +79,19 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
 
         this.familyId = event.getRouteParameters().getLong("familyId").orElse(null);
 
-
         this.currentDelegations.clear();
-        if (lvl == 50) this.currentDelegations = delegationService.getDelegationsByToEmployee(currentEmployee);
-        else this.currentDelegations = delegationService.getDelegations();
+        if (lvl == 50)
+            this.currentDelegations = delegationService.getDelegationsByToEmployee(currentEmployee);
+        else
+            this.currentDelegations = delegationService.getDelegations();
 
         this.currentConsultations.clear();
         if (lvl == 50) {
             List<Consultation> cList = consultationService.getAll();
             for (Consultation c : cList) {
-                if ((c.getEmployee().equals(currentEmployee)
-                        || c.getFamily().getAssignedEmployee().equals(currentEmployee))
-                        && (!c.isInvalid() && !c.getFamily().getStatus().equals(RecordStatus.INVALID)))
+                if ((c.getEmployee().equals(currentEmployee) ||
+                        c.getFamily().getAssignedEmployee().equals(currentEmployee)) &&
+                        (!c.isInvalid() && !c.getFamily().getStatus().equals(RecordStatus.INVALID)))
                     this.currentConsultations.add(c);
             }
         } else this.currentConsultations = consultationService.getAll();
@@ -156,7 +157,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         add(bcrumbs);
     }
 
-    private void buildTitle(){
+    private void buildTitle() {
         VerticalLayout content = new VerticalLayout();
         content.setSpacing(false);
         content.setPadding(false);
@@ -167,14 +168,14 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         title.setPadding(false);
         title.setWidthFull();
 
-        String text="Beratungen: ";
-        if(familyId != null){
-            Family f= familyService.getFamilyById(familyId);
-            text+=f.getFamilyName();
-        }else
-            text+="alle";
+        String text = "Beratungen: ";
+        if (familyId != null) {
+            Family f = familyService.getFamilyById(familyId);
+            text += f.getFamilyName();
+        } else
+            text += "alle";
 
-        H2 titleText=new H2(text);
+        H2 titleText = new H2(text);
         titleText.getStyle().set("margin-bottom", "0");
         title.add(titleText);
 
@@ -211,7 +212,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         add(searchRow);
     }
 
-    private void buildActionButtons(){
+    private void buildActionButtons() {
         HorizontalLayout actionsRow = new HorizontalLayout();
         actionsRow.setSpacing(true);
         actionsRow.setAlignItems(Alignment.CENTER);
@@ -262,7 +263,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         dateToLayout.setPadding(false);
         dateToLayout.setWidthFull();
 
-        Span empLabel=new Span("Berater*in");
+        Span empLabel = new Span("Berater*in");
         empLabel.getStyle().set("margin-bottom", "0");
         empLabel.getStyle().set("font-weight", "bold");
 

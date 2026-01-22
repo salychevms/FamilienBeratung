@@ -152,7 +152,7 @@ public class ValidationService {
             log.error("Text is too long ({}), max length is {}", text.length(), maxLength);
             throw new RuntimeException("Text is too long (" + text.length() + "), max length is: " + maxLength);
         }
-        if (!v.chars().allMatch(c -> c >= 32)) {
+        if (!v.chars().allMatch(c -> c >= 32 || c == 10 || c == 13)) {
             log.error("Invalid text characters");
             throw new RuntimeException("Invalid text characters");
         }

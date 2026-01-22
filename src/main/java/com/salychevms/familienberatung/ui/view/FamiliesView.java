@@ -14,6 +14,7 @@ import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
@@ -116,7 +117,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         HorizontalLayout bcrumbs = new HorizontalLayout();
         bcrumbs.setSpacing(true);
         bcrumbs.setPadding(true);
-        bcrumbs.setAlignItems(Alignment.CENTER);
+        bcrumbs.setAlignItems(FlexComponent.Alignment.CENTER);
 
         RouterLink root = new RouterLink("Übersicht", OverviewView.class);
 
@@ -159,7 +160,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         HorizontalLayout searchRow = new HorizontalLayout();
         searchRow.setSpacing(false);
         searchRow.setWidthFull();
-        searchRow.setAlignItems(Alignment.CENTER);
+        searchRow.setAlignItems(FlexComponent.Alignment.CENTER);
         searchRow.setSpacing(true);
 
         searchField = new TextField();
@@ -189,7 +190,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
         HorizontalLayout actionsRow = new HorizontalLayout();
         actionsRow.setSpacing(true);
-        actionsRow.setAlignItems(Alignment.CENTER);
+        actionsRow.setAlignItems(FlexComponent.Alignment.CENTER);
 
         createButton = new Button("Neue Familie", VaadinIcon.PLUS.create());
         createButton.getStyle().set("font-size", "16px").set("padding", "8px 16px");
@@ -236,7 +237,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
     private void buildFilters() {
         filterLayout = new HorizontalLayout();
-        filterLayout.setAlignItems(Alignment.START);
+        filterLayout.setAlignItems(FlexComponent.Alignment.CENTER);
         filterLayout.setSpacing(true);
         filterLayout.setPadding(true);
         filterLayout.getStyle().set("background-color", "#fff3cd")
