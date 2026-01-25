@@ -20,12 +20,15 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.VaadinRequest;
+import com.vaadin.flow.server.streams.UploadHandler;
 import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -54,7 +57,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     private Button searchButton;
     private Button resetButton;
     private Button filterToggleButton;
-    private Button createButton;
+    private Button uploadButton;
     private Button trashButton;
     private TextField searchField;
     private ComboBox<Employee> assignedEmployeeFilter;
@@ -106,6 +109,9 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                 showOkDialog("Familie nicht verfügbar",
                         "Zugriff auf die Familie ist nicht mehr möglich. Es werden alle Dokumente angezeigt.");
             }
+        } else {
+            familyId = 0;
+            currentFamily = null;
         }
 
         currentDocuments = new ArrayList<>();
@@ -121,6 +127,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                     if (dlg.getToEmployee().equals(currentEmployee))
                         currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(dlg.getFamily(), currentEmployee));
             } else if (lvl == 80 || lvl == 100) {
+                currentFamilies = familyService.getFamilies().stream()
+                        .filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList();
                 currentDocuments = familyDocumentService.getAllDocuments(currentEmployee).stream().filter(d ->
                         (d.getFamily().getStatus().equals(RecordStatus.ARCHIVED)
                                 || d.getFamily().getStatus().equals(RecordStatus.ACTIVE))).toList();
@@ -157,6 +165,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         buildHeader();
         buildTopBar();
         buildFilters();
+        buildActionButtons();
         buildGrid();
     }
 
@@ -219,7 +228,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         searchRow.setWidthFull();
         searchRow.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        TextField searchField = new TextField();
+        searchField = new TextField();
         searchField.setPlaceholder("Suche...");
         searchField.setClearButtonVisible(true);
         searchField.setWidth("250px");
@@ -331,6 +340,83 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         add(filterLayout);
     }
 
+    private void buildActionButtons() {
+        HorizontalLayout buttonLayout = new HorizontalLayout();
+        buttonLayout.setSpacing(false);
+
+        uploadButton = new Button("Hochladen", VaadinIcon.UPLOAD.create());
+        uploadButton.addClickListener(e -> {
+            if (currentFamily == null && familyId == 0) {
+                Dialog pick = new Dialog();
+                pick.setModal(true);
+                pick.setWidth("400px");
+
+                ComboBox<Family> familyComboBox = new ComboBox<>("Familie");
+                familyComboBox.setItems(currentFamilies);
+                familyComboBox.setItemLabelGenerator(Family::getFamilyName);
+                familyComboBox.setWidthFull();
+
+                Button next = new Button("Weiter");
+                next.setEnabled(false);
+                familyComboBox.addValueChangeListener(
+                        ev -> next.setEnabled(ev.getValue() != null));
+                next.addClickListener(ev -> {
+                    currentFamily = familyComboBox.getValue();
+                    familyId = currentFamily.getId();
+                    pick.close();
+                    uploadButton.click();
+                });
+
+                Button cancel = new Button("Abbrechen", ev -> pick.close());
+
+                HorizontalLayout btns = new HorizontalLayout(cancel, next);
+                btns.setJustifyContentMode(JustifyContentMode.END);
+                btns.setWidthFull();
+
+                pick.add(familyComboBox);
+                pick.getFooter().add(btns);
+                pick.open();
+                return;
+            }
+            Dialog dlg = new Dialog();
+            dlg.setModal(true);
+            dlg.setWidth("600px");
+
+            Span info = new Span("Hochladen für Familie: " + currentFamily.getFamilyName());
+
+            Upload upload = new Upload((UploadHandler) event -> {
+                try (InputStream in = event.getInputStream()) {
+                    VaadinRequest req = VaadinRequest.getCurrent();
+
+                    FamilyDocument saved = familyDocumentService.uploadDocument(currentFamily, event.getFileName(),
+                            event.getContentType(), in, currentEmployee, req != null ? req.getRemoteAddr() : "UNKNOWN",
+                            req != null ? req.getHeader("User-Agent") : "UNKNOW");
+                    currentDocuments.add(saved);
+                } catch (Exception ex) {
+                    showOkDialog("Fehler", ex.getMessage());
+                }
+            });
+            upload.setDropAllowed(true);
+            upload.setMaxFiles(10);
+            upload.setMaxFileSize(5 * 1024 * 1024);
+            upload.addFileRejectedListener(ev ->
+                    showOkDialog("Upload-Fehler", ev.getErrorMessage()));
+
+            upload.addAllFinishedListener(ev -> {
+                dlg.close();
+                refreshGrid();
+            });
+
+            VerticalLayout content = new VerticalLayout(info, upload);
+            content.setSpacing(true);
+
+            dlg.add(content);
+            dlg.open();
+        });
+        buttonLayout.add(uploadButton);
+        add(buttonLayout);
+    }
+
     private void buildGrid() {
         documentsGrid = new Grid();
         documentsGrid.setSizeFull();
@@ -339,25 +425,23 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         documentsGrid.addColumn(FamilyDocument::getId)
                 .setHeader("ID").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(FamilyDocument::getId);
-        documentsGrid.addColumn(FamilyDocument::getFileType)
-                .setHeader("Typ").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(FamilyDocument::getFileType);
         documentsGrid.addColumn(FamilyDocument::getOriginalFileName)
                 .setHeader("Dateiname").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(FamilyDocument::getOriginalFileName);
         documentsGrid.addColumn(d -> d.getFamily() != null ? d.getFamily().getFamilyName() : "")
                 .setHeader("Familie").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(d -> d.getFamily() != null);
+                .setComparator(d -> d.getFamily() != null ? d.getFamily().getFamilyName() : "");
         documentsGrid.addColumn(d -> d.getUploadedByEmployee() != null
                         ? d.getUploadedByEmployee().getFirstName() + " " + d.getUploadedByEmployee().getLastName() : "")
                 .setHeader("Hochgeladen von").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(d -> d.getUploadedByEmployee() != null);
+                .setComparator(d -> d.getUploadedByEmployee() != null
+                        ? d.getUploadedByEmployee().getFirstName() : "");
         documentsGrid.addColumn(d -> d.getUpdatedAt() != null ? d.getUpdatedAt().toLocalDate()
                         .format(DateTimeFormatter.ofPattern("dd.MM.yyyy")) : "")
                 .setHeader("Datum").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(d -> d.getUpdatedAt() != null);
-        documentsGrid.addColumn(d -> String.valueOf(d.getFileSizeBytes()))
-                .setHeader("Größer (Bytes)").setAutoWidth(true).setFlexGrow(0)
+        documentsGrid.addColumn(d -> String.format("%.2f", (double) d.getFileSizeBytes() / 1024 / 1024))
+                .setHeader("Größer (Mb)").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(d -> String.valueOf(d.getFileSizeBytes()));
 
         documentsGrid.addItemClickListener(e -> {
@@ -369,7 +453,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                 return;
             }
         });
-
+        refreshGrid();
         add(documentsGrid);
     }
 
@@ -490,7 +574,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                                 req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         getUI().ifPresent(ui -> ui.getPage().reload());
-                    }catch (Exception ex) {
+                    } catch (Exception ex) {
                         Dialog err = new Dialog();
                         err.setHeaderTitle("Fehler");
                         err.add(new Span(ex.getMessage()));
@@ -605,11 +689,11 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     }
 
     private boolean isInDateRange(FamilyDocument d) {
-        if (filterDateFrom == null || filterDateTo == null) return true;
-        if (d.getUpdatedAt() == null) return false;
-        LocalDate date = d.getUpdatedAt().toLocalDate();
-        if (date.isBefore(filterDateFrom)) return false;
-        if (date.isAfter(filterDateTo)) return false;
+        LocalDateTime base = d.getUpdatedAt() != null ? d.getUpdatedAt() : d.getUploadedAt();
+        if (base == null) return false;
+        LocalDate date = base.toLocalDate();
+        if (filterDateFrom != null && date.isBefore(filterDateFrom)) return false;
+        if (filterDateTo != null && date.isAfter(filterDateTo)) return false;
 
         return true;
     }

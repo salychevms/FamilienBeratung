@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -32,9 +33,8 @@ public class FamilyDocumentService {
     @Value("${storage.base-path}")
     private String storageBasePath;
 
-    public FamilyDocument uploadDocument(Family family, MultipartFile file, String description, Employee employee,
-                                         String ip, String browser) {
-
+    public FamilyDocument uploadDocument(Family family, String originalName, String contentType, InputStream data,
+                                         Employee employee, String ip, String browser) {
         if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
             log.error("Family {} status is not ACTIVE. Actual status: {}", family.getId(), family.getStatus());
             throw new RuntimeException("Family " + family.getId() + " status is not ACTIVE. Actual status: " + family.getStatus());
@@ -44,13 +44,11 @@ public class FamilyDocumentService {
             throw new RuntimeException("Employee " + employee.getLogin() + " has no access to upload FamilyDocument");
         }
 
-        validator.validateText(description, 4000);
+        String stored = System.currentTimeMillis() + "_" + originalName;
 
-        String original = file.getOriginalFilename();
-        String stored = System.currentTimeMillis() + "_" + original;
-
+        long size;
         try {
-            storeFile(file, family.getId(), stored);
+            size=storeFile(data, family.getId(), stored);
         } catch (Exception e) {
             log.error("Failed to store file. Error: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to store file. Error: " + e.getMessage());
@@ -59,21 +57,17 @@ public class FamilyDocumentService {
         FamilyDocument document = new FamilyDocument();
         document.setFamily(family);
         document.setUploadedByEmployee(employee);
-        document.setOriginalFileName(original);
+        document.setOriginalFileName(originalName);
         document.setStoredFileName(stored);
-        String fileType = file.getContentType() != null ?
-                file.getContentType() :
-                "application/octet-stream";
-        document.setFileType(fileType);
-        document.setFileSizeBytes(file.getSize());
-        document.setDescription(description);
+        document.setFileType(contentType!=null?contentType:"application/octet-stream");
+        document.setFileSizeBytes(size);
         document.setUploadedAt(LocalDateTime.now());
 
         FamilyDocument saved = familyDocumentRepository.save(document);
 
         accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_UPLOAD", "FamilyDocument", saved.getId(),
-                "New Family Document has been uploaded: " + original, ip, browser);
-        log.info("Family Document has been uploaded: {}", original);
+                "New Family Document has been uploaded: " + originalName, ip, browser);
+        log.info("Family Document has been uploaded: {}", originalName);
         return saved;
     }
 
@@ -269,15 +263,19 @@ public class FamilyDocumentService {
         return familyDocumentRepository.findAll();
     }
 
-    private void storeFile(MultipartFile file, Long familyId, String storedFileName) throws IOException {
+    private long storeFile(InputStream file, Long familyId, String storedFileName) throws IOException {
         Path dir = getFamilyDir(familyId);
-        if (!dir.toFile().exists()) {
+        if (!Files.exists(dir)) {
             Files.createDirectories(dir);
             log.info("Creating family document path with family id {}", familyId);
         }
 
         Path target = dir.resolve(storedFileName);
-        Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+        long size;
+        try (InputStream in=file){
+            size=Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+        return size;
     }
 
     private Path getFamilyDir(Long familyId) {
