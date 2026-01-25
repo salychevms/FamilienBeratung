@@ -64,7 +64,7 @@ public class MainLayout extends AppLayout {
         top.setPadding(false);
         top.setSpacing(false);
 
-        VerticalLayout buttons=new VerticalLayout();
+        VerticalLayout buttons = new VerticalLayout();
         buttons.setWidthFull();
         buttons.setSpacing(true);
         buttons.setPadding(true);
@@ -73,24 +73,30 @@ public class MainLayout extends AppLayout {
         int lvl = (e != null) ? e.getRole().getAccessLevel() : 0;
 
         Button overview = new Button("Übersicht",
-                event->UI.getCurrent().navigate("overview"));
+                event -> UI.getCurrent().navigate("overview"));
         overview.setWidthFull();
         overview.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         buttons.add(overview);
 
-        Button families=new Button("Familien",
-                event->UI.getCurrent().navigate("families"));
+        Button families = new Button("Familien",
+                event -> UI.getCurrent().navigate("families"));
         families.setWidthFull();
         families.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         buttons.add(families);
 
-        Button consultations=new Button("Beratungen",
-                event->UI.getCurrent().navigate(ConsultationsView.class));
+        Button consultations = new Button("Beratungen",
+                event -> UI.getCurrent().navigate(ConsultationsView.class));
         consultations.setWidthFull();
         consultations.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         buttons.add(consultations);
+
+        Button docs = new Button("Dokumente",
+                event -> UI.getCurrent().navigate(DocumentsView.class));
+        docs.setWidthFull();
+        docs.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        buttons.add(docs);
+
         /*menu.add(new RouterLink("Delegationen", DelegationsView.class));
-        menu.add(new RouterLink("Dokumente", DocumentsView.class));
         if (lvl >= 80) buttons.add(new RouterLink("Mitarbeiter", EmployeesView.class));
         if (lvl == 100) buttons.add(new RouterLink("Admin Panel", AdminView.class));*/
 

@@ -113,11 +113,15 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
                 FamilyDetailsView.class, new RouteParameters("id", String.valueOf(currentFamily.getId())));
 
         Span sep1 = new Span(" >> ");
+        sep1.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
         Span sep2 = new Span(" >> ");
+        sep2.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
         Span sep3 = new Span(" >> ");
+        sep3.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
 
         Span current = new Span("Beratung");
-        current.getStyle().set("font-weight", "bold");
+        current.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "bold")
+                .set("color", "var(--lumo-body-text-color)");
 
         bcrumbs.add(l1, sep1, l2, sep2, l3, sep3, current);
         add(bcrumbs);
@@ -412,7 +416,8 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
         titleLayout.setSpacing(false);
         titleLayout.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        if (lvl != 10 && !currentFamily.getStatus().equals(RecordStatus.ARCHIVED) && !currentFamily.isCaseClosed()) {
+        if (lvl != 10 && !currentFamily.getStatus().equals(RecordStatus.ARCHIVED) && !currentFamily.isCaseClosed()
+                && !currentFamily.getStatus().equals(RecordStatus.BLOCKED)) {
             Button edit = new Button(VaadinIcon.EDIT.create());
             edit.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             edit.addClassName("edit-btn");

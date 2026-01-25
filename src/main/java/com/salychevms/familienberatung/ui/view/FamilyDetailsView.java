@@ -79,8 +79,13 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             return;
         }
 
-        this.familyId = optId.get();
-        this.currentFamily = familyService.getFamilyById(familyId);
+        try {
+            this.currentFamily = familyService.getFamilyById(optId.get());
+            this.familyId = currentFamily.getId();
+        } catch (Exception ex) {
+            event.forwardTo("families");
+            return;
+        }
 
         consultations = new ArrayList<>();
         List<Consultation> consultationList = consultationService.getConsultationsByFamily(currentFamily);
@@ -98,6 +103,16 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         members = new ArrayList<>();
         members = familyMemberService.getMembers(currentFamily, currentEmployee.getLogin()).stream().filter(
                 fm -> !fm.isInvalid()).toList();
+
+        if (lvl == 50) {
+            boolean holder = currentFamily.getAssignedEmployee().equals(currentEmployee);
+            boolean delegated = activeDelegation != null && activeDelegation.getToEmployee().equals(currentEmployee)
+                    && delegationService.isDelegationActive(activeDelegation);
+            if (!holder && !(delegated)) {
+                event.forwardTo("families");
+                return;
+            }
+        }
 
         if (!initialized) {
             initialized = true;
@@ -724,6 +739,10 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                     e -> buildCreateConsultationDialog());
             bar.add(newBtn);
         }
+
+        Button docsBtn = new Button("Dokumente", e -> getUI().ifPresent(ui -> ui.navigate(
+                DocumentsView.class, new RouteParameters("familyId", currentFamily.getId().toString()))));
+        bar.add(docsBtn);
 
         if ((lvl == 80 || lvl == 100) && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
             String zeusId = currentFamily.getZeusId();
@@ -1356,7 +1375,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                 getUI().ifPresent(ui -> ui.getPage().reload());
             });
 
-            Button cancel=new Button("Abbrechen", ev -> confirm.close());
+            Button cancel = new Button("Abbrechen", ev -> confirm.close());
 
             HorizontalLayout buttons = new HorizontalLayout(ok, cancel);
             buttons.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
@@ -1366,9 +1385,9 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             confirm.open();
         });
 
-        Button close=new Button("Schließen", ev->dialog.close());
+        Button close = new Button("Schließen", ev -> dialog.close());
 
-        HorizontalLayout bottom=new HorizontalLayout(restore, close);
+        HorizontalLayout bottom = new HorizontalLayout(restore, close);
         bottom.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
 
         dialog.add(new VerticalLayout(grid, bottom));

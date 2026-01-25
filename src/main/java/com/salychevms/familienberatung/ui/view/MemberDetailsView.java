@@ -68,9 +68,14 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
         this.memberId = optMemberId.get();
         this.familyId = optFamilyId.get();
 
-        this.currentFamily = familyService.getFamilyById(familyId);
+        try {
+            this.currentFamily = familyService.getFamilyById(familyId);
+        }catch (Exception ex){
+            event.forwardTo("family/" + familyId);
+            return;
+        }
 
-        if (currentFamily == null || currentFamily.getStatus().equals(RecordStatus.INVALID)) {
+        if (currentFamily.getStatus().equals(RecordStatus.INVALID)) {
             event.forwardTo("families");
             return;
         }

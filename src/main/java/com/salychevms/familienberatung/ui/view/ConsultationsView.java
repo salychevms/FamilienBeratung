@@ -47,7 +47,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
     private Long familyId;
     private Employee currentEmployee;
     private int lvl;
-    private List<Delegation> currentDelegations = new ArrayList<>();
+    private List<Delegation> currentDelegations=new ArrayList<>();
     private List<Consultation> currentConsultations = new ArrayList<>();
     private List<Employee> currentEmployees = new ArrayList<>();
     private LocalDate dateFrom = null;
@@ -60,11 +60,13 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
     private Button createButton;
     private Button trashButton;
     private TextField searchField;
+    ComboBox<Family> familyFilter;
     ComboBox<Employee> employeeFilter;
     private DatePicker fromDate;
     private DatePicker toDate;
     private Grid<Consultation> consultationGrid;
     private Family selectedFamily;
+    private List<Family> currentFamilies=new ArrayList<>();
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
@@ -79,11 +81,35 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
 
         this.familyId = event.getRouteParameters().getLong("familyId").orElse(null);
 
+        if (familyId == null) {
+            List<Delegation> delegations;
+            List<Family> families;
+
+            if (lvl == 50) {
+                families = new ArrayList<>(familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(),
+                                currentEmployee).stream().filter(f ->
+                        !f.getStatus().equals(RecordStatus.INVALID)).toList());
+                delegations = new ArrayList<>(delegationService.getDelegationsByToEmployee(currentEmployee).stream()
+                        .filter(delegationService::isDelegationActive)
+                        .filter(d -> d.getToEmployee().equals(currentEmployee)).toList());
+                for (Delegation dlg : delegations)
+                    if (!dlg.getFamily().getStatus().equals(RecordStatus.INVALID))
+                        families.add(dlg.getFamily());
+                currentFamilies = families;
+            } else {
+                families = new ArrayList<>(familyService.getFamilies().stream()
+                        .filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList());
+                currentFamilies = families;
+            }
+        }
+
         this.currentDelegations.clear();
         if (lvl == 50)
-            this.currentDelegations = delegationService.getDelegationsByToEmployee(currentEmployee);
+            this.currentDelegations = new ArrayList<>(delegationService.getDelegationsByToEmployee(currentEmployee).stream()
+                    .filter(delegationService::isDelegationActive)
+                    .filter(d -> d.getFamily().getStatus().equals(RecordStatus.ACTIVE)).toList());
         else
-            this.currentDelegations = delegationService.getDelegations();
+            this.currentDelegations = new ArrayList<>(delegationService.getDelegations());
 
         this.currentConsultations.clear();
         if (lvl == 50) {
@@ -263,9 +289,27 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         dateToLayout.setPadding(false);
         dateToLayout.setWidthFull();
 
+        if (familyId == null) {
+            VerticalLayout familyLayout = new VerticalLayout();
+            familyLayout.setSpacing(false);
+            familyLayout.setPadding(false);
+            familyLayout.setWidthFull();
+
+            Span famLabel = new Span("Familie");
+            famLabel.getStyle().set("margin-bottom", "0").set("font-weight", "bold");
+
+            familyFilter = new ComboBox<>();
+            familyFilter.setItems(currentFamilies);
+            familyFilter.setItemLabelGenerator(Family::getFamilyName);
+            familyFilter.setClearButtonVisible(true);
+            familyFilter.addValueChangeListener(f -> refreshGrid());
+
+            familyLayout.add(famLabel, familyFilter);
+            filterLayout.add(familyLayout);
+        }
+
         Span empLabel = new Span("Berater*in");
-        empLabel.getStyle().set("margin-bottom", "0");
-        empLabel.getStyle().set("font-weight", "bold");
+        empLabel.getStyle().set("margin-bottom", "0").set("font-weight", "bold");
 
         employeeFilter = new ComboBox<>();
         employeeFilter.setItems(currentEmployees);
@@ -276,8 +320,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         empLayout.add(empLabel, employeeFilter);
 
         Span fromDateLabel = new Span("Von");
-        fromDateLabel.getStyle().set("margin-bottom", "0");
-        fromDateLabel.getStyle().set("font-weight", "bold");
+        fromDateLabel.getStyle().set("margin-bottom", "0").set("font-weight", "bold");
 
         fromDate = new DatePicker();
         fromDate.addValueChangeListener(e -> {
@@ -288,8 +331,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         dateFromLayout.add(fromDateLabel, fromDate);
 
         Span toDateLabel = new Span("Bis");
-        toDateLabel.getStyle().set("margin-bottom", "0");
-        toDateLabel.getStyle().set("font-weight", "bold");
+        toDateLabel.getStyle().set("margin-bottom", "0").set("font-weight", "bold");
 
         toDate = new DatePicker("");
         toDate.addValueChangeListener(e -> {
@@ -345,17 +387,17 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         List<Consultation> result = new ArrayList<>();
 
         String query = searchField != null ? searchField.getValue() : null;
-
         Employee emp = employeeFilter != null ? employeeFilter.getValue() : null;
+        Family fam = familyFilter != null ? familyFilter.getValue() : null;
+
         for (Consultation c : currentConsultations) {
             if (familyId != null && !c.getFamily().getId().equals(familyId)) continue;
+            if (familyId == null && fam != null && !c.getFamily().equals(fam)) continue;
             if (emp != null && !c.getEmployee().equals(emp)) continue;
             if (!isInDateRange(c)) continue;
             if (!matchesSearch(c, query)) continue;
-
             result.add(c);
         }
-
         consultationGrid.setItems(result);
     }
 

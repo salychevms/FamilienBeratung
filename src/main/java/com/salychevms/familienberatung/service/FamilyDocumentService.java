@@ -16,6 +16,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -76,16 +77,8 @@ public class FamilyDocumentService {
         return saved;
     }
 
-    public FamilyDocument updateDescription(Family family, FamilyDocument doc, String description,
-                                            Employee employee, String ip, String browser) {
-        if (!doc.getFamily().equals(family)) {
-            log.error("Document does not belong to Family");
-            throw new RuntimeException("Document does not belong to Family");
-        }
-        if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Family {} status is not ACTIVE. Actual status: {}", family.getId(), family.getStatus());
-            throw new RuntimeException("Family " + family.getId() + " status is not ACTIVE. Actual status: " + family.getStatus());
-        }
+    public FamilyDocument updateName(FamilyDocument doc, FamilyDocument updated, Employee employee,
+                                     String ip, String browser) {
         if (!employeeService.hasAccess(employee.getLogin(), 50)) {
             log.error("Employee {} has no access to update FamilyDocument", employee.getLogin());
             throw new RuntimeException("Employee " + employee.getLogin() + " has no access to update FamilyDocument");
@@ -95,18 +88,56 @@ public class FamilyDocumentService {
             throw new RuntimeException("Family document is invalid. Document name: " + doc.getOriginalFileName());
         }
 
-        validator.validateText(description, 4000);
+        FamilyDocument fDoc = familyDocumentRepository.findById(doc.getId()).orElse(null);
+        if (fDoc == null) {
+            log.error("Family document not found. Family document id: {}", doc.getId());
+            throw new RuntimeException("Family document not found. Family document id: " + doc.getId());
+        }
 
-        doc.setDescription(description);
-        doc.setUpdatedAt(LocalDateTime.now());
-        doc.setUpdatedBy(employee.getLogin());
+        validator.validateText(updated.getOriginalFileName(), 255);
 
-        FamilyDocument updated = familyDocumentRepository.save(doc);
+        fDoc.setOriginalFileName(updated.getOriginalFileName());
+        fDoc.setUpdatedAt(LocalDateTime.now());
+        fDoc.setUpdatedBy(employee.getLogin());
+
+        FamilyDocument result = familyDocumentRepository.save(fDoc);
+
+        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_NAME_UPDATE", "FamilyDocument",
+                updated.getId(), "FamilyDocument Name has been updated: " + result.getOriginalFileName(), ip, browser);
+        log.info("FamilyDocument {} has been updated: Name {}", result.getId(), result.getOriginalFileName());
+        return result;
+    }
+
+    public FamilyDocument updateDescription(FamilyDocument doc, FamilyDocument updated, Employee employee,
+                                            String ip, String browser) {
+        if (!employeeService.hasAccess(employee.getLogin(), 50)) {
+            log.error("Employee {} has no access to update FamilyDocument", employee.getLogin());
+            throw new RuntimeException("Employee " + employee.getLogin() + " has no access to update FamilyDocument");
+        }
+        if (doc.isInvalid()) {
+            log.error("Family document is invalid. Document name: {}", doc.getOriginalFileName());
+            throw new RuntimeException("Family document is invalid. Document name: " + doc.getOriginalFileName());
+        }
+
+        FamilyDocument fDoc = familyDocumentRepository.findById(doc.getId()).orElse(null);
+        if (fDoc == null) {
+            log.error("Family document not found. Family document id: {}", doc.getId());
+            throw new RuntimeException("Family document not found. Family document id: " + doc.getId());
+        }
+
+        validator.validateText(updated.getDescription(), 4000);
+
+        fDoc.setDescription(updated.getDescription());
+        fDoc.setUpdatedAt(LocalDateTime.now());
+        fDoc.setUpdatedBy(employee.getLogin());
+
+        FamilyDocument result = familyDocumentRepository.save(fDoc);
 
         accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_DESCRIPTION_UPDATE", "FamilyDocument",
-                updated.getId(), "FamilyDocument description has been updated: " + description, ip, browser);
-        log.info("FamilyDocument {} has been updated: description {}", updated.getId(), description);
-        return updated;
+                updated.getId(), "FamilyDocument description has been updated: "
+                        + result.getDescription(), ip, browser);
+        log.info("FamilyDocument {} has been updated: description {}", updated.getId(), result.getDescription());
+        return result;
     }
 
     public FamilyDocument getDocument(Family family, Employee employee, Long documentId) {
@@ -230,6 +261,12 @@ public class FamilyDocumentService {
                 "FamilyDocument has been downloaded", ip, browser);
         log.info("FamilyDocument {} has been downloaded. Requester: {}", doc.getId(), employee.getLogin());
         return path;
+    }
+
+    public List<FamilyDocument> getAllDocuments(Employee employee) {
+        if (employee == null)
+            log.error("Employee is null");
+        return familyDocumentRepository.findAll();
     }
 
     private void storeFile(MultipartFile file, Long familyId, String storedFileName) throws IOException {

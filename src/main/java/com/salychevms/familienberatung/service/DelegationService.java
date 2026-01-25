@@ -247,4 +247,17 @@ public class DelegationService {
         }
         return response;
     }
+
+    public boolean isDelegationActive(Delegation delegation) {
+        if(delegation == null)
+            return false;
+        if(delegation.isExpired())
+            return false;
+        if(delegation.getAbortedAt()!=null)
+            return false;
+        LocalDate end=delegation.getEndDate();
+        if(end==null)
+            return false;
+        return  !end.isBefore(LocalDate.now());
+    }
 }
