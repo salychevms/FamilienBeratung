@@ -44,6 +44,14 @@ public class FamilyDocumentService {
             throw new RuntimeException("Employee " + employee.getLogin() + " has no access to upload FamilyDocument");
         }
 
+        String mime=contentType;
+        String readable=toReadableType(mime);
+
+        if(readable==null){
+            log.error("Family document {} has no readable content type", family.getId());
+            throw new RuntimeException("Dateityp nicht erlaubt: " + mime);
+        }
+
         String stored = System.currentTimeMillis() + "_" + originalName;
 
         long size;
@@ -128,7 +136,7 @@ public class FamilyDocumentService {
         FamilyDocument result = familyDocumentRepository.save(fDoc);
 
         accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_DESCRIPTION_UPDATE", "FamilyDocument",
-                updated.getId(), "FamilyDocument description has been updated: "
+                result.getId(), "FamilyDocument description has been updated: "
                         + result.getDescription(), ip, browser);
         log.info("FamilyDocument {} has been updated: description {}", updated.getId(), result.getDescription());
         return result;
@@ -280,5 +288,16 @@ public class FamilyDocumentService {
 
     private Path getFamilyDir(Long familyId) {
         return Paths.get(storageBasePath, familyId.toString());
+    }
+
+    private String toReadableType(String mime) {
+        if(mime == null) return null;
+        if (mime.contains("pdf")) return "PDF";
+        if (mime.contains("doc") || mime.contains("docx") || mime.contains("word")) return "DOC/DOCX";
+        if (mime.contains("xls") || mime.contains("xlsx") || mime.contains("excel") || mime.contains("sheet"))
+            return "XLS/XLSX";
+        if (mime.contains("jpeg") || mime.contains("jpg")) return "JPEG";
+        if (mime.contains("png")) return "PNG";
+        return null;
     }
 }

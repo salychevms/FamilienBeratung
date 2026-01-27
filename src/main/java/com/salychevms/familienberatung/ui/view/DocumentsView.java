@@ -21,6 +21,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.VaadinRequest;
 import com.vaadin.flow.server.streams.UploadHandler;
@@ -29,10 +30,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.InputStream;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.Semaphore;
 
 @Slf4j
 @Route(value = "documents/:familyId?", layout = MainLayout.class)
@@ -60,7 +63,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     private Button uploadButton;
     private Button trashButton;
     private TextField searchField;
-    private ComboBox<Employee> assignedEmployeeFilter;
+    private ComboBox<String> fileTypeFilter;
     private ComboBox<Employee> uploaderEmployeeFilter;
     private ComboBox<Family> familyFilter;
     private DatePicker dateFrom;
@@ -70,6 +73,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     private List<Employee> assignedEmployees = new ArrayList<>();
     private List<Employee> createdByEmployees = new ArrayList<>();
     private Grid<FamilyDocument> documentsGrid;
+    private static final Semaphore UPLOAD_LOCK = new Semaphore(1);
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
@@ -82,10 +86,10 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         this.currentEmployee = employeeService.findByLogin(e.getLogin());
         this.lvl = currentEmployee.getRole().getAccessLevel();
 
-        List<Delegation> delegations = delegationService.getDelegations().stream().filter(d ->
+        List<Delegation> delegations = new ArrayList<>(delegationService.getDelegations().stream().filter(d ->
                 delegationService.isDelegationActive(d) && d.getToEmployee().equals(currentEmployee)
                         && (d.getFamily().getStatus().equals(RecordStatus.ACTIVE)
-                        || d.getFamily().getStatus().equals(RecordStatus.ARCHIVED))).toList();
+                        || d.getFamily().getStatus().equals(RecordStatus.ARCHIVED))).toList());
 
         Optional<Long> optFamilyId = event.getRouteParameters().getLong("familyId");
         if (optFamilyId.isPresent()) {
@@ -102,6 +106,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                             if (dlg.getFamily().equals(f)) {
                                 this.currentFamily = f;
                                 familyId = f.getId();
+                                break;
                             }
                         }
                     }
@@ -115,28 +120,28 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         }
 
         currentDocuments = new ArrayList<>();
+        currentFamilies = new ArrayList<>();
         if (familyId == 0 || currentFamily == null) {
-            currentFamilies = new ArrayList<>();
             if (lvl == 50) {
-                currentFamilies = familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(),
+                currentFamilies = new ArrayList<>(familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(),
                         currentEmployee).stream().filter(f -> (f.getStatus().equals(RecordStatus.ARCHIVED)
-                        || f.getStatus().equals(RecordStatus.ACTIVE))).toList();
+                        || f.getStatus().equals(RecordStatus.ACTIVE))).toList());
                 for (Family f : currentFamilies)
-                    currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(f, currentEmployee));
+                    currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(f, currentEmployee)
+                            .stream().filter(this::isVisibleDoc).toList());
                 for (Delegation dlg : delegations)
                     if (dlg.getToEmployee().equals(currentEmployee))
-                        currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(dlg.getFamily(), currentEmployee));
+                        currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(dlg.getFamily(), currentEmployee)
+                                .stream().filter(this::isVisibleDoc).toList());
             } else if (lvl == 80 || lvl == 100) {
-                currentFamilies = familyService.getFamilies().stream()
-                        .filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList();
-                currentDocuments = familyDocumentService.getAllDocuments(currentEmployee).stream().filter(d ->
-                        (d.getFamily().getStatus().equals(RecordStatus.ARCHIVED)
-                                || d.getFamily().getStatus().equals(RecordStatus.ACTIVE))).toList();
+                currentFamilies = new ArrayList<>(familyService.getFamilies().stream()
+                        .filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList());
+                currentDocuments = new ArrayList<>(familyDocumentService.getAllDocuments(currentEmployee)
+                        .stream().filter(this::isVisibleDoc).toList());
             }
         } else
             currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(currentFamily, currentEmployee)
-                    .stream().filter(d -> (d.getFamily().getStatus().equals(RecordStatus.ARCHIVED)
-                            || d.getFamily().getStatus().equals(RecordStatus.ACTIVE))).toList());
+                    .stream().filter(this::isVisibleDoc).toList());
 
         assignedEmployees.clear();
         createdByEmployees.clear();
@@ -165,7 +170,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         buildHeader();
         buildTopBar();
         buildFilters();
-        buildActionButtons();
+        if (lvl != 10)
+            buildActionButtons();
         buildGrid();
     }
 
@@ -276,20 +282,19 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             filterLayout.add(famLayout);
         }
 
-        VerticalLayout assignedLayout = new VerticalLayout();
-        assignedLayout.setSpacing(false);
-        assignedLayout.setPadding(false);
+        VerticalLayout fileTypeLayout = new VerticalLayout();
+        fileTypeLayout.setSpacing(false);
+        fileTypeLayout.setPadding(false);
 
-        Span assignedLabel = new Span("Berater*in");
-        assignedLabel.getStyle().set("font-weight", "bold");
+        Span fileTypeLabel = new Span("Typ");
+        fileTypeLabel.getStyle().set("font-weight", "bold");
 
-        assignedEmployeeFilter = new ComboBox<>();
-        assignedEmployeeFilter.setItems(assignedEmployees);
-        assignedEmployeeFilter.setItemLabelGenerator(e -> e.getFirstName() + " " + e.getLastName());
-        assignedEmployeeFilter.setClearButtonVisible(true);
-        assignedEmployeeFilter.addValueChangeListener(e -> refreshGrid());
+        fileTypeFilter = new ComboBox<>();
+        fileTypeFilter.setItems(new ArrayList<>(collectFileTypes()));
+        fileTypeFilter.setClearButtonVisible(true);
+        fileTypeFilter.addValueChangeListener(e -> refreshGrid());
 
-        assignedLayout.add(assignedLabel, assignedEmployeeFilter);
+        fileTypeLayout.add(fileTypeLabel, fileTypeFilter);
 
         VerticalLayout uploadLayout = new VerticalLayout();
         uploadLayout.setSpacing(false);
@@ -336,13 +341,14 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
         toLayout.add(toLabel, dateTo);
 
-        filterLayout.add(assignedLayout, uploadLayout, fromLayout, toLayout);
+        filterLayout.add(fileTypeLayout, uploadLayout, fromLayout, toLayout);
         add(filterLayout);
     }
 
     private void buildActionButtons() {
         HorizontalLayout buttonLayout = new HorizontalLayout();
-        buttonLayout.setSpacing(false);
+        buttonLayout.setSpacing(true);
+        buttonLayout.setAlignItems(FlexComponent.Alignment.CENTER);
 
         uploadButton = new Button("Hochladen", VaadinIcon.UPLOAD.create());
         uploadButton.addClickListener(e -> {
@@ -352,7 +358,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                 pick.setWidth("400px");
 
                 ComboBox<Family> familyComboBox = new ComboBox<>("Familie");
-                familyComboBox.setItems(currentFamilies);
+                familyComboBox.setItems(currentFamilies.stream().filter(
+                        f -> f.getStatus().equals(RecordStatus.ACTIVE)).toList());
                 familyComboBox.setItemLabelGenerator(Family::getFamilyName);
                 familyComboBox.setWidthFull();
 
@@ -380,12 +387,19 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             }
             Dialog dlg = new Dialog();
             dlg.setModal(true);
-            dlg.setWidth("600px");
+            dlg.setWidth("450px");
 
             Span info = new Span("Hochladen für Familie: " + currentFamily.getFamilyName());
+            Span info2 = new Span("Max bis 5 MB/File");
+            info2.getStyle().set("font-size", "11px").set("padding", "2px 6px").set("margin-bottom", "1px");
+            Span info3 = new Span("Erlaubt: \".pdf\",\".doc\", \".docx\", \".xls\", \".xlsx\", \".jpg\", \".jpeg\", \".png\"");
+            info3.getStyle().set("font-size", "11px").set("padding", "2px 6px").set("margin-bottom", "1px");
 
             Upload upload = new Upload((UploadHandler) event -> {
+                boolean acquired = false;
                 try (InputStream in = event.getInputStream()) {
+                    UPLOAD_LOCK.acquire();
+                    acquired = true;
                     VaadinRequest req = VaadinRequest.getCurrent();
 
                     FamilyDocument saved = familyDocumentService.uploadDocument(currentFamily, event.getFileName(),
@@ -393,9 +407,15 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                             req != null ? req.getHeader("User-Agent") : "UNKNOW");
                     currentDocuments.add(saved);
                 } catch (Exception ex) {
-                    showOkDialog("Fehler", ex.getMessage());
+                    UI ui = UI.getCurrent();
+                    if (ui != null) ui.access(() -> showOkDialog("Upload-Fehler", ex.getMessage()));
+                } finally {
+                    if (acquired) UPLOAD_LOCK.release();
                 }
             });
+            upload.setAcceptedFileTypes(".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png");
+            upload.setWidth("300px");
+            upload.setHeight("300px");
             upload.setDropAllowed(true);
             upload.setMaxFiles(10);
             upload.setMaxFileSize(5 * 1024 * 1024);
@@ -407,18 +427,26 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                 refreshGrid();
             });
 
-            VerticalLayout content = new VerticalLayout(info, upload);
+            VerticalLayout content = new VerticalLayout(info, info2, info3, upload);
             content.setSpacing(true);
 
             dlg.add(content);
             dlg.open();
         });
-        buttonLayout.add(uploadButton);
+
+        trashButton = new Button("Papierkorb", VaadinIcon.TRASH.create());
+        trashButton.setWidth("90px");
+        trashButton.setHeight("26px");
+        trashButton.getStyle().set("font-size", "11px").set("padding", "2px 6px")
+                .set("color", "#666").set("background", "#f2f2f2");
+        trashButton.addClickListener(e -> buildTrashDialog());
+
+        buttonLayout.add(uploadButton, trashButton);
         add(buttonLayout);
     }
 
     private void buildGrid() {
-        documentsGrid = new Grid();
+        documentsGrid = new Grid<>();
         documentsGrid.setSizeFull();
         documentsGrid.setSelectionMode(Grid.SelectionMode.SINGLE);
 
@@ -431,15 +459,6 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         documentsGrid.addColumn(d -> d.getFamily() != null ? d.getFamily().getFamilyName() : "")
                 .setHeader("Familie").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(d -> d.getFamily() != null ? d.getFamily().getFamilyName() : "");
-        documentsGrid.addColumn(d -> d.getUploadedByEmployee() != null
-                        ? d.getUploadedByEmployee().getFirstName() + " " + d.getUploadedByEmployee().getLastName() : "")
-                .setHeader("Hochgeladen von").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(d -> d.getUploadedByEmployee() != null
-                        ? d.getUploadedByEmployee().getFirstName() : "");
-        documentsGrid.addColumn(d -> d.getUpdatedAt() != null ? d.getUpdatedAt().toLocalDate()
-                        .format(DateTimeFormatter.ofPattern("dd.MM.yyyy")) : "")
-                .setHeader("Datum").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(d -> d.getUpdatedAt() != null);
         documentsGrid.addColumn(d -> String.format("%.2f", (double) d.getFileSizeBytes() / 1024 / 1024))
                 .setHeader("Größer (Mb)").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(d -> String.valueOf(d.getFileSizeBytes()));
@@ -452,6 +471,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             if (d == null) {
                 return;
             }
+            buildDocumentDialog(e.getItem());
         });
         refreshGrid();
         add(documentsGrid);
@@ -462,7 +482,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
         String q = searchField != null ? searchField.getValue() : null;
         Family fam = familyFilter != null ? familyFilter.getValue() : null;
-        Employee assigned = assignedEmployeeFilter != null ? assignedEmployeeFilter.getValue() : null;
+        String fileType = fileTypeFilter != null ? fileTypeFilter.getValue() : null;
         Employee uploader = uploaderEmployeeFilter != null ? uploaderEmployeeFilter.getValue() : null;
 
         for (FamilyDocument d : currentDocuments) {
@@ -471,9 +491,9 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             if (f == null) continue;
             if (familyId != 0 && f.getId() != familyId) continue;
             if (familyId == 0 && fam != null && !f.equals(fam)) continue;
-            if (assigned != null) {
-                if (f.getAssignedEmployee() == null) continue;
-                if (!f.getAssignedEmployee().equals(assigned)) continue;
+            if (fileType != null) {
+                if (d.getFileType() == null) continue;
+                if (!Objects.equals(toReadableType(d.getFileType()), fileType)) continue;
             }
             if (uploader != null) {
                 if (d.getUploadedByEmployee() == null) continue;
@@ -525,10 +545,10 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                                 FamilyDocument doc = familyDocumentService.getDocument(d.getFamily(), currentEmployee, d.getId());
                                 doc.setOriginalFileName(newName);
                                 VaadinRequest req = VaadinRequest.getCurrent();
-                                familyDocumentService.updateName(d, doc, currentEmployee,
+                                FamilyDocument document = familyDocumentService.updateName(d, doc, currentEmployee,
                                         req != null ? req.getRemoteAddr() : "UNKNOWN",
                                         req != null ? req.getHeader("User-Agent") : "UNKNOWN");
-                                getUI().ifPresent(ui -> ui.getPage().reload());
+                                buildDocumentDialog(document);
                             } catch (Exception ex) {
                                 Dialog err = new Dialog();
                                 err.setHeaderTitle("Fehler");
@@ -545,12 +565,13 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         nameLayout.add(docName);
         root.add(nameLayout);
 
-        Span size = new Span("Größe: " + d.getFileSizeBytes() + " Bytes");
+        Span size = new Span("Größe: " + String.format("%.2f", (double) d.getFileSizeBytes() / 1024 / 1024) + " Mb");
         root.add(size);
         Span uploadedBy = new Span("Hochgeladen von: "
                 + (d.getUploadedByEmployee() != null ? d.getUploadedByEmployee().getFirstName()
                 + " " + d.getUploadedByEmployee().getLastName() : ""));
-        root.add(uploadedBy);
+        Span uploadedAt = new Span("Hochgeladen am: " + (d.getUploadedAt() != null ? d.getUploadedAt() : ""));
+        root.add(uploadedBy, uploadedAt);
 
         HorizontalLayout descHLayout = new HorizontalLayout();
         descHLayout.setSpacing(false);
@@ -570,10 +591,10 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                         FamilyDocument updated = new FamilyDocument();
                         updated.setDescription(text);
                         VaadinRequest req = VaadinRequest.getCurrent();
-                        familyDocumentService.updateDescription(d, updated, currentEmployee,
+                        FamilyDocument document = familyDocumentService.updateDescription(d, updated, currentEmployee,
                                 req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
-                        getUI().ifPresent(ui -> ui.getPage().reload());
+                        buildDocumentDialog(document);
                     } catch (Exception ex) {
                         Dialog err = new Dialog();
                         err.setHeaderTitle("Fehler");
@@ -593,14 +614,42 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         descArea.setReadOnly(true);
         descArea.setWidthFull();
         descArea.setHeight("200px");
-        descArea.setValue(d.getDescription());
+        descArea.setValue(d.getDescription() != null ? d.getDescription() : "");
         descArea.getStyle().set("white-space", "pre-wrap");
 
         root.add(descHLayout, descArea);
 
         root.add(buildAuditBlock(d));
 
-        Button close = new Button("Schließen", e -> dialog.close());
+        if (lvl != 10 || d.getFamily().getStatus().equals(RecordStatus.ACTIVE) || !d.getFamily().isCaseClosed()) {
+            HorizontalLayout block = new HorizontalLayout();
+            block.setSpacing(false);
+            block.setPadding(false);
+            block.setWidthFull();
+
+            Button delete = new Button("Datei löschen", e -> {
+                showConfirmDialog("Datei löschen", "Wollen Sie die Datei löschen?", () -> {
+                    try {
+                        VaadinRequest req = VaadinRequest.getCurrent();
+                        familyDocumentService.invalidateDocument(d.getFamily(), d, currentEmployee,
+                                req != null ? req.getRemoteAddr() : "UNKNOWN",
+                                req != null ? req.getHeader("User-Agent") : "UNKNOWN");
+                        dialog.close();
+                        getUI().ifPresent(ui -> ui.getPage().reload());
+                    } catch (Exception ex) {
+                        showOkDialog("Fehler", ex.getMessage());
+                        dialog.close();
+                    }
+                }, null);
+            });
+            block.add(delete);
+            root.add(block);
+        }
+
+        Button close = new Button("Schließen", e -> {
+            dialog.close();
+            getUI().ifPresent(ui -> ui.getPage().reload());
+        });
         HorizontalLayout footer = new HorizontalLayout(close);
         footer.setJustifyContentMode(JustifyContentMode.END);
         footer.setWidthFull();
@@ -637,13 +686,213 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                     + " um " + formatTime(d.getInvalidAt()) + " von " + empty(d.getInvalidBy())));
         }
         if (d.getInvalidAt() != null) {
-            block.add("Wiederherstellt am " + formatDate(d.getRestoredAt())
-                    + " um " + formatTime(d.getRestoredAt()) + " von " + empty(d.getRestoredBy()));
+            block.add(makeAuditLine("Wiederherstellt am " + formatDate(d.getRestoredAt())
+                    + " um " + formatTime(d.getRestoredAt()) + " von " + empty(d.getRestoredBy())));
             if (d.getRestoredReason() != null) {
-                block.add("Grund: " + d.getRestoredReason());
+                block.add(makeAuditReason("Grund: " + d.getRestoredReason()));
             }
         }
         return block;
+    }
+
+    private void buildTrashDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setModal(true);
+        dialog.setCloseOnOutsideClick(false);
+        dialog.setWidth("1100px");
+        dialog.setHeight("550px");
+
+        Span title = new Span("Papierkorb: Dokumente");
+        title.getStyle().set("font-weight", "bold");
+
+        Grid<FamilyDocument> grid = new Grid<>();
+        grid.setSizeFull();
+        grid.setSelectionMode(Grid.SelectionMode.SINGLE);
+
+        grid.addColumn(FamilyDocument::getId)
+                .setHeader("ID").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(FamilyDocument::getId);
+
+        grid.addColumn(d -> d != null ? d.getOriginalFileName() : "")
+                .setHeader("Dateiname").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(d -> d != null ? d.getOriginalFileName() : "");
+
+        grid.addColumn(d -> d != null ? d.getFamily().getFamilyName() : "")
+                .setHeader("Familie").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(d -> d != null ? d.getFamily().getFamilyName() : "");
+
+        grid.addColumn(d -> String.format("%.2f", (double) d.getFileSizeBytes() / 1024 / 1024))
+                .setHeader("Größe (Mb)").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(FamilyDocument::getFileSizeBytes);
+
+        grid.addColumn(d -> {
+                    Employee emp = employeeService.findByLogin(d.getInvalidBy());
+                    return emp != null ? emp.getFirstName() + " " + emp.getLastName() : "";
+                })
+                .setHeader("Gelöscht von").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(d -> {
+                    Employee emp = employeeService.findByLogin(d.getInvalidBy());
+                    return emp != null ? emp.getFirstName() + " " + emp.getLastName() : "";
+                });
+
+        grid.addColumn(d -> formatDate(d.getInvalidAt()) + " um " + formatTime(d.getInvalidAt()) + " Uhr")
+                .setHeader("Gelöscht am").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(FamilyDocument::getInvalidBy);
+
+        if (currentEmployee.getRole().getAccessLevel() == 50) {
+            grid.addColumn(new ComponentRenderer<>(d -> {
+                        Span span = new Span();
+                        if (d.getInvalidAt() != null) {
+                            long days = Duration.between(d.getInvalidAt(), LocalDateTime.now()).toDays();
+                            int left = 14 - (int) days;
+                            span = new Span(String.valueOf(left));
+                            if (left <= 4) {
+                                span.getStyle().set("color", "red").set("font-weight", "bold");
+                            } else {
+                                span.getStyle().set("color", "black").set("font-weight", "bold");
+                            }
+                        } else {
+                            span.setText("kA");
+                            span.getStyle().set("color", "red").set("font-weight", "bold");
+                        }
+                        return span;
+                    })).setHeader("Noch verfügbar").setAutoWidth(true).setFlexGrow(0)
+                    .setComparator(c -> {
+                        LocalDateTime dt = c.getInvalidAt();
+                        return dt == null ? "" : dt.toString();
+                    });
+        }
+
+        grid.setItems(loadTrashDocs());
+
+        Button restore = new Button("Wiederherstellen");
+        restore.setEnabled(false);
+
+        Button close = new Button("Schließen", e -> dialog.close());
+
+        grid.addSelectionListener(
+                e -> restore.setEnabled(e.getFirstSelectedItem().isPresent()));
+
+        restore.addClickListener(e -> {
+            FamilyDocument d = grid.asSingleSelect().getValue();
+            if (d == null) return;
+
+            Runnable restoreWithoutReason = () -> {
+                try {
+                    VaadinRequest req = VaadinRequest.getCurrent();
+                    familyDocumentService.restoreDocument(d.getFamily(), d,
+                            "Wiederherstellung über Papierkorb", currentEmployee,
+                            req != null ? req.getRemoteAddr() : "UNKNOWN",
+                            req != null ? req.getHeader("User-Agent") : "UNKNOWN");
+                    dialog.close();
+                    getUI().ifPresent(ui -> ui.getPage().reload());
+                } catch (Exception ex) {
+                    showOkDialog("Fehler", ex.getMessage());
+                }
+            };
+
+            if (d.getInvalidAt() == null) {
+                showOkDialog("Fehler", "Invalid-Datum fehlt.");
+                return;
+            }
+
+            long days = Duration.between(d.getInvalidAt(), LocalDateTime.now()).toDays();
+
+            if (days < 14) {
+                restoreWithoutReason.run();
+                return;
+            }
+
+            if (lvl == 80 || lvl == 100) {
+                Dialog reasonDialog = new Dialog();
+                reasonDialog.setModal(true);
+                reasonDialog.setCloseOnOutsideClick(false);
+                reasonDialog.setWidth("500px");
+
+                Span t = new Span("Wiederherstellung nach 14 Tagen");
+                t.getStyle().set("font-weight", "bold");
+
+                TextArea reason = new TextArea("Begründung (*)");
+                reason.setWidthFull();
+                reason.setMinLength(5);
+
+                Span error = new Span("Mindestens 5 Zeichen erforderlich");
+                error.getStyle().set("color", "red");
+                error.setVisible(false);
+
+                Button cancel = new Button("Abbrechen", ev -> reasonDialog.close());
+
+                Button save = new Button("Wiederherstellen", ev -> {
+                    if (reason.getValue() == null || reason.getValue().isEmpty()
+                            || reason.getValue().trim().length() < 5) {
+                        error.setVisible(true);
+                        return;
+                    }
+
+                    try {
+                        VaadinRequest req = VaadinRequest.getCurrent();
+                        familyDocumentService.restoreDocument(d.getFamily(), d, reason.getValue().trim(),
+                                currentEmployee, req != null ? req.getRemoteAddr() : "UNKNOWN",
+                                req != null ? req.getHeader("User-Agent") : "UNKNOWN");
+                        reasonDialog.close();
+                        dialog.close();
+                        getUI().ifPresent(ui -> ui.getPage().reload());
+                    } catch (Exception ex) {
+                        showOkDialog("Fehler", ex.getMessage());
+                    }
+                });
+                HorizontalLayout btns = new HorizontalLayout(cancel, save);
+                btns.setWidthFull();
+                btns.setJustifyContentMode(JustifyContentMode.END);
+
+                VerticalLayout content = new VerticalLayout();
+                content.add(t, reason, error);
+
+                reasonDialog.add(content);
+                reasonDialog.getFooter().add(btns);
+                reasonDialog.open();
+                return;
+            }
+            showOkDialog("Nicht möglich", "Älter als 14 Tage: nur Admin/Lead mit Begründung.");
+        });
+
+        HorizontalLayout buttons = new HorizontalLayout(restore, close);
+        buttons.setWidthFull();
+        buttons.setJustifyContentMode(JustifyContentMode.END);
+
+        VerticalLayout content = new VerticalLayout();
+        content.setSizeFull();
+        content.add(title, grid);
+
+        dialog.add(content);
+        dialog.getFooter().add(buttons);
+        dialog.open();
+    }
+
+    private List<FamilyDocument> loadTrashDocs() {
+        List<FamilyDocument> result = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+
+        for (FamilyDocument d : familyDocumentService.getAllDocuments(currentEmployee)) {
+            if (!d.isInvalid()) continue;
+            if (d.getInvalidAt() == null) continue;
+
+            Family f = d.getFamily();
+            if (f == null) continue;
+
+            if (!RecordStatus.ACTIVE.equals(f.getStatus())) continue;
+
+            long days = Duration.between(d.getInvalidAt(), now).toDays();
+
+            if (lvl == 50) {
+                boolean isOwn = d.getFamily().getAssignedEmployee().equals(currentEmployee);
+                boolean isDelegated = delegationService.hasActiveDelegation(d.getFamily(), currentEmployee);
+                if (!isOwn && !isDelegated) continue;
+                if (days > 14) continue;
+            }
+            result.add(d);
+        }
+        return result;
     }
 
     private void showOkDialog(String title, String message) {
@@ -734,5 +983,26 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     private String formatTime(LocalDateTime dt) {
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
         return dt.format(timeFormatter);
+    }
+
+    private List<String> collectFileTypes() {
+        return currentDocuments.stream().map(FamilyDocument::getFileType).filter(Objects::nonNull)
+                .map(this::toReadableType).filter(Objects::nonNull).distinct().sorted().toList();
+    }
+
+    private String toReadableType(String mime) {
+        if (mime == null) return null;
+        if (mime.contains("pdf")) return "PDF";
+        if (mime.contains("doc") || mime.contains("docx") || mime.contains("word")) return "DOC/DOCX";
+        if (mime.contains("xls") || mime.contains("xlsx") || mime.contains("excel") || mime.contains("sheet"))
+            return "XLS/XLSX";
+        if (mime.contains("jpeg") || mime.contains("jpg")) return "JPEG";
+        if (mime.contains("png")) return "PNG";
+        return null;
+    }
+
+    private boolean isVisibleDoc(FamilyDocument d) {
+        return !d.isInvalid() && d.getFamily() != null && (d.getFamily().getStatus().equals(RecordStatus.ACTIVE)
+                || d.getFamily().getStatus().equals(RecordStatus.ARCHIVED));
     }
 }

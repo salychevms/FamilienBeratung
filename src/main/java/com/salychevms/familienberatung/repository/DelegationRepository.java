@@ -13,11 +13,14 @@ public interface DelegationRepository extends JpaRepository<Delegation, Long> {
 
     Delegation findDelegationByToEmployeeAndFamily(Employee toEmployee, Family family);
 
+    List<Delegation> findDelegationsByToEmployeeAndFamily(Employee toEmployee, Family family);
+
     List<Delegation> findDelegationsByToEmployee(Employee toEmployee);
 
     Delegation getDelegationByFamily(Family family);
 
     List<Delegation> findAllByEndDateIsBefore(LocalDate endDateBefore);
 
-    Delegation getDelegationByToEmployeeAndFamily(Employee toEmployee, Family family);
+    boolean existsByFamilyAndToEmployeeAndExpiredFalseAndAbortedManuallyFalseAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+            Family family, Employee toEmployee, LocalDate today1, LocalDate today2);
 }

@@ -25,19 +25,6 @@ public class DelegationService {
     private final AccessLogService accessLog;
     private final ValidationService validator;
 
-    public boolean hasAccessForUpdate(String login, Family family) {
-        Employee e = employeeService.findByLogin(login);
-        //admin and lead
-        if (e.getRole().getAccessLevel() >= 80) return true;
-
-        //assigned consultant
-        if (family.getAssignedEmployee().getId().equals(e.getId())) return true;
-
-        //delegated
-        Delegation delegation = delegationRepository.findDelegationByToEmployeeAndFamily(e, family);
-        return delegation != null;
-    }
-
     public Delegation createDelegation(String login, LocalDate start, LocalDate end, Family family,
                                        Employee fromEmployee, Employee toEmployee,
                                        String reason, String ip, String browser) {
@@ -173,8 +160,14 @@ public class DelegationService {
         log.info("Delegation {} manually aborted by {}", delegation.getId(), login);
     }
 
+    //TODO has to be changed to multisearch
     public Delegation getDelegationByToEmployeeAndFamily(String login, Family family) {
         return delegationRepository.findDelegationByToEmployeeAndFamily(employeeService.findByLogin(login), family);
+    }
+
+    public List<Delegation> getDelegationsByToEmployeeAndFamily(Employee employee, Family family) {
+        return new ArrayList<>(delegationRepository.findDelegationsByToEmployeeAndFamily(employee, family)
+                .stream().filter(this::isDelegationActive).toList());
     }
 
     public List<Delegation> getDelegationsByToEmployee(Employee employee) {
@@ -249,15 +242,22 @@ public class DelegationService {
     }
 
     public boolean isDelegationActive(Delegation delegation) {
-        if(delegation == null)
+        if (delegation == null)
             return false;
-        if(delegation.isExpired())
+        if (delegation.isExpired())
             return false;
-        if(delegation.getAbortedAt()!=null)
+        if (delegation.getAbortedAt() != null)
             return false;
-        LocalDate end=delegation.getEndDate();
-        if(end==null)
+        LocalDate end = delegation.getEndDate();
+        if (end == null)
             return false;
-        return  !end.isBefore(LocalDate.now());
+        return !end.isBefore(LocalDate.now());
+    }
+
+    public boolean hasActiveDelegation(Family family, Employee employee) {
+        LocalDate today = LocalDate.now();
+        return delegationRepository
+                .existsByFamilyAndToEmployeeAndExpiredFalseAndAbortedManuallyFalseAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+                        family, employee, today, today);
     }
 }

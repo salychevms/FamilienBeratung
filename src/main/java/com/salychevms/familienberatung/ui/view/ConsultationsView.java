@@ -13,6 +13,7 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
@@ -120,7 +121,8 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
                         (!c.isInvalid() && !c.getFamily().getStatus().equals(RecordStatus.INVALID)))
                     this.currentConsultations.add(c);
             }
-        } else this.currentConsultations = consultationService.getAll();
+        } else this.currentConsultations = new ArrayList<>(consultationService.getAll().stream()
+                .filter(c -> !c.isInvalid()).toList());
 
         this.currentEmployees.clear();
         for (Consultation c : currentConsultations) {
@@ -241,7 +243,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
     private void buildActionButtons() {
         HorizontalLayout actionsRow = new HorizontalLayout();
         actionsRow.setSpacing(true);
-        actionsRow.setAlignItems(Alignment.CENTER);
+        actionsRow.setAlignItems(FlexComponent.Alignment.CENTER);
 
         createButton = new Button("Beratung", VaadinIcon.PLUS.create(),
                 e -> openSelectFamilyDialog());
@@ -661,9 +663,14 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
                 }
             };
 
+            if(c.getInvalidAt()==null){
+                showOkDialog("Fehler", "Invalid-Datum fehlt.");
+                return;
+            }
+
             long days = Duration.between(c.getInvalidAt(), LocalDateTime.now()).toDays();
 
-            if (days > 14) {
+            if (days < 14) {
                 restoreWithoutReason.run();
                 return;
             }
@@ -717,7 +724,10 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
                 reasonDialog.add(content);
                 reasonDialog.getFooter().add(btns);
                 reasonDialog.open();
+                return;
             }
+            showOkDialog("Nicht möglich", // CHANGED
+                    "Älter als 14 Tage: nur Admin mit Begründung.");
         });
 
         HorizontalLayout buttons = new HorizontalLayout(restore, close);
