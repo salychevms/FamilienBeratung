@@ -30,7 +30,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -46,7 +45,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
     private final EmployeeService employeeService;
 
     private Employee currentEmployee;
-    private int accessLevel;
+    private int lvl;
     private TextField searchField;
     private Button filterToggleButton;
     private ComboBox<RecordStatus> statusFilter;
@@ -57,6 +56,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
     private Grid<Family> familyGrid;
     private List<Family> allFamilies;
     private List<Delegation> delegations;
+    private List<Employee> employees;
     private boolean filterVisible = false;
     private boolean initialized = false;
 
@@ -67,12 +67,12 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
             beforeEnterEvent.forwardTo("login");
             return;
         }
-        this.currentEmployee = employee;
-        this.accessLevel = employee.getRole().getAccessLevel();
+        this.currentEmployee = employeeService.findByLogin(employee.getLogin());
+        this.lvl = employee.getRole().getAccessLevel();
 
         int lvl = currentEmployee.getRole().getAccessLevel();
         delegations = new ArrayList<>();
-        List<Family> myOwnedFamilies = new ArrayList<>();
+        List<Family> myOwnedFamilies;
         allFamilies = new ArrayList<>();
         if (lvl == 50) {
             myOwnedFamilies = familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(), currentEmployee);
@@ -81,6 +81,9 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
             for (Delegation d : delegations)
                 if (!d.isExpired() && d.getEndDate().isAfter(LocalDate.now())) allFamilies.add(d.getFamily());
         } else if (lvl == 100 || lvl == 80 || lvl == 10) allFamilies = familyService.getFamilies();
+
+        employees = new ArrayList<>(employeeService.findAll().stream().filter(Employee::isActive)
+                .filter(e -> !e.isArchived()).toList());
 
         if (!initialized) {
             initialized = true;
@@ -191,7 +194,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                 .set("color", "#666").set("background", "#f2f2f2");
         trashButton.addClickListener(e -> openTrashDialog());
 
-        if (accessLevel == 10) {
+        if (lvl == 10) {
             createButton.setVisible(false);
             trashButton.setVisible(false);
         }
@@ -213,7 +216,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         tilesModeButton.getStyle().set("font-size", "13px").set("padding", "0").set("min-width", "20px")
                 .set("flex-grow", "0").set("flex-shrink", "0").set("box-sizing", "border-box");
 
-        modeRow.setVisible(accessLevel == 100);
+        modeRow.setVisible(lvl == 100);
 
         modeRow.add(listModeButton, tilesModeButton);
 
@@ -292,7 +295,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
         delegatedLayout.add(delegatedLabel, delegatedFilter);
 
-        if (accessLevel != 50) {
+        if (lvl != 50) {
             Span employeeLabel = new Span("Berater*in:");
             employeeLabel.getStyle().set("margin-bottom", "0");
             employeeLabel.getStyle().set("font-weight", "bold");
@@ -308,7 +311,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
             filterLayout.add(empLayout);
         }
 
-        filterLayout.add(statusLayout,  caseCloseLayout, delegatedLayout);
+        filterLayout.add(statusLayout, caseCloseLayout, delegatedLayout);
         add(filterLayout);
     }
 
@@ -387,7 +390,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
     }
 
     private void loadFamilies() {
-        int lvl = accessLevel;
+        int lvl = this.lvl;
         List<Family> result = new ArrayList<>();
         if (lvl == 100 || lvl == 80 || lvl == 10) {
             List<Family> all = familyService.getFamilies();
@@ -682,48 +685,37 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         TextField zeusId = new TextField("Zeus ID");
         zeusId.setWidthFull();
 
-        final Employee[] assignedEmployeeFinal = new Employee[1];
-        final ComboBox<Employee>[] assignedCombo = new ComboBox[1];
-        final TextField[] assignedDisplay = new TextField[1];
-        final Span[] noRights = new Span[1];
-
-        List<Employee> employees = new ArrayList<>(employeeService.findAll().stream().filter(Employee::isActive)
-                .filter(e -> !e.isArchived()).toList());
-
-        if (accessLevel == 80 || accessLevel == 100) {
-            assignedCombo[0] = new ComboBox<>("Berater*in");
-            assignedCombo[0].setWidthFull();
-            assignedCombo[0].setItems(employees);
-            assignedCombo[0].setItemLabelGenerator(emp ->
-                    emp.getFirstName() + " " + emp.getLastName() + " - " + emp.getRole().getLabel());
-            assignedCombo[0].setPlaceholder("Bitte wählen...");
-            assignedCombo[0].setWidthFull();
-        } else if (accessLevel == 50) {
-            assignedEmployeeFinal[0] = currentEmployee;
-
-            assignedDisplay[0] = new TextField("Zuständige/r Berater*in");
-            assignedDisplay[0].setValue(currentEmployee.getFirstName() + " " + currentEmployee.getLastName());
-            assignedDisplay[0].setReadOnly(true);
-            assignedDisplay[0].setWidthFull();
-            assignedDisplay[0].getStyle().set("background-color", "#f2f2f2").set("color", "#666");
-
-            noRights[0] = new Span("Keine Bearbeitungsrechte");
-            noRights[0].getStyle().set("font-size", "11px").set("color", "#888");
-        }
-
-        Span empTitle = new Span("Zuständige/r Berater*in");
-        empTitle.getStyle().set("font-weight", "bold");
-
         VerticalLayout employeeBlock = new VerticalLayout();
         employeeBlock.setSpacing(false);
         employeeBlock.setPadding(true);
         employeeBlock.getStyle().set("background-color", "#fafafa").set("border", "1px solid #ddd").
                 set("border-radius", "6px").set("padding", "10px");
 
+        ComboBox<Employee> assignedCombo = new ComboBox<>();
+        assignedCombo.setItemLabelGenerator(emp ->
+                emp.getFirstName() + " " + emp.getLastName() + " - " + emp.getRole().getLabel());
+        assignedCombo.setPlaceholder("Bitte wählen...");
+        assignedCombo.setWidthFull();
+
+        TextField assignedDisplay = new TextField();
+        assignedDisplay.setReadOnly(true);
+        assignedDisplay.setWidthFull();
+        assignedDisplay.getStyle().set("background-color", "#f2f2f2").set("color", "#666");
+
+        Span noRights = new Span("Keine Bearbeitungsrechte");
+        noRights.getStyle().set("font-size", "11px").set("color", "#888");
+
+        Span empTitle = new Span("Zuständige/r Berater*in");
+        empTitle.getStyle().set("font-weight", "bold");
         employeeBlock.add(empTitle);
 
-        if (assignedCombo[0] != null) employeeBlock.add(assignedCombo[0]);
-        else employeeBlock.add(assignedDisplay[0], noRights[0]);
+        if (lvl == 80 || lvl == 100) {
+            assignedCombo.setItems(employees);
+            employeeBlock.add(assignedCombo);
+        } else if (lvl == 50) {
+            assignedDisplay.setValue(currentEmployee.getFirstName() + " " + currentEmployee.getLastName());
+            employeeBlock.add(assignedDisplay, noRights);
+        }
 
         Span mainTitle = new Span("Allgemeine Angaben");
         mainTitle.getStyle().set("font-weight", "bold");
@@ -733,7 +725,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         mainBlock.setPadding(true);
         mainBlock.getStyle().set("border", "1px solid #ddd").set("padding", "10px").set("border-radius", "6px");
 
-        if (accessLevel == 50) {
+        if (lvl == 50) {
             zeusId.setReadOnly(true);
             zeusId.getStyle().set("background-color", "#f2f2f2").set("color", "#666");
         }
@@ -796,18 +788,13 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                 familyName.getStyle().set("border", "1px solid red");
             } else familyName.getStyle().remove("border");
 
-            final Employee[] finalEmp = new Employee[1];
+            Employee assignedEmployee = (lvl == 80 || lvl == 100) ? assignedCombo.getValue() : currentEmployee;
 
-            if (accessLevel == 80 || accessLevel == 100) {
-                if (assignedCombo[0].getValue() == null) {
-                    errors.add("Berater*in muss ausgewählt werden.");
-                    assignedCombo[0].getStyle().set("border", "1px solid red");
-                } else {
-                    assignedCombo[0].getStyle().remove("border");
-                    finalEmp[0] = assignedCombo[0].getValue();
-                }
+            if ((lvl == 80 || lvl == 100) && assignedEmployee == null) {
+                errors.add("Berater*in muss ausgewählt werden.");
+                assignedCombo.getStyle().set("border", "1px solid red");
             } else {
-                finalEmp[0] = assignedEmployeeFinal[0];
+                assignedCombo.getStyle().remove("border");
             }
 
             if (!errors.isEmpty()) {
@@ -827,7 +814,8 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                     askContact.close();
                     showCreateConfirmDialog(dialog, zeusId.getValue(), familyName.getValue(), street.getValue(),
                             houseNumber.getValue(), zip.getValue(), city.getValue(), phone.getValue(), email.getValue(),
-                            citizenship.getValue(), languages.getValue(), reason.getValue(), notes.getValue(), finalEmp[0]);
+                            citizenship.getValue(), languages.getValue(), reason.getValue(), notes.getValue(),
+                            assignedEmployee);
                 });
                 askContact.getFooter().add(yes, no);
                 askContact.open();
@@ -835,7 +823,8 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
             }
             showCreateConfirmDialog(dialog, zeusId.getValue(), familyName.getValue(), street.getValue(),
                     houseNumber.getValue(), zip.getValue(), city.getValue(), phone.getValue(), email.getValue(),
-                    citizenship.getValue(), languages.getValue(), reason.getValue(), notes.getValue(), finalEmp[0]);
+                    citizenship.getValue(), languages.getValue(), reason.getValue(), notes.getValue(),
+                    assignedEmployee);
         });
         HorizontalLayout buttons = new HorizontalLayout(save, cancel);
         buttons.setWidthFull();
