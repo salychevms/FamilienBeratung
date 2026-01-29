@@ -12,6 +12,7 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -24,12 +25,18 @@ import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.VaadinRequest;
+import com.vaadin.flow.server.streams.DownloadEvent;
 import com.vaadin.flow.server.streams.UploadHandler;
 import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.InputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -74,6 +81,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     private List<Employee> createdByEmployees = new ArrayList<>();
     private Grid<FamilyDocument> documentsGrid;
     private static final Semaphore UPLOAD_LOCK = new Semaphore(1);
+    @Value("${storage.base-path}")
+    private String storageBasePath;
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
@@ -424,7 +433,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
             upload.addAllFinishedListener(ev -> {
                 dlg.close();
-                refreshGrid();
+                getUI().ifPresent(ui -> ui.getPage().reload());
             });
 
             VerticalLayout content = new VerticalLayout(info, info2, info3, upload);
@@ -462,7 +471,55 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         documentsGrid.addColumn(d -> String.format("%.2f", (double) d.getFileSizeBytes() / 1024 / 1024))
                 .setHeader("Größer (Mb)").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(d -> String.valueOf(d.getFileSizeBytes()));
+        if (lvl != 10) {
+            documentsGrid.addColumn(new ComponentRenderer<>(d -> {
+                HorizontalLayout hl = new HorizontalLayout();
+                hl.setSpacing(true);
 
+                HorizontalLayout dL = new HorizontalLayout();
+                dL.setSpacing(true);
+
+                HorizontalLayout pL = new HorizontalLayout();
+                pL.setSpacing(true);
+
+                Anchor download = new Anchor((DownloadEvent dEv) -> {
+                    dEv.setFileName(d.getOriginalFileName());
+                    if (d.getFileType() != null) dEv.setContentType(d.getFileType());
+                    dEv.getResponse().setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
+                            + URLEncoder.encode(d.getOriginalFileName(), StandardCharsets.UTF_8));
+                    try (InputStream in = Files.newInputStream(Paths.get(storageBasePath,
+                            String.valueOf(d.getFamily().getId()), d.getStoredFileName()));
+                         var out = dEv.getOutputStream()) {
+                        in.transferTo(out);
+                    }
+                }, "");
+
+                download.getElement().setAttribute("download", true);
+                Button dlBtn = new Button(VaadinIcon.DOWNLOAD.create());
+                dlBtn.setTooltipText("Herunterladen");
+                dlBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+                dlBtn.addClassName("edit-btn");
+                download.add(dlBtn);
+                dL.add(download);
+
+                if (isPreviewable(d)) {
+                    String previewUrl = "/documents/preview/" + d.getId();
+
+                    Anchor previewLink = new Anchor(previewUrl, "");
+                    previewLink.setTarget("_blank");
+
+                    Button preview = new Button(VaadinIcon.EYE.create());
+                    preview.setTooltipText("Vorschau");
+                    preview.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+                    preview.addClassName("edit-btn");
+
+                    previewLink.add(preview);
+                    pL.add(previewLink);
+                }
+                hl.add(dL, pL);
+                return hl;
+            })).setHeader("Aktionen").setAutoWidth(true).setFlexGrow(0);
+        }
         documentsGrid.addItemClickListener(e -> {
             if (lvl == 10) {
                 return;
@@ -542,7 +599,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                             try {
                                 String newName = values.get("name") != null ? values.get("name").toString().trim() : null;
                                 if (newName == null || newName.isBlank()) return;
-                                FamilyDocument doc = familyDocumentService.getDocument(d.getFamily(), currentEmployee, d.getId());
+                                FamilyDocument doc = familyDocumentService.getDocument(currentEmployee, d.getId());
                                 doc.setOriginalFileName(newName);
                                 VaadinRequest req = VaadinRequest.getCurrent();
                                 FamilyDocument document = familyDocumentService.updateName(d, doc, currentEmployee,
@@ -642,6 +699,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                     }
                 }, null);
             });
+            delete.getStyle().set("color", "red");
             block.add(delete);
             root.add(block);
         }
@@ -1004,5 +1062,11 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     private boolean isVisibleDoc(FamilyDocument d) {
         return !d.isInvalid() && d.getFamily() != null && (d.getFamily().getStatus().equals(RecordStatus.ACTIVE)
                 || d.getFamily().getStatus().equals(RecordStatus.ARCHIVED));
+    }
+
+    private boolean isPreviewable(FamilyDocument d) {
+        String t = d.getFileType();
+        if (t == null) return false;
+        return t.contains("pdf") || t.contains("jpg") || t.contains("jpeg") || t.contains("png");
     }
 }

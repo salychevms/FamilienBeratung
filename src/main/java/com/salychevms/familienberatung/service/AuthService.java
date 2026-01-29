@@ -40,6 +40,7 @@ public class AuthService {
             logged.setRole(employee.getRole());
 
             VaadinSession.getCurrent().setAttribute(Employee.class, logged);
+            VaadinSession.getCurrent().getSession().setAttribute("AUTH_LOGIN", login);
             return logged;
         }catch(Exception e){
             log.error("Failed Login: {}",e.getMessage(), e);

@@ -47,28 +47,16 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
     private Employee currentEmployee;
     private int accessLevel;
-
     private TextField searchField;
-    private Button searchButton;
-    private Button resetButton;
     private Button filterToggleButton;
-    private Button createButton;
-    private Button trashButton;
-
-    private Button listModeButton;
-    private Button tilesModeButton;
-
     private ComboBox<RecordStatus> statusFilter;
     private ComboBox<String> closedFilter;
     private ComboBox<String> delegatedFilter;
     private ComboBox<Employee> employeeFilter;
     private HorizontalLayout filterLayout;
-
     private Grid<Family> familyGrid;
-
     private List<Family> allFamilies;
     private List<Delegation> delegations;
-    private List<Family> myOwnedFamilies;
     private boolean filterVisible = false;
     private boolean initialized = false;
 
@@ -84,7 +72,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
         int lvl = currentEmployee.getRole().getAccessLevel();
         delegations = new ArrayList<>();
-        myOwnedFamilies = new ArrayList<>();
+        List<Family> myOwnedFamilies = new ArrayList<>();
         allFamilies = new ArrayList<>();
         if (lvl == 50) {
             myOwnedFamilies = familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(), currentEmployee);
@@ -168,8 +156,8 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         searchField.setClearButtonVisible(true);
         searchField.setWidth("250px");
 
-        searchButton = new Button(VaadinIcon.SEARCH.create(), e -> applyFilters());
-        resetButton = new Button(VaadinIcon.REFRESH.create(), e -> {
+        Button searchButton = new Button(VaadinIcon.SEARCH.create(), e -> applyFilters());
+        Button resetButton = new Button(VaadinIcon.REFRESH.create(), e -> {
             searchField.clear();
             statusFilter.clear();
             employeeFilter.clear();
@@ -192,11 +180,11 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         actionsRow.setSpacing(true);
         actionsRow.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        createButton = new Button("Neue Familie", VaadinIcon.PLUS.create());
+        Button createButton = new Button("Neue Familie", VaadinIcon.PLUS.create());
         createButton.getStyle().set("font-size", "16px").set("padding", "8px 16px");
         createButton.addClickListener(e -> openCreateFamilyDialog());
 
-        trashButton = new Button("Papierkorb", VaadinIcon.TRASH.create());
+        Button trashButton = new Button("Papierkorb", VaadinIcon.TRASH.create());
         trashButton.setWidth("90px");
         trashButton.setHeight("26px");
         trashButton.getStyle().set("font-size", "11px").set("padding", "2px 6px")
@@ -213,13 +201,13 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         HorizontalLayout modeRow = new HorizontalLayout();
         modeRow.setSpacing(true);
 
-        listModeButton = new Button("≡");
+        Button listModeButton = new Button("≡");
         listModeButton.setWidth("20px");
         listModeButton.setHeight("20px");
         listModeButton.getStyle().set("font-size", "13px").set("padding", "0").set("min-width", "20px")
                 .set("flex-grow", "0").set("flex-shrink", "0").set("box-sizing", "border-box");
 
-        tilesModeButton = new Button("▦");
+        Button tilesModeButton = new Button("▦");
         tilesModeButton.setWidth("20px");
         tilesModeButton.setHeight("20px");
         tilesModeButton.getStyle().set("font-size", "13px").set("padding", "0").set("min-width", "20px")
@@ -699,8 +687,8 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         final TextField[] assignedDisplay = new TextField[1];
         final Span[] noRights = new Span[1];
 
-        List<Employee> employees = employeeService.findAll().stream().filter(Employee::isActive)
-                .filter(e -> !e.isArchived()).toList();
+        List<Employee> employees = new ArrayList<>(employeeService.findAll().stream().filter(Employee::isActive)
+                .filter(e -> !e.isArchived()).toList());
 
         if (accessLevel == 80 || accessLevel == 100) {
             assignedCombo[0] = new ComboBox<>("Berater*in");

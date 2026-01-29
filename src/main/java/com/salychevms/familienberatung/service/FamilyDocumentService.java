@@ -29,6 +29,7 @@ public class FamilyDocumentService {
     private final EmployeeService employeeService;
     private final AccessLogService accessLog;
     private final ValidationService validator;
+    private final FamilyService familyService;
 
     @Value("${storage.base-path}")
     private String storageBasePath;
@@ -142,13 +143,16 @@ public class FamilyDocumentService {
         return result;
     }
 
-    public FamilyDocument getDocument(Family family, Employee employee, Long documentId) {
+    public FamilyDocument getDocument(Employee employee, Long documentId) {
         FamilyDocument doc = familyDocumentRepository.findById(documentId).orElseThrow(() ->
                 new RuntimeException("Family document with id: " + documentId + " not found"));
-        if (!doc.getFamily().equals(family)) {
-            log.error("Document does not belong to Family");
-            throw new RuntimeException("Document does not belong to Family");
+
+        Family family=familyService.getFamilyById(doc.getFamily().getId());
+        if(family == null) {
+            log.error("Family with id: " + doc.getFamily().getId() + " not found");
+            throw new RuntimeException("Family with id: " + doc.getFamily().getId() + " not found");
         }
+
         if (family.getStatus().equals(RecordStatus.BLOCKED) && employee.getRole().getAccessLevel() == 50) {
             log.error("Family {} status is {}", family.getId(), family.getStatus());
             throw new RuntimeException("Family " + family.getId() + " status is " + family.getStatus());
@@ -235,7 +239,7 @@ public class FamilyDocumentService {
         log.info("FamilyDocument {} has been restored. Reason: {}", doc.getId(), restoreReason);
     }
 
-    public Path downloadDocument(Family family, FamilyDocument doc, Employee employee, String ip, String browser) {
+    /*public Path downloadDocument(Family family, FamilyDocument doc, Employee employee, String ip, String browser) {
         if (!doc.getFamily().equals(family)) {
             log.error("Document does not belong to Family");
             throw new RuntimeException("Document does not belong to Family");
@@ -263,7 +267,7 @@ public class FamilyDocumentService {
                 "FamilyDocument has been downloaded", ip, browser);
         log.info("FamilyDocument {} has been downloaded. Requester: {}", doc.getId(), employee.getLogin());
         return path;
-    }
+    }*/
 
     public List<FamilyDocument> getAllDocuments(Employee employee) {
         if (employee == null)
