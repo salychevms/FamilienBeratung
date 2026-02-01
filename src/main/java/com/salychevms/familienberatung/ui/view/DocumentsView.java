@@ -64,17 +64,12 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     private List<Family> currentFamilies;
     private HorizontalLayout filterLayout;
     private boolean filterVisible = false;
-    private Button searchButton;
-    private Button resetButton;
     private Button filterToggleButton;
     private Button uploadButton;
-    private Button trashButton;
     private TextField searchField;
     private ComboBox<String> fileTypeFilter;
     private ComboBox<Employee> uploaderEmployeeFilter;
     private ComboBox<Family> familyFilter;
-    private DatePicker dateFrom;
-    private DatePicker dateTo;
     private LocalDate filterDateFrom;
     private LocalDate filterDateTo;
     private List<Employee> assignedEmployees = new ArrayList<>();
@@ -248,9 +243,9 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         searchField.setClearButtonVisible(true);
         searchField.setWidth("250px");
 
-        searchButton = new Button(VaadinIcon.SEARCH.create(), e -> refreshGrid());
+        Button searchButton = new Button(VaadinIcon.SEARCH.create(), e -> refreshGrid());
 
-        resetButton = new Button(VaadinIcon.REFRESH.create(), e ->
+        Button resetButton = new Button(VaadinIcon.REFRESH.create(), e ->
                 UI.getCurrent().navigate(DocumentsView.class));
 
         filterToggleButton = new Button("Filter öffnen", e -> {
@@ -327,7 +322,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         Span fromLabel = new Span("Von");
         fromLabel.getStyle().set("font-weight", "bold");
 
-        dateFrom = new DatePicker();
+        DatePicker dateFrom = new DatePicker();
         dateFrom.addValueChangeListener(e -> {
             filterDateFrom = e.getValue();
             refreshGrid();
@@ -342,7 +337,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         Span toLabel = new Span("Bis");
         toLabel.getStyle().set("font-weight", "bold");
 
-        dateTo = new DatePicker();
+        DatePicker dateTo = new DatePicker();
         dateTo.addValueChangeListener(e -> {
             filterDateTo = e.getValue();
             refreshGrid();
@@ -443,7 +438,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             dlg.open();
         });
 
-        trashButton = new Button("Papierkorb", VaadinIcon.TRASH.create());
+        Button trashButton = new Button("Papierkorb", VaadinIcon.TRASH.create());
         trashButton.setWidth("90px");
         trashButton.setHeight("26px");
         trashButton.getStyle().set("font-size", "11px").set("padding", "2px 6px")
@@ -944,7 +939,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
             if (lvl == 50) {
                 boolean isOwn = d.getFamily().getAssignedEmployee().equals(currentEmployee);
-                boolean isDelegated = delegationService.hasActiveDelegation(d.getFamily(), currentEmployee);
+                boolean isDelegated = delegationService.hasActiveDelegationTo(d.getFamily(), currentEmployee);
                 if (!isOwn && !isDelegated) continue;
                 if (days > 14) continue;
             }

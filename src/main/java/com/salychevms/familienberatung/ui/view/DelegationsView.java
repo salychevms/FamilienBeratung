@@ -1,7 +1,577 @@
 package com.salychevms.familienberatung.ui.view;
 
-import com.vaadin.flow.router.Route;
+import com.salychevms.familienberatung.model.Delegation;
+import com.salychevms.familienberatung.model.Employee;
+import com.salychevms.familienberatung.model.Family;
+import com.salychevms.familienberatung.model.RecordStatus;
+import com.salychevms.familienberatung.service.AuthService;
+import com.salychevms.familienberatung.service.DelegationService;
+import com.salychevms.familienberatung.service.EmployeeService;
+import com.salychevms.familienberatung.service.FamilyService;
+import com.salychevms.familienberatung.ui.layout.MainLayout;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.TextArea;
+import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.renderer.ComponentRenderer;
+import com.vaadin.flow.router.*;
+import com.vaadin.flow.server.VaadinRequest;
+import jakarta.annotation.security.PermitAll;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
-@Route
-public class DelegationsView {
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+
+@Slf4j
+@Route(value = "delegations/:employeeId?", layout = MainLayout.class)
+@PageTitle("Delegationen")
+@PermitAll
+@RequiredArgsConstructor
+public class DelegationsView extends VerticalLayout implements BeforeEnterObserver {
+    private final DelegationService delegationService;
+    private final EmployeeService employeeService;
+    private final FamilyService familyService;
+    private final AuthService authService;
+
+    private Employee currentEmployee;
+    private int lvl;
+    private Employee currentDelegatedTo;
+    private List<Delegation> currentDelegations;
+    private List<Delegation> currentActiveDelegations;
+    private TextField searchField;
+    private Button filterToggleButton;
+    private HorizontalLayout filterLayout;
+    private boolean filterVisible = false;
+    private List<Employee> currentToEmployees = new ArrayList<>();
+    private List<Employee> currentFromEmployees = new ArrayList<>();
+    private List<Family> currentFamilies = new ArrayList<>();
+    private List<Family> currentDelegatedFamilies = new ArrayList<>();
+    private List<Employee> currentConsultants = new ArrayList<>();
+    private ComboBox<Employee> toEmployeeFilter;
+    private ComboBox<Employee> fromEmployeeFilter;
+    private ComboBox<Family> familyFilter;
+    private ComboBox<String> isActiveFilter;
+    private LocalDate fromDateFilter;
+    private LocalDate toDateFilter;
+    private Button addDelegationButton;
+    private Employee selectedToEmployee;
+    private Family selectedFamily;
+    private Employee selectedFromEmployee;
+    private Grid<Delegation> delegationGrid;
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        Employee authorized = authService.getCurrentEmployee();
+        if (authorized == null || authorized.isArchived() || !authorized.isActive()) {
+            event.forwardTo("login");
+            return;
+        }
+
+        Employee employee = employeeService.findByLogin(authorized.getLogin());
+        if (employee == null) {
+            event.forwardTo("login");
+            return;
+        } else this.currentEmployee = employee;
+
+        lvl = currentEmployee.getRole().getAccessLevel();
+
+        Long optEmpLogin = event.getRouteParameters().getLong("employeeId").orElse(null);
+        if (optEmpLogin == null)
+            this.currentDelegatedTo = null;
+        else {
+            Employee toEmployee = employeeService.findById(optEmpLogin);
+            if (toEmployee == null || !toEmployee.isActive() || toEmployee.isArchived())
+                this.currentDelegatedTo = null;
+            else
+                this.currentDelegatedTo = toEmployee;
+        }
+
+        currentToEmployees.clear();
+        currentFromEmployees.clear();
+        currentDelegatedFamilies.clear();
+        if (lvl != 50) {
+            this.currentDelegations = delegationService.getDelegations();
+            this.currentActiveDelegations = delegationService.getAllActiveDelegations();
+            this.currentFamilies = new ArrayList<>(familyService.getFamilies().stream()
+                    .filter(f -> f.getStatus().equals(RecordStatus.ACTIVE) && !f.isCaseClosed()
+                            && !delegationService.hasActiveDelegation(f)).toList());
+            this.currentConsultants = new ArrayList<>(employeeService.findAll().stream()
+                    .filter(emp -> emp.getRole().getAccessLevel() != 10).toList());
+        } else {
+            this.currentDelegations = delegationService.getDelegationsByToEmployee(currentEmployee);
+            this.currentActiveDelegations = delegationService.getAllActiveDelegationsByToEmployee(currentEmployee);
+            this.currentFamilies = new ArrayList<>(familyService.getFamiliesByAssignedEmployee(
+                            currentEmployee.getLogin(), currentEmployee).stream()
+                    .filter(f -> f.getStatus().equals(RecordStatus.ACTIVE) && !f.isCaseClosed()
+                            && !delegationService.hasActiveDelegation(f)).toList());
+            this.currentConsultants = new ArrayList<>(employeeService.findAll().stream()
+                    .filter(emp -> emp.getRole().getAccessLevel() == 50
+                            && emp.isActive() && !emp.isArchived()).toList());
+        }
+
+        for (Delegation d : currentDelegations) {
+            if (d.getToEmployee().isActive() && !d.getToEmployee().isArchived()
+                    && !currentToEmployees.contains(d.getToEmployee()))
+                this.currentToEmployees.add(d.getToEmployee());
+            if (d.getFromEmployee().isActive() && !d.getFromEmployee().isArchived()
+                    && !currentFromEmployees.contains(d.getFromEmployee()))
+                this.currentFromEmployees.add(d.getFromEmployee());
+            if (d.getFamily().getStatus().equals(RecordStatus.ACTIVE) && !d.getFamily().isCaseClosed()
+                    && !currentDelegatedFamilies.contains(d.getFamily()))
+                this.currentDelegatedFamilies.add(d.getFamily());
+        }
+        removeAll();
+        buildUI();
+    }
+
+    private void buildUI() {
+        buildBreadCrumbs();
+        buildHeader();
+        buildTopBar();
+        buildFilters();
+        if (lvl != 10)
+            buildActionButtons();
+        buildGrid();
+    }
+
+    private void buildBreadCrumbs() {
+        HorizontalLayout breadCrumbs = new HorizontalLayout();
+        breadCrumbs.setSpacing(true);
+        breadCrumbs.setPadding(true);
+        breadCrumbs.setAlignItems(FlexComponent.Alignment.CENTER);
+
+        RouterLink overview = new RouterLink("Übersicht", OverviewView.class);
+        Span del = new Span("Delegationen");
+        del.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "bold")
+                .set("color", "var(--lumo-body-text-color)");
+        Span sp1 = new Span(" >> ");
+        sp1.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
+        breadCrumbs.add(overview, sp1, del);
+
+        if (currentDelegatedTo != null && lvl != 50) {
+            RouterLink emp = new RouterLink(currentDelegatedTo.getRole().getLabel() + ": "
+                    + currentDelegatedTo.getFirstName() + " " + currentDelegatedTo.getLastName(),
+                    EmployeeDetailsView.class, new RouteParameters("id", currentDelegatedTo.getId().toString()));
+            Span sp2 = new Span(" >> ");
+            sp2.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
+
+            breadCrumbs.add(sp2, emp);
+        }
+        add(breadCrumbs);
+    }
+
+    private void buildHeader() {
+        VerticalLayout header = new VerticalLayout();
+        header.setSpacing(false);
+        header.setPadding(false);
+        header.setWidthFull();
+
+        HorizontalLayout titleLayout = new HorizontalLayout();
+        H2 title = new H2();
+
+        if (lvl == 50)
+            title.setText("Delegationen: " + currentEmployee.getFirstName() + " " + currentEmployee.getLastName());
+        else title.setText("Delegationen: alle");
+        title.getStyle().set("margin-bottom", "0");
+        titleLayout.add(title);
+        header.add(titleLayout);
+        add(header);
+    }
+
+    private void buildTopBar() {
+        HorizontalLayout searchRow = new HorizontalLayout();
+        searchRow.setSpacing(true);
+        searchRow.setWidthFull();
+        searchRow.setAlignItems(FlexComponent.Alignment.CENTER);
+
+        searchField = new TextField();
+        searchField.setPlaceholder("Suche...");
+        searchField.setClearButtonVisible(true);
+        searchField.setWidth("250px");
+
+        Button searchButton = new Button(VaadinIcon.SEARCH.create(), e -> refreshGrid());
+        Button resetButton = new Button(VaadinIcon.REFRESH.create(),
+                e -> getUI().ifPresent(ui -> ui.getPage().reload()));
+
+        filterToggleButton = new Button("Filter öffnen", e -> {
+            filterVisible = !filterVisible;
+            filterLayout.setVisible(filterVisible);
+            filterToggleButton.setText(filterVisible ? "Filter schließen" : "Filter öffnen");
+        });
+
+        searchRow.add(searchField, searchButton, resetButton, filterToggleButton);
+        add(searchRow);
+    }
+
+    private void buildFilters() {
+        filterLayout = new HorizontalLayout();
+        filterLayout.setSpacing(true);
+        filterLayout.setPadding(true);
+        filterLayout.setVisible(false);
+        filterLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        filterLayout.getStyle().set("background-color", "#fff3cd").set("border-radius", "6px")
+                .set("border", "1px solid #e0c96f");
+
+        if (lvl != 50) {
+            VerticalLayout toEmpLayout = new VerticalLayout();
+            toEmpLayout.setSpacing(false);
+            toEmpLayout.setPadding(false);
+
+            Span toEmpLabel = new Span("An wem delegiert");
+            toEmpLabel.getStyle().set("font-weight", "bold");
+
+            toEmployeeFilter = new ComboBox<>();
+            toEmployeeFilter.setItems(currentToEmployees);
+            toEmployeeFilter.setItemLabelGenerator(emp -> emp.getFirstName() + " " + emp.getLastName());
+            toEmployeeFilter.setClearButtonVisible(true);
+            toEmployeeFilter.addValueChangeListener(e -> refreshGrid());
+
+            toEmpLayout.add(toEmpLabel, toEmployeeFilter);
+            filterLayout.add(toEmpLayout);
+        }
+
+        VerticalLayout fromEmpLayout = new VerticalLayout();
+        fromEmpLayout.setSpacing(false);
+        fromEmpLayout.setPadding(false);
+
+        Span fromEmpLabel = new Span("Von wem delegiert");
+        fromEmpLabel.getStyle().set("font-weight", "bold");
+
+        fromEmployeeFilter = new ComboBox<>();
+        fromEmployeeFilter.setItems(currentFromEmployees);
+        fromEmployeeFilter.setItemLabelGenerator(emp -> emp.getFirstName() + " " + emp.getLastName());
+        fromEmployeeFilter.setClearButtonVisible(true);
+        fromEmployeeFilter.addValueChangeListener(e -> refreshGrid());
+
+        fromEmpLayout.add(fromEmpLabel, fromEmployeeFilter);
+
+        VerticalLayout familyLayout = new VerticalLayout();
+        familyLayout.setSpacing(false);
+        familyLayout.setPadding(false);
+
+        Span familyLabel = new Span("Familie");
+        familyLabel.getStyle().set("font-weight", "bold");
+
+        familyFilter = new ComboBox<>();
+        familyFilter.setItems(currentFamilies);
+        familyFilter.setItemLabelGenerator(Family::getFamilyName);
+        familyFilter.setClearButtonVisible(true);
+        familyFilter.addValueChangeListener(e -> refreshGrid());
+
+        familyLayout.add(familyLabel, familyFilter);
+
+        VerticalLayout isActiveLayout = new VerticalLayout();
+        isActiveLayout.setSpacing(false);
+        isActiveLayout.setPadding(false);
+
+        Span isActiveLabel = new Span("Status");
+        isActiveLabel.getStyle().set("font-weight", "bold");
+
+        isActiveFilter = new ComboBox<>();
+        isActiveFilter.setItems("Ja", "Nein", "Alle");
+        isActiveFilter.setPlaceholder("Alle");
+        isActiveFilter.setClearButtonVisible(true);
+        isActiveFilter.addValueChangeListener(e -> refreshGrid());
+
+        isActiveLayout.add(isActiveLabel, isActiveFilter);
+
+        VerticalLayout fromDateLayout = new VerticalLayout();
+        fromDateLayout.setSpacing(false);
+        fromDateLayout.setPadding(false);
+
+        Span fromDateLabel = new Span("Beginn");
+        fromDateLabel.getStyle().set("font-weight", "bold");
+
+        DatePicker fromDatePicker = new DatePicker();
+        fromDatePicker.addValueChangeListener(ev -> {
+            fromDateFilter = ev.getValue();
+            refreshGrid();
+        });
+
+        fromDateLabel.add(fromDateLayout, fromDatePicker);
+
+        VerticalLayout toDateLayout = new VerticalLayout();
+        toDateLayout.setSpacing(false);
+        toDateLayout.setPadding(false);
+
+        Span toDateLabel = new Span("Ende");
+        toDateLabel.getStyle().set("font-weight", "bold");
+
+        DatePicker toDatePicker = new DatePicker();
+        toDatePicker.addValueChangeListener(ev -> {
+            toDateFilter = ev.getValue();
+            refreshGrid();
+        });
+
+        toDateLabel.add(toDateLayout, toDatePicker);
+
+        filterLayout.add(fromEmpLayout, familyLayout, isActiveLayout, fromDateLayout, toDateLayout);
+        add(filterLayout);
+    }
+
+    private void buildActionButtons() {
+        HorizontalLayout buttonLayout = new HorizontalLayout();
+        buttonLayout.setSpacing(true);
+        buttonLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+
+        addDelegationButton = new Button("Delegation", VaadinIcon.PLUS.create());
+        addDelegationButton.getStyle().set("font-size", "16px").set("padding", "8px 16px");
+        addDelegationButton.addClickListener(e -> {
+            Dialog dlg = new Dialog();
+            dlg.setModal(true);
+            dlg.setResizable(false);
+            dlg.setDraggable(false);
+            dlg.setCloseOnOutsideClick(false);
+            dlg.setWidth("800px");
+
+            VerticalLayout dlgLayout = new VerticalLayout();
+            dlgLayout.setSpacing(false);
+            dlgLayout.setPadding(true);
+            dlgLayout.getStyle().set("border", "1px solid #ddd").set("padding", "10px").set("border-radius", "6px");
+
+            H2 title = new H2("Neue Delegation");
+            dlgLayout.add(title);
+
+            ComboBox<Family> familyComboBox = new ComboBox<>("Familie auswählen (*)");
+            familyComboBox.setItems(currentFamilies);
+            familyComboBox.setItemLabelGenerator(Family::getFamilyName);
+            familyComboBox.setClearButtonVisible(true);
+            familyComboBox.setPlaceholder("Bitte Familie wählen...");
+            dlgLayout.add(familyComboBox);
+
+            Span consultant = new Span("Familie noch nicht ausgewählt!");
+            consultant.getStyle().set("font-weight", "bold").set("color", "red");
+            dlgLayout.add(consultant);
+
+            List<Employee> filteredConsultants=new ArrayList<>();
+            ComboBox<Employee> toEmpComboBox = new ComboBox<>("An wem delegieren (*)");
+            toEmpComboBox.setPlaceholder("Bitte Berater*in wählen...");
+            familyComboBox.addValueChangeListener(ev -> {
+                selectedFamily = ev.getValue();
+                filteredConsultants.clear();
+                if (selectedFamily == null) {
+                    consultant.setText("Familie noch nicht ausgewählt!");
+                    consultant.getStyle().set("color", "red").set("font-weight", "bold");
+                    selectedFromEmployee = null;
+                    return;
+                }
+                selectedFromEmployee = selectedFamily.getAssignedEmployee();
+                consultant.setText("Berater*in: " + selectedFromEmployee.getFirstName() + " "
+                        + selectedFromEmployee.getLastName());
+                consultant.getStyle().set("font-weight", "bold");
+                for(Employee emp:currentConsultants)
+                    if (!emp.equals(selectedFromEmployee))
+                        filteredConsultants.add(emp);
+                toEmpComboBox.setItems(filteredConsultants);
+            });
+
+            if (lvl == 50)
+                toEmpComboBox.setItemLabelGenerator(emp -> emp.getFirstName() + " " + emp.getLastName());
+            else
+                toEmpComboBox.setItemLabelGenerator(emp -> emp.getRole().getLabel() + ": "
+                        + emp.getFirstName() + " " + emp.getLastName());
+            toEmpComboBox.setClearButtonVisible(true);
+            dlgLayout.add(toEmpComboBox);
+
+            HorizontalLayout datesLayout = new HorizontalLayout();
+            datesLayout.setSpacing(true);
+            datesLayout.setPadding(true);
+            datesLayout.setWidthFull();
+
+            DatePicker startDatePicker = new DatePicker("Startdatum (*)");
+            startDatePicker.setWidthFull();
+            startDatePicker.setRequiredIndicatorVisible(true);
+            startDatePicker.setValue(LocalDate.now());
+
+            DatePicker endDatePicker = new DatePicker("Enddatum (*)");
+            endDatePicker.setWidthFull();
+            endDatePicker.setRequiredIndicatorVisible(true);
+            endDatePicker.setValue(LocalDate.now());
+
+            datesLayout.add(startDatePicker, endDatePicker);
+            dlgLayout.add(datesLayout);
+
+            TextArea reasonText = new TextArea("Grund der Delegation (*)");
+            reasonText.setWidthFull();
+            reasonText.setHeight("130px");
+            reasonText.setMaxLength(2000);
+            reasonText.setMinLength(5);
+            dlgLayout.add(reasonText);
+
+            Button cancel = new Button("Abbrechen", ev -> dlg.close());
+            Button save = new Button("Speichern", ev -> {
+                LocalDate now = LocalDate.now();
+                LocalDate startDate = startDatePicker.getValue();
+                LocalDate endDate = endDatePicker.getValue();
+                if (endDate == null || startDate == null || endDate.isBefore(startDate) || endDate.isBefore(now)
+                        || startDate.isBefore(now) || reasonText.getStyle() == null || reasonText.getValue().length() < 5
+                        || reasonText.getValue().isBlank() || toEmpComboBox.getValue() == null || selectedFamily == null) {
+                    showOkDialog("Fehler", "Alle Felder mit Zeichen (*) müssen ausgefüllt werden!");
+
+                } else {
+                    VaadinRequest req = VaadinRequest.getCurrent();
+                    Delegation create = new Delegation();
+                    create.setFamily(selectedFamily);
+                    create.setFromEmployee(selectedFromEmployee);
+                    create.setToEmployee(toEmpComboBox.getValue());
+                    create.setReason(reasonText.getValue());
+                    create.setStartDate(startDate);
+                    create.setEndDate(endDate);
+                    try {
+                        delegationService.createDelegation(create, currentEmployee.getLogin(),
+                                req != null ? req.getRemoteAddr() : "UNKNOWN",
+                                req != null ? req.getHeader("User-Agent") : "UNKNOWN");
+                        dlg.close();
+                        refreshGrid();
+                    } catch (Exception ex) {
+                        showOkDialog("Fehler", ex.getMessage());
+                    }
+                }
+            });
+
+            HorizontalLayout btns = new HorizontalLayout(cancel, save);
+            btns.setWidthFull();
+            btns.setJustifyContentMode(JustifyContentMode.END);
+
+            dlg.add(dlgLayout);
+            dlg.getFooter().add(btns);
+            dlg.open();
+        });
+
+        buttonLayout.add(addDelegationButton);
+        add(buttonLayout);
+    }
+
+    private void buildGrid() {
+        delegationGrid = new Grid<>();
+        delegationGrid.setWidthFull();
+        delegationGrid.setSelectionMode(Grid.SelectionMode.SINGLE);
+        delegationGrid.setItems(currentDelegations);
+
+        delegationGrid.addColumn(Delegation::getId)
+                .setHeader("ID").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Delegation::getId);
+        delegationGrid.addColumn(d -> d.getFamily().getFamilyName())
+                .setHeader("Familie").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(d -> d.getFamily().getFamilyName());
+        delegationGrid.addColumn(d -> d.getFromEmployee().getFirstName() + " "
+                        + d.getFromEmployee().getLastName())
+                .setHeader("Familie gehört").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(d -> d.getFromEmployee().getFirstName());
+        delegationGrid.addColumn(d -> d.getToEmployee().getFirstName() + " "
+                        + d.getToEmployee().getLastName())
+                .setHeader("An wem delegiert").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(d -> d.getToEmployee().getFirstName());
+        delegationGrid.addColumn(new ComponentRenderer<>(d -> {
+                    boolean expired = d.isExpired();
+                    Span expSpan = new Span();
+                    if (expired) {
+                        expSpan.setText("ABGELAUFEN");
+                        expSpan.getStyle().set("color", "red").set("font-weight", "bold");
+                    } else {
+                        expSpan.setText("AKTIV");
+                        expSpan.getStyle().set("color", "green").set("font-weight", "bold");
+                    }
+                    return expSpan;
+                }))
+                .setHeader("Status").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Delegation::isExpired);
+        delegationGrid.addColumn(d -> formatDate(d.getEndDate()))
+                .setHeader("Enddatum").setAutoWidth(true).setFlexGrow(0)
+                .setComparator(Delegation::getEndDate);
+        add(delegationGrid);
+        refreshGrid();
+    }
+
+    private void refreshGrid() {
+        if (delegationGrid == null || currentDelegations == null) return;
+        String q = searchField != null ? searchField.getValue() : null;
+        Employee toEmp = toEmployeeFilter != null ? toEmployeeFilter.getValue() : null;
+        Employee fromEmp = fromEmployeeFilter != null ? fromEmployeeFilter.getValue() : null;
+        Family fam = familyFilter != null ? familyFilter.getValue() : null;
+        String active = isActiveFilter != null ? isActiveFilter.getValue() : null;
+
+        List<Delegation> result = new ArrayList<>();
+
+        for (Delegation d : currentDelegations) {
+            if (d == null) continue;
+            if (toEmp != null && !d.getToEmployee().equals(toEmp)) continue;
+            if (fromEmp != null && !d.getFromEmployee().equals(fromEmp)) continue;
+            if (fam != null && !d.getFamily().equals(fam)) continue;
+            if ("Ja".equals(active) && d.isExpired()) continue;
+            if ("Nein".equals(active) && !d.isExpired()) continue;
+            if (fromDateFilter != null && d.getStartDate().isBefore(fromDateFilter)) continue;
+            if (toDateFilter != null && d.getEndDate().isAfter(toDateFilter)) continue;
+            if (q != null && !q.isBlank()) {
+                String qq = q.toLowerCase().trim();
+                boolean match = d.getFamily().getFamilyName().toLowerCase().contains(qq)
+                        || d.getFromEmployee().getFirstName().toLowerCase().contains(qq)
+                        || d.getFromEmployee().getLastName().toLowerCase().contains(qq)
+                        || d.getToEmployee().getFirstName().toLowerCase().contains(qq)
+                        || d.getToEmployee().getLastName().toLowerCase().contains(qq);
+                if (!match) continue;
+            }
+            result.add(d);
+        }
+        delegationGrid.setItems(result);
+    }
+
+    private void showOkDialog(String title, String message) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle(title);
+
+        Span msg = new Span(message);
+        dialog.add(msg);
+
+        Button ok = new Button("OK", e -> dialog.close());
+
+        HorizontalLayout btns = new HorizontalLayout(ok);
+        btns.setWidthFull();
+        btns.setJustifyContentMode(JustifyContentMode.END);
+
+        dialog.getFooter().add(btns);
+        dialog.open();
+    }
+
+    private void showConfirmDialog(String title, String message, Runnable yesAction, Runnable noAction) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle(title);
+
+        Span msg = new Span(message);
+        dialog.add(msg);
+
+        Button yes = new Button("Ja", e -> {
+            dialog.close();
+            if (yesAction != null) yesAction.run();
+        });
+
+        Button no = new Button("Nein", e -> {
+            dialog.close();
+            if (noAction != null) noAction.run();
+        });
+
+        HorizontalLayout btns = new HorizontalLayout(yes, no);
+        btns.setWidthFull();
+        btns.setJustifyContentMode(JustifyContentMode.END);
+
+        dialog.getFooter().add(btns);
+        dialog.open();
+    }
+
+    private String formatDate(LocalDate date) {
+        if (date == null) return "";
+        return date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+    }
 }

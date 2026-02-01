@@ -16,18 +16,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@Route(value = "admin", layout = MainLayout.class)
-@PageTitle("Admin Panel")
+@Route(value = "log", layout = MainLayout.class)
+@PageTitle("Log")
 @PermitAll
 @RequiredArgsConstructor
-public class AdminView extends VerticalLayout implements BeforeEnterObserver {
+public class LogView extends VerticalLayout implements BeforeEnterObserver {
     private final EmployeeService employeeService;
     private final AuthService authService;
 
     @Override
-    public void beforeEnter(BeforeEnterEvent event) {
+    public void beforeEnter(BeforeEnterEvent event){
         Employee authorized=authService.getCurrentEmployee();
-        if(authorized==null ||!authorized.isActive()||authorized.isArchived()){
+        if(authorized==null || !authorized.isActive()||authorized.isArchived()){
             event.forwardTo("login");
             return;
         }
@@ -35,14 +35,14 @@ public class AdminView extends VerticalLayout implements BeforeEnterObserver {
         buildUI();
     }
 
-    private void buildUI() {
-        VerticalLayout l = new VerticalLayout();
+    private void buildUI(){
+        VerticalLayout layout = new VerticalLayout();
         Span sorry=new Span("Sorry, this page is in development");
-        l.add(sorry);
+        layout.add(sorry);
 
-        Button button=new Button("to Overview",
-                event -> getUI().ifPresent(ui->ui.navigate("overview")));
-        l.add(button);
-        add(l);
+        Button back= new Button("to Overview",
+                event -> getUI().ifPresent(ui -> ui.navigate(OverviewView.class)));
+        layout.add(back);
+        add(layout);
     }
 }

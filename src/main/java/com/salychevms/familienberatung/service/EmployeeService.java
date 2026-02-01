@@ -30,6 +30,11 @@ public class EmployeeService {
         Employee employee = employeeRepository.findByLogin(login).orElseThrow(() ->
                 new RuntimeException("Employee with login " + login + " not found"));
 
+        if(employee.isArchived() || !employee.isActive()) {
+            log.error("Employee {} is blocked or archived", login);
+            return false;
+        }
+
         int level = employee.getRole().getAccessLevel();
 
         boolean allowed = level >= accessLevel;
@@ -40,35 +45,34 @@ public class EmployeeService {
         return allowed;
     }
 
-    public Employee createEmployee(String firstName, String lastName, String login, String rewPassword,
-                                   String email, String mobileNumber, String landNumber, String notes,
-                                   Role role, String createdBy, String ip, String userBrowser) {
-        validator.validateText(firstName, 50);
-        validator.validateText(lastName, 50);
-        validator.validateText(login, 50);
-        validator.validateEmail(email);
+    public Employee createEmployee(Employee created, String createdBy, String ip, String userBrowser) {
+        validator.validateText(created.getFirstName(), 50);
+        validator.validateText(created.getLastName(), 50);
+        validator.validateText(created.getLogin(), 50);
+        validator.validateEmail(created.getEmail());
         validator.validateIp(ip);
-        validator.validatePassword(rewPassword, null, login, email, mobileNumber, landNumber);
+        validator.validatePassword(created.getPassword(), null, created.getLogin(), created.getEmail(),
+                created.getMobileNumber(), created.getLandNumber());
 
-        if (employeeRepository.findByLogin(login).isPresent()) {
-            log.info("Employee with Login: {} already exists", login);
-            throw new RuntimeException("Employee with Login: " + login + " already exists");
+        if (employeeRepository.findByLogin(created.getLogin()).isPresent()) {
+            log.info("Employee with Login: {} already exists", created.getLogin());
+            throw new RuntimeException("Employee with Login: " + created.getLogin() + " already exists");
         }
-        if (!roleRepository.existsByName(role.getName())) {
-            log.warn("Role {} doesn't exist", role);
-            throw new RuntimeException("Role " + role + " doesn't exist");
+        if (!roleRepository.existsByName(created.getRole().getName())) {
+            log.warn("Role {} doesn't exist", created.getRole().getName());
+            throw new RuntimeException("Role " + created.getRole().getName() + " doesn't exist");
         }
 
         Employee employee = new Employee();
-        employee.setFirstName(firstName);
-        employee.setLastName(lastName);
-        employee.setLogin(login);
-        employee.setPassword(encoder.encode(rewPassword));
-        employee.setEmail(email);
-        employee.setMobileNumber(mobileNumber);
-        employee.setLandNumber(landNumber);
-        employee.setNotes(notes);
-        employee.setRole(role);
+        employee.setFirstName(created.getFirstName());
+        employee.setLastName(created.getLastName());
+        employee.setLogin(created.getLogin());
+        employee.setPassword(encoder.encode(created.getPassword()));
+        employee.setEmail(created.getEmail());
+        employee.setMobileNumber(created.getMobileNumber());
+        employee.setLandNumber(created.getLandNumber());
+        employee.setNotes(created.getNotes());
+        employee.setRole(created.getRole());
         employee.setCreatedBy(createdBy);
         employee.setCreatedDate(LocalDateTime.now());
         employee.setPasswordChangeRequired(true);
@@ -78,35 +82,33 @@ public class EmployeeService {
         Employee saved = employeeRepository.save(employee);
 
         accessLog.log(createdBy, "EMPLOYEE_CREATE", "Employee",
-                saved.getId(), "Created Employee: " + login, ip, userBrowser);
-        log.info("Employee with Login: {} has been created", login);
+                saved.getId(), "Created Employee: " + created.getLogin(), ip, userBrowser);
+        log.info("Employee with Login: {} has been created", created.getLogin());
         return saved;
     }
 
-    public Employee updateEmployee(Long id, String login, String firstName, String lastName,
-                                   String email, String mobileNumber, String landNumber, String notes,
-                                   Role role, String updatedBy, String ip, String userBrowser) {
-        Employee existing = employeeRepository.findById(id).orElseThrow(() ->
-                new RuntimeException("Employee with Login: " + login + " doesn't exist"));
+    public Employee updateEmployee(Employee updated, String updatedBy, String ip, String userBrowser) {
+        Employee existing = employeeRepository.findById(updated.getId()).orElseThrow(() ->
+                new RuntimeException("Employee with Login: " + updated.getLogin() + " doesn't exist"));
 
-        validator.validateText(firstName, 50);
-        validator.validateText(lastName, 50);
-        validator.validateText(login, 50);
-        validator.validateEmail(email);
+        validator.validateText(updated.getFirstName(), 50);
+        validator.validateText(updated.getLastName(), 50);
+        validator.validateText(updated.getLogin(), 50);
+        validator.validateEmail(updated.getEmail());
         validator.validateIp(ip);
 
-        if (!roleRepository.existsByName(role.getName())) {
-            log.warn("Role {} doesn't exist", role);
-            throw new RuntimeException("Role " + role + " doesn't exist");
+        if (!roleRepository.existsByName(updated.getRole().getName())) {
+            log.warn("Role {} doesn't exist", updated.getRole().getName());
+            throw new RuntimeException("Role " + updated.getRole().getName() + " doesn't exist");
         }
 
-        existing.setFirstName(firstName);
-        existing.setLastName(lastName);
-        existing.setEmail(email);
-        existing.setMobileNumber(mobileNumber);
-        existing.setLandNumber(landNumber);
-        existing.setNotes(notes);
-        existing.setRole(role);
+        existing.setFirstName(updated.getFirstName());
+        existing.setLastName(updated.getLastName());
+        existing.setEmail(updated.getEmail());
+        existing.setMobileNumber(updated.getMobileNumber());
+        existing.setLandNumber(updated.getLandNumber());
+        existing.setNotes(updated.getNotes());
+        existing.setRole(updated.getRole());
         existing.setUpdatedBy(updatedBy);
         existing.setUpdatedAt(LocalDateTime.now());
         existing.setPasswordChangeRequired(true);
@@ -116,9 +118,9 @@ public class EmployeeService {
         Employee saved = employeeRepository.save(existing);
 
         accessLog.log(updatedBy, "EMPLOYEE_UPDATE", "Employee", saved.getId(),
-                "Updated Employee: " + login, ip, userBrowser);
+                "Updated Employee: " + saved.getLogin(), ip, userBrowser);
 
-        log.info("Employee with Login: {} has been updated", login);
+        log.info("Employee with Login: {} has been updated", saved.getLogin());
         return saved;
     }
 

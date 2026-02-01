@@ -4,8 +4,6 @@ import com.salychevms.familienberatung.model.Employee;
 import com.salychevms.familienberatung.service.AuthService;
 import com.salychevms.familienberatung.service.EmployeeService;
 import com.salychevms.familienberatung.ui.layout.MainLayout;
-import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
@@ -16,33 +14,20 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@Route(value = "admin", layout = MainLayout.class)
-@PageTitle("Admin Panel")
+@Route(value = "employee/:id", layout = MainLayout.class)
+@PageTitle("Mitarbeiter*in")
 @PermitAll
 @RequiredArgsConstructor
-public class AdminView extends VerticalLayout implements BeforeEnterObserver {
+public class EmployeeDetailsView extends VerticalLayout implements BeforeEnterObserver {
     private final EmployeeService employeeService;
     private final AuthService authService;
 
     @Override
-    public void beforeEnter(BeforeEnterEvent event) {
+    public void beforeEnter(BeforeEnterEvent event){
         Employee authorized=authService.getCurrentEmployee();
-        if(authorized==null ||!authorized.isActive()||authorized.isArchived()){
+        if(authorized==null || !authorized.isActive()|| authorized.isArchived()){
             event.forwardTo("login");
             return;
         }
-
-        buildUI();
-    }
-
-    private void buildUI() {
-        VerticalLayout l = new VerticalLayout();
-        Span sorry=new Span("Sorry, this page is in development");
-        l.add(sorry);
-
-        Button button=new Button("to Overview",
-                event -> getUI().ifPresent(ui->ui.navigate("overview")));
-        l.add(button);
-        add(l);
     }
 }

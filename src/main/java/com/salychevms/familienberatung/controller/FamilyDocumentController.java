@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 @RestController
 @RequestMapping("/documents")
@@ -59,9 +60,14 @@ public class FamilyDocumentController {
         }
 
         if (employee.getRole().getAccessLevel() == 50 && !family.getAssignedEmployee().equals(employee)) {
-            Delegation delegation = delegationService.getDelegationByToEmployeeAndFamily(authorized, family);
-            if (delegation == null || !delegationService.isDelegationActive(delegation)
-                    || delegation.getToEmployee().equals(employee)) {
+            Delegation delegation = null;
+            List<Delegation> delegationList=delegationService.getDelegationsByToEmployeeAndFamily(employee, family);
+            for(Delegation d:delegationList){
+                if(delegationService.isDelegationActive(d)){
+                    delegation=d;
+                }
+            }
+            if (delegation==null || delegation.getToEmployee().equals(employee)) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }

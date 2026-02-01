@@ -691,7 +691,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         employeeBlock.getStyle().set("background-color", "#fafafa").set("border", "1px solid #ddd").
                 set("border-radius", "6px").set("padding", "10px");
 
-        ComboBox<Employee> assignedCombo = new ComboBox<>();
+        ComboBox<Employee> assignedCombo = new ComboBox<>("Berater*in");
         assignedCombo.setItemLabelGenerator(emp ->
                 emp.getFirstName() + " " + emp.getLastName() + " - " + emp.getRole().getLabel());
         assignedCombo.setPlaceholder("Bitte wählen...");

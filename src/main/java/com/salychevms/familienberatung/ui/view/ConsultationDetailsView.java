@@ -77,8 +77,13 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
 
         if (lvl == 50) {
             boolean isOwn = currentFamily.getAssignedEmployee().equals(currentEmployee);
-            boolean isActiveDelegation = delegationService.getDelegationByToEmployeeAndFamily(
-                    currentEmployee.getLogin(), currentFamily) != null;
+            boolean isActiveDelegation = false;
+            List<Delegation> delegationList = delegationService.getDelegationsByToEmployeeAndFamily(currentEmployee, currentFamily);
+            for (Delegation d : delegationList) {
+                if (delegationService.isDelegationActive(d)) {
+                    isActiveDelegation = true;
+                }
+            }
 
             if (!isOwn && !isActiveDelegation) {
                 event.forwardTo("consultations");
@@ -163,8 +168,14 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
                 + " " + currentConsultation.getEmployee().getLastName());
         box.add(managed);
         if (!currentConsultation.getFamily().getAssignedEmployee().equals(currentConsultation.getEmployee())) {
-            Delegation d = delegationService.getDelegationByToEmployeeAndFamily(
-                    currentConsultation.getEmployee().getLogin(), currentFamily);
+            List<Delegation> delegationList = delegationService.getDelegationsByToEmployeeAndFamily(
+                    currentConsultation.getEmployee(), currentFamily);
+            Delegation d = null;
+            for (Delegation delegation : delegationList) {
+                if (delegationService.isDelegationActive(d)) {
+                    d = delegation;
+                }
+            }
             if (d != null) {
                 String startDate = d.getStartDate().format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
                 String endDate = d.getEndDate().format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));

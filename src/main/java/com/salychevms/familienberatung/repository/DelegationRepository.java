@@ -23,4 +23,7 @@ public interface DelegationRepository extends JpaRepository<Delegation, Long> {
 
     boolean existsByFamilyAndToEmployeeAndExpiredFalseAndAbortedManuallyFalseAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
             Family family, Employee toEmployee, LocalDate today1, LocalDate today2);
+
+    boolean existsByFamilyAndExpiredFalseAndAbortedManuallyFalseAndEndDateGreaterThanEqual(
+            Family family, LocalDate today);
 }

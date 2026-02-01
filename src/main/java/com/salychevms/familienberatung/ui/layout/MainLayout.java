@@ -96,9 +96,32 @@ public class MainLayout extends AppLayout {
         docs.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         buttons.add(docs);
 
-        /*menu.add(new RouterLink("Delegationen", DelegationsView.class));
-        if (lvl >= 80) buttons.add(new RouterLink("Mitarbeiter", EmployeesView.class));
-        if (lvl == 100) buttons.add(new RouterLink("Admin Panel", AdminView.class));*/
+        Button delegations=new Button("Delegationen",
+                event -> UI.getCurrent().navigate(DelegationsView.class));
+        delegations.setWidthFull();
+        delegations.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        buttons.add(delegations);
+
+        if (lvl >= 80) {
+            Button employees=new Button("Mitarbeiter*innen",
+                    event -> UI.getCurrent().navigate(EmployeesView.class));
+            employees.setWidthFull();
+            employees.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+
+            Button log=new Button("Log",event -> UI.getCurrent().navigate(LogView.class));
+            log.setWidthFull();
+            log.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+
+            buttons.add(employees, log);
+        }
+        if (lvl == 100) {
+            Button admPanel=new Button("Admin Panel",
+                    event ->  UI.getCurrent().navigate(AdminView.class));
+            admPanel.setWidthFull();
+            admPanel.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+
+            buttons.add(admPanel);
+        }
 
         top.add(buttons);
 

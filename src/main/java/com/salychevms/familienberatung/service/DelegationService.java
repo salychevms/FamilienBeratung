@@ -25,58 +25,62 @@ public class DelegationService {
     private final AccessLogService accessLog;
     private final ValidationService validator;
 
-    public Delegation createDelegation(String login, LocalDate start, LocalDate end, Family family,
-                                       Employee fromEmployee, Employee toEmployee,
-                                       String reason, String ip, String browser) {
-        if (!employeeService.hasAccess(login, 80)) {
+    public Delegation createDelegation(Delegation created, String login, String ip, String browser) {
+        if (!employeeService.hasAccess(login, 50)) {
             log.error("Employee {} does not have access to create delegation", login);
             throw new RuntimeException("Employee " + login + " does not have access to create delegation");
         }
-        if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Family status is not ACTIVE. Family status is {}", family.getStatus());
-            throw new RuntimeException("Family status is not ACTIVE. Family status is: " + family.getStatus());
+        if (!created.getFamily().getStatus().equals(RecordStatus.ACTIVE)) {
+            log.error("Family status is not ACTIVE. Family status is {}", created.getFamily().getStatus());
+            throw new RuntimeException("Family status is not ACTIVE. Family status is: " + created.getFamily().getStatus());
         }
-        Delegation isExist = delegationRepository.getDelegationByFamily(family);
-        if (isExist != null && !isExist.isExpired()) {
-            log.error("Family {} already delegated to {}, delegation ends: {}",
-                    family.getId(), isExist.getToEmployee().getLogin(), isExist.getEndDate());
-            throw new RuntimeException("Family " + family.getId() +
-                    " already delegated to " + isExist.getToEmployee().getLogin() +
-                    ", delegation ends: " + isExist.getEndDate());
+        Employee employee = employeeService.findByLogin(created.getToEmployee().getLogin());
+        List<Delegation> delegationList = getDelegationsByToEmployeeAndFamily(
+                employee, created.getFamily());
+        if (!delegationList.isEmpty()) {
+            for (Delegation d : delegationList) {
+                if (isDelegationActive(d)) {
+                    log.error("Family {} already delegated to {}, delegation ends: {}",
+                            created.getFamily().getId(), d.getToEmployee().getLogin(), d.getEndDate());
+                    throw new RuntimeException("Family " + created.getFamily().getId() +
+                            " already delegated to " + d.getToEmployee().getLogin() +
+                            ", delegation ends: " + d.getEndDate());
+                }
+            }
         }
-        if (!family.getAssignedEmployee().getId().equals(fromEmployee.getId())) {
+        if (!created.getFamily().getAssignedEmployee().getId().equals(created.getFromEmployee().getId())) {
             log.error("Employee FROM and assigned Employee are not the same. " +
                             "FROM Employee: {}, Assigned Employee: {}",
-                    fromEmployee.getLogin(), family.getAssignedEmployee().getLogin());
+                    created.getFromEmployee().getLogin(), created.getFamily().getAssignedEmployee().getLogin());
             throw new RuntimeException("Employee FROM and assignedEmployee are not the same. FROM Employee: " +
-                    fromEmployee.getLogin() + ", Assigned Employee: " + family.getAssignedEmployee().getLogin());
+                    created.getFromEmployee().getLogin() + ", Assigned Employee: " + created.getFamily().getAssignedEmployee().getLogin());
         }
-        if (toEmployee.getId().equals(fromEmployee.getId())) {
+        if (created.getToEmployee().getId().equals(created.getFromEmployee().getId())) {
             log.error("Employee FROM and Employee TO must be different");
             throw new RuntimeException("Employee FROM and Employee TO must be different");
         }
-        if (toEmployee.getRole().getAccessLevel() != 50) {
+        if (created.getToEmployee().getRole().getAccessLevel() != 50) {
             log.error("Only Employee with Role 'CONSULTANT' can get Delegation");
             throw new RuntimeException("Only Employee with Role 'CONSULTANT' can get Delegation");
         }
-        if (start.isBefore(LocalDate.now())) {
+        if (created.getStartDate().isBefore(LocalDate.now())) {
             log.error("Start date is before now");
             throw new RuntimeException("Start date is before now");
         }
-        if (end.isBefore(start)) {
+        if (created.getEndDate().isBefore(created.getStartDate())) {
             log.error("End date is before start date");
             throw new RuntimeException("End date is before start date");
         }
 
-        validator.validateText(reason, 2000);
+        validator.validateText(created.getReason(), 2000);
 
         Delegation saved = new Delegation();
-        saved.setFamily(family);
-        saved.setFromEmployee(fromEmployee);
-        saved.setToEmployee(toEmployee);
-        saved.setReason(reason);
-        saved.setStartDate(start);
-        saved.setEndDate(end);
+        saved.setFamily(created.getFamily());
+        saved.setFromEmployee(created.getFromEmployee());
+        saved.setToEmployee(created.getToEmployee());
+        saved.setReason(created.getReason());
+        saved.setStartDate(created.getStartDate());
+        saved.setEndDate(created.getEndDate());
         saved.setExpired(false);
         saved.setCreatedAt(LocalDateTime.now());
         saved.setCreatedBy(login);
@@ -86,11 +90,11 @@ public class DelegationService {
         accessLog.log(login, "DELEGATION_CREATE", "Delegation", saved.getId(),
                 "Delegation created", ip, browser);
         log.info("Delegation {} FROM {} TO {} created. Delegation ends {}",
-                saved.getId(), fromEmployee.getLogin(), toEmployee.getLogin(), saved.getEndDate());
+                saved.getId(), created.getFromEmployee().getLogin(), created.getToEmployee().getLogin(), saved.getEndDate());
         return saved;
     }
 
-    public Delegation updateDelegation(String login, Delegation delegation, LocalDate end,
+    public Delegation updateDelegation(String login, Delegation updated, LocalDate end,
                                        String reason, String ip, String browser) {
         if (employeeService.findByLogin(login) == null) {
             log.error("Employee with Login {} not found", login);
@@ -100,15 +104,15 @@ public class DelegationService {
             log.error("Employee {} does not have access to update delegation", login);
             throw new RuntimeException("Employee " + login + " does not have access to update delegation");
         }
-        if (delegation == null) {
+        if (updated == null) {
             log.error("Delegation is null");
             throw new RuntimeException("Delegation is null");
         }
-        if (delegation.isExpired()) {
-            log.error("Delegation {} has already expired. You have to create new delegation", delegation.getId());
-            throw new RuntimeException("Delegation " + delegation.getId() + " has already expired");
+        if (updated.isExpired()) {
+            log.error("Delegation {} has already expired. You have to create new delegation", updated.getId());
+            throw new RuntimeException("Delegation " + updated.getId() + " has already expired");
         }
-        if (!end.isAfter(delegation.getEndDate())) {
+        if (!end.isAfter(updated.getEndDate())) {
             log.error("New end date must be after old end date");
             throw new RuntimeException("New end date must be after old end date");
         }
@@ -119,12 +123,12 @@ public class DelegationService {
 
         validator.validateText(reason, 2000);
 
-        delegation.setEndDate(end);
-        delegation.setReason(reason);
-        delegation.setUpdatedAt(LocalDateTime.now());
-        delegation.setUpdatedBy(login);
+        updated.setEndDate(end);
+        updated.setReason(reason);
+        updated.setUpdatedAt(LocalDateTime.now());
+        updated.setUpdatedBy(login);
 
-        Delegation saved = delegationRepository.save(delegation);
+        Delegation saved = delegationRepository.save(updated);
         accessLog.log(login, "DELEGATION_UPDATE", "Delegation", saved.getId(),
                 "Delegation was updated", ip, browser);
         log.info("Delegation {} was updated by {}", saved.getId(), login);
@@ -158,11 +162,6 @@ public class DelegationService {
         accessLog.log(login, "DELEGATION_MANUALLY_ABORT", "Delegation", delegation.getId(),
                 "Delegation manually aborted", ip, browser);
         log.info("Delegation {} manually aborted by {}", delegation.getId(), login);
-    }
-
-    //TODO has to be changed to multisearch
-    public Delegation getDelegationByToEmployeeAndFamily(String login, Family family) {
-        return delegationRepository.findDelegationByToEmployeeAndFamily(employeeService.findByLogin(login), family);
     }
 
     public List<Delegation> getDelegationsByToEmployeeAndFamily(Employee employee, Family family) {
@@ -241,6 +240,29 @@ public class DelegationService {
         return response;
     }
 
+    public List<Delegation> getAllActiveDelegations() {
+        List<Delegation> delegations = getDelegations();
+        List<Delegation> activeDelegations = new ArrayList<>();
+        for (Delegation delegation : delegations)
+            if (isDelegationActive(delegation))
+                activeDelegations.add(delegation);
+        return activeDelegations;
+    }
+
+    public List<Delegation> getAllActiveDelegationsByToEmployee(Employee employee) {
+        if (employee == null || !employee.isActive() || employee.isArchived()) {
+            log.error("Employee is null or not active");
+            return List.of();
+        }
+
+        List<Delegation> delegations = getDelegationsByToEmployee(employee);
+        List<Delegation> activeDelegations = new ArrayList<>();
+        for (Delegation delegation : delegations)
+            if (isDelegationActive(delegation))
+                activeDelegations.add(delegation);
+        return activeDelegations;
+    }
+
     public boolean isDelegationActive(Delegation delegation) {
         if (delegation == null)
             return false;
@@ -254,10 +276,15 @@ public class DelegationService {
         return !end.isBefore(LocalDate.now());
     }
 
-    public boolean hasActiveDelegation(Family family, Employee employee) {
+    public boolean hasActiveDelegationTo(Family family, Employee employee) {
         LocalDate today = LocalDate.now();
         return delegationRepository
                 .existsByFamilyAndToEmployeeAndExpiredFalseAndAbortedManuallyFalseAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
                         family, employee, today, today);
+    }
+
+    public boolean hasActiveDelegation(Family family) {
+        return delegationRepository.existsByFamilyAndExpiredFalseAndAbortedManuallyFalseAndEndDateGreaterThanEqual(
+                family, LocalDate.now());
     }
 }

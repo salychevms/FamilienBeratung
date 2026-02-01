@@ -1,5 +1,5 @@
 vaadin-app-layout {
-    --vaadin-app-layout-drawer-width: 150px;
+    --vaadin-app-layout-drawer-width: 200px;
 }
 
 vaadin-text-area::part(helper-text) {
