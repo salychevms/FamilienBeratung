@@ -8,8 +8,11 @@ import com.salychevms.familienberatung.service.AuthService;
 import com.salychevms.familienberatung.service.DelegationService;
 import com.salychevms.familienberatung.service.EmployeeService;
 import com.salychevms.familienberatung.service.FamilyService;
+import com.salychevms.familienberatung.ui.dialog.EditDialogFactory;
+import com.salychevms.familienberatung.ui.dialog.EditField;
 import com.salychevms.familienberatung.ui.layout.MainLayout;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dialog.Dialog;
@@ -30,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -102,7 +106,15 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         currentFromEmployees.clear();
         currentDelegatedFamilies.clear();
         if (lvl != 50) {
-            this.currentDelegations = delegationService.getDelegations();
+            this.currentDelegations = delegationService.getDelegations().stream().sorted((a, b) -> {
+                boolean aActive = delegationService.isDelegationActive(a);
+                boolean bActive = delegationService.isDelegationActive(b);
+
+                if (aActive && !bActive) return -1;
+                if (bActive && !aActive) return 1;
+
+                return a.getEndDate().compareTo(b.getEndDate());
+            }).toList();
             this.currentActiveDelegations = delegationService.getAllActiveDelegations();
             this.currentFamilies = new ArrayList<>(familyService.getFamilies().stream()
                     .filter(f -> f.getStatus().equals(RecordStatus.ACTIVE) && !f.isCaseClosed()
@@ -110,7 +122,16 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
             this.currentConsultants = new ArrayList<>(employeeService.findAll().stream()
                     .filter(emp -> emp.getRole().getAccessLevel() != 10).toList());
         } else {
-            this.currentDelegations = delegationService.getDelegationsByToEmployee(currentEmployee);
+            this.currentDelegations = delegationService.getDelegationsByToEmployee(currentEmployee)
+                    .stream().sorted((a, b) -> {
+                        boolean aActive = delegationService.isDelegationActive(a);
+                        boolean bActive = delegationService.isDelegationActive(b);
+
+                        if (aActive && !bActive) return -1;
+                        if (bActive && !aActive) return 1;
+
+                        return a.getEndDate().compareTo(b.getEndDate());
+                    }).toList();
             this.currentActiveDelegations = delegationService.getAllActiveDelegationsByToEmployee(currentEmployee);
             this.currentFamilies = new ArrayList<>(familyService.getFamiliesByAssignedEmployee(
                             currentEmployee.getLogin(), currentEmployee).stream()
@@ -132,6 +153,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
                     && !currentDelegatedFamilies.contains(d.getFamily()))
                 this.currentDelegatedFamilies.add(d.getFamily());
         }
+
         removeAll();
         buildUI();
     }
@@ -280,7 +302,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         isActiveLabel.getStyle().set("font-weight", "bold");
 
         isActiveFilter = new ComboBox<>();
-        isActiveFilter.setItems("Ja", "Nein", "Alle");
+        isActiveFilter.setItems("Aktiv", "Abgelaufen", "Alle");
         isActiveFilter.setPlaceholder("Alle");
         isActiveFilter.setClearButtonVisible(true);
         isActiveFilter.addValueChangeListener(e -> refreshGrid());
@@ -295,12 +317,13 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         fromDateLabel.getStyle().set("font-weight", "bold");
 
         DatePicker fromDatePicker = new DatePicker();
+        fromDatePicker.setMin(LocalDate.of(2026, 1, 1));
         fromDatePicker.addValueChangeListener(ev -> {
             fromDateFilter = ev.getValue();
             refreshGrid();
         });
 
-        fromDateLabel.add(fromDateLayout, fromDatePicker);
+        fromDateLayout.add(fromDateLabel, fromDatePicker);
 
         VerticalLayout toDateLayout = new VerticalLayout();
         toDateLayout.setSpacing(false);
@@ -310,12 +333,13 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         toDateLabel.getStyle().set("font-weight", "bold");
 
         DatePicker toDatePicker = new DatePicker();
+        toDatePicker.setMin(LocalDate.of(2026, 1, 1));
         toDatePicker.addValueChangeListener(ev -> {
             toDateFilter = ev.getValue();
             refreshGrid();
         });
 
-        toDateLabel.add(toDateLayout, toDatePicker);
+        toDateLayout.add(toDateLabel, toDatePicker);
 
         filterLayout.add(fromEmpLayout, familyLayout, isActiveLayout, fromDateLayout, toDateLayout);
         add(filterLayout);
@@ -355,7 +379,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
             consultant.getStyle().set("font-weight", "bold").set("color", "red");
             dlgLayout.add(consultant);
 
-            List<Employee> filteredConsultants=new ArrayList<>();
+            List<Employee> filteredConsultants = new ArrayList<>();
             ComboBox<Employee> toEmpComboBox = new ComboBox<>("An wem delegieren (*)");
             toEmpComboBox.setPlaceholder("Bitte Berater*in wählen...");
             familyComboBox.addValueChangeListener(ev -> {
@@ -370,8 +394,8 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
                 selectedFromEmployee = selectedFamily.getAssignedEmployee();
                 consultant.setText("Berater*in: " + selectedFromEmployee.getFirstName() + " "
                         + selectedFromEmployee.getLastName());
-                consultant.getStyle().set("font-weight", "bold");
-                for(Employee emp:currentConsultants)
+                consultant.getStyle().set("font-weight", "bold").set("color", "black");
+                for (Employee emp : currentConsultants)
                     if (!emp.equals(selectedFromEmployee))
                         filteredConsultants.add(emp);
                 toEmpComboBox.setItems(filteredConsultants);
@@ -391,11 +415,13 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
             datesLayout.setWidthFull();
 
             DatePicker startDatePicker = new DatePicker("Startdatum (*)");
+            startDatePicker.setMin(LocalDate.now());
             startDatePicker.setWidthFull();
             startDatePicker.setRequiredIndicatorVisible(true);
             startDatePicker.setValue(LocalDate.now());
 
             DatePicker endDatePicker = new DatePicker("Enddatum (*)");
+            endDatePicker.setMin(LocalDate.now());
             endDatePicker.setWidthFull();
             endDatePicker.setRequiredIndicatorVisible(true);
             endDatePicker.setValue(LocalDate.now());
@@ -434,7 +460,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
                                 req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         dlg.close();
-                        refreshGrid();
+                        getUI().ifPresent(ui -> ui.getPage().reload());
                     } catch (Exception ex) {
                         showOkDialog("Fehler", ex.getMessage());
                     }
@@ -491,6 +517,87 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         delegationGrid.addColumn(d -> formatDate(d.getEndDate()))
                 .setHeader("Enddatum").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(Delegation::getEndDate);
+        delegationGrid.addColumn(new ComponentRenderer<>(d -> {
+            HorizontalLayout actions = new HorizontalLayout();
+            actions.setSpacing(true);
+            actions.setPadding(false);
+
+            Button viewButton = new Button(VaadinIcon.EYE.create());
+            viewButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+            viewButton.addClassName("edit-btn");
+            viewButton.setTooltipText("Ansehen");
+            viewButton.addClickListener(ev -> openViewDialog(d));
+
+            Button editButton = new Button(VaadinIcon.EDIT.create());
+            editButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+            editButton.addClassName("edit-btn");
+            editButton.setTooltipText("Bearbeiten");
+            editButton.addClickListener(ev -> {
+                EditDialogFactory.openEditDialog("Delegation bearbeiten", List.of(
+                        new EditField("endDate", "Enddatum", EditField.Type.DATE, d.getEndDate(),
+                                true, null, null, LocalDate.now(), null),
+                        new EditField("reason", "Grund", EditField.Type.TEXTAREA, d.getReason(),
+                                true, 2000, null, null, null)
+                ), values -> {
+                    LocalDate newEndDate = values.get("endDate") != null ? (LocalDate) values.get("endDate")
+                            : d.getEndDate();
+
+                    String newReason = values.get("reason") != null ? values.get("reason").toString().trim()
+                            : d.getReason();
+
+                    if (newReason.length() < 5 || newReason.length() > 2000) {
+                        showOkDialog("Fehler", "Text muss zwischen 5 und 2000 Zeichen enthalten");
+                        return;
+                    }
+                    if (newEndDate == null){
+                        showOkDialog("Fehler", "Der Enddatum ist falsch");
+                        return;
+                    }
+
+                    showConfirmDialog("Speichern", "Wollen Sie die Änderungen speichern?", () -> {
+                        if (!delegationService.isDelegationActive(d)) {
+                            showOkDialog("Fehler", "Der Delegation ist nicht mehr aktiv!");
+                            return;
+                        }
+
+                        VaadinRequest req = VaadinRequest.getCurrent();
+                        try {
+                            delegationService.updateDelegation(currentEmployee.getLogin(), d, newEndDate, newReason,
+                                    req != null ? req.getRemoteAddr() : "UNKNOWN",
+                                    req != null ? req.getHeader("User-Agent") : "UNKNOWN");
+                            getUI().ifPresent(ui -> ui.getPage().reload());
+                        } catch (Exception ex) {
+                            showOkDialog("Fehler", ex.getMessage());
+                        }
+                    }, () -> {
+                    });
+                });
+            });
+
+            Button abortButton = new Button(VaadinIcon.CLOSE_CIRCLE.create());
+            abortButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+            abortButton.addClassName("edit-btn");
+            abortButton.getStyle().set("color", "red");
+            abortButton.setTooltipText("Vorzeitig beenden");
+            abortButton.addClickListener(ev -> showConfirmDialog("Delegation vorzeitich beenden",
+                    "Wollen Sie Delegation vorzeitich Beenden?", () -> {
+                        VaadinRequest req = VaadinRequest.getCurrent();
+                        delegationService.manualAbortDelegation(currentEmployee.getLogin(), d,
+                                req != null ? req.getRemoteAddr() : "UNKNOWN",
+                                req != null ? req.getHeader("User-Agent") : "UNKNOWN");
+                    }, () -> {
+                    }));
+
+            boolean active = delegationService.isDelegationActive(d);
+            boolean familyOk = d.getFamily().getStatus().equals(RecordStatus.ACTIVE) && !d.getFamily().isCaseClosed();
+            boolean canEditAndAbort = active && familyOk && (lvl != 10);
+
+            editButton.setVisible(canEditAndAbort);
+            abortButton.setVisible(canEditAndAbort);
+
+            actions.add(viewButton, editButton, abortButton);
+            return actions;
+        })).setHeader("Aktionen").setAutoWidth(true).setFlexGrow(0);
         add(delegationGrid);
         refreshGrid();
     }
@@ -510,8 +617,8 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
             if (toEmp != null && !d.getToEmployee().equals(toEmp)) continue;
             if (fromEmp != null && !d.getFromEmployee().equals(fromEmp)) continue;
             if (fam != null && !d.getFamily().equals(fam)) continue;
-            if ("Ja".equals(active) && d.isExpired()) continue;
-            if ("Nein".equals(active) && !d.isExpired()) continue;
+            if ("Aktiv".equals(active) && d.isExpired()) continue;
+            if ("Abgelaufen".equals(active) && !d.isExpired()) continue;
             if (fromDateFilter != null && d.getStartDate().isBefore(fromDateFilter)) continue;
             if (toDateFilter != null && d.getEndDate().isAfter(toDateFilter)) continue;
             if (q != null && !q.isBlank()) {
@@ -526,6 +633,63 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
             result.add(d);
         }
         delegationGrid.setItems(result);
+    }
+
+    private void openViewDialog(Delegation d) {
+        Dialog dlg = new Dialog();
+        dlg.setHeaderTitle("Delegation ansehen");
+        dlg.setModal(true);
+        dlg.setDraggable(false);
+        dlg.setResizable(false);
+        dlg.setCloseOnOutsideClick(false);
+        dlg.setWidth("450px");
+
+        VerticalLayout content = new VerticalLayout();
+        content.setPadding(false);
+        content.setSpacing(true);
+        content.setMaxWidth("400px");
+
+        content.add(new Span("Familie: " + d.getFamily().getFamilyName()),
+                new Span("Delegiert von: " + d.getFromEmployee().getFirstName() + " "
+                        + d.getFromEmployee().getLastName()),
+                new Span("Delegiert an: " + d.getToEmployee().getFirstName() + " "
+                        + d.getToEmployee().getLastName()),
+                new Span("Zeitraum: " + formatDate(d.getStartDate()) + " - " +
+                        formatDate(d.getEndDate())),
+                new Span("Status: " + (delegationService.isDelegationActive(d) ? "AKTIV" : "ABGESCHLOSSEN")));
+
+        TextArea reason = new TextArea("Grund der Delegation");
+        reason.setReadOnly(true);
+        reason.setWidthFull();
+        reason.setMaxHeight("150px");
+        reason.setValue(d.getReason());
+        content.add(reason);
+
+        VerticalLayout audit = new VerticalLayout();
+        audit.setSpacing(false);
+        audit.setPadding(false);
+        audit.setWidthFull();
+        audit.getStyle().set("border", "1px solid #ddd").set("border-radius", "6px").set("padding", "10px");
+
+        Span title = new Span("Verlauf");
+        title.getStyle().set("font-weight", "bold");
+        audit.add(title);
+
+        if (d.getCreatedAt() != null) audit.add(makeAuditLine("Erstellt am "
+                + formatDate(d.getCreatedAt().toLocalDate()) + " um " + formatTime(d.getCreatedAt()) + " von "
+                + empty(d.getCreatedBy())));
+        if (d.getUpdatedAt() != null) audit.add(makeAuditLine("Geändert am "
+                + formatDate(d.getUpdatedAt().toLocalDate()) + " um " + formatTime(d.getUpdatedAt()) + " von "
+                + empty(d.getUpdatedBy())));
+        if (d.getAbortedAt() != null) audit.add(makeAuditLine("Beendet am "
+                + formatDate(d.getAbortedAt().toLocalDate()) + " um " + empty(d.getAbortedBy())
+                + empty(d.getAbortedBy())));
+        content.add(audit);
+
+        Button close = new Button("Schließen", e -> dlg.close());
+        dlg.add(content);
+        dlg.getFooter().add(close);
+        dlg.open();
     }
 
     private void showOkDialog(String title, String message) {
@@ -573,5 +737,28 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
     private String formatDate(LocalDate date) {
         if (date == null) return "";
         return date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+    }
+
+    private String formatTime(LocalDateTime dt) {
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+        return dt.format(timeFormatter);
+    }
+
+    private String empty(String v) {
+        return (v == null || v.isBlank())
+                ? "nicht angegeben"
+                : v.trim();
+    }
+
+    private Span makeAuditLine(String text) {
+        Span s = new Span(text);
+        s.getStyle().set("font-size", "12px").set("color", "#555");
+        return s;
+    }
+
+    private Span makeAuditReason(String text) {
+        Span s = new Span(text);
+        s.getStyle().set("font-size", "12px").set("color", "#777").set("margin-top", "12px");
+        return s;
     }
 }

@@ -120,7 +120,7 @@ public class ValidationService {
             log.error("Birth date is future");
             throw new RuntimeException("Birth date is future");
         }
-        if (birthday.isBefore(LocalDate.of(1900, 1, 1))) {
+        if (birthday.isBefore(LocalDate.of(1935, 1, 1))) {
             log.error("Birth date is too old");
             throw new RuntimeException("Birth date is too old");
         }

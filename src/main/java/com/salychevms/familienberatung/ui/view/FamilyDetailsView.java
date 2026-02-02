@@ -52,6 +52,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
     private final ConsultationService consultationService;
     private final EmployeeService employeeService;
     private final FamilyMemberService familyMemberService;
+
     private Employee currentEmployee;
     private int lvl;
     private Long familyId;
@@ -93,12 +94,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             if (!c.isInvalid()) this.consultations.add(c);
         }
 
-        List<Delegation> delegationList = delegationService.getDelegations();
-        for (Delegation d : delegationList) {
-            if (d.getFamily().equals(currentFamily) && (d.getToEmployee().getLogin().equals(currentEmployee.getLogin())
-                    || d.getFromEmployee().getLogin().equals(currentEmployee.getLogin())))
-                this.activeDelegation = d;
-        }
+        this.activeDelegation = delegationService.getActiveDelegationForFamily(this.currentFamily);
 
         members = new ArrayList<>();
         members = familyMemberService.getMembers(currentFamily, currentEmployee.getLogin()).stream().filter(
@@ -127,10 +123,10 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
 
         buildBreadcrumbs();
         buildHeader();
-        buildDelegation();
         buildContact();
         buildAddress();
         buildAdditionalInfo();
+        buildFamilyStatusButtons();
         buildAudit();
     }
 
@@ -165,6 +161,11 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         box.setPadding(false);
         box.setWidthFull();
 
+        VerticalLayout underBox = new VerticalLayout();
+        underBox.setSpacing(false);
+        underBox.setPadding(false);
+        underBox.setWidthFull();
+
         HorizontalLayout familyHeader = new HorizontalLayout();
         familyHeader.setWidthFull();
         familyHeader.setAlignItems(FlexComponent.Alignment.CENTER);
@@ -180,9 +181,9 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             h2EditBtn.setClassName("edit-btn");
 
             h2EditBtn.addClickListener(e -> {
-                EditDialogFactory.openEditDialog("Familienname ändern", List.of(new EditField(
-                        "familyName", "Familienname", EditField.Type.TEXT, currentFamily.getFamilyName(),
-                        true, 255, null)), values -> {
+                EditDialogFactory.openEditDialog("Familienname ändern", List.of(new EditField("familyName",
+                        "Familienname", EditField.Type.TEXT, currentFamily.getFamilyName(), true,
+                        255, null, null, null)), values -> {
                     String newName = (String) values.get("familyName");
                     if (!EditDialogFactory.isValidText(newName, 255)) {
                         showOkDialog("Fehler", "Familienname ist leer oder zu lang");
@@ -217,20 +218,75 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
 
         String caseState = currentFamily.isCaseClosed() ? "geschlossen" : "öffen";
 
-        String line = "ID: " + currentFamily.getId() +
-                " | Zeus ID: " + kein(currentFamily.getZeusId()) +
-                " | Status: " + status +
-                " | Ablauf: " + caseState;
+        String line = "ID: " + currentFamily.getId() + " | Status: " + status + " | Ablauf: " + caseState;
 
         Span info = new Span(line);
+
+        HorizontalLayout infoAndDelegation = new HorizontalLayout();
+        infoAndDelegation.setSpacing(true);
+        infoAndDelegation.setPadding(false);
+        infoAndDelegation.setWidthFull();
+        infoAndDelegation.setAlignItems(FlexComponent.Alignment.START);
+
+
         VerticalLayout content = new VerticalLayout();
         content.setSpacing(false);
         content.setPadding(false);
         content.setWidthFull();
+        content.setFlexGrow(1);
 
-        String emp = currentFamily.getAssignedEmployee().getFirstName() +
-                " " + currentFamily.getAssignedEmployee().getLastName();
-        Span employee = new Span("Berater*in: " + emp);
+        HorizontalLayout empLayout = new HorizontalLayout();
+        empLayout.setSpacing(true);
+        empLayout.setPadding(false);
+
+        empLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        Span emp = new Span(currentFamily.getAssignedEmployee().getFirstName() +
+                " " + currentFamily.getAssignedEmployee().getLastName());
+        emp.getStyle().set("font-weight", "bold");
+        Span employeeTitle = new Span("Berater*in: ");
+        if (lvl == 80 || lvl == 100 && currentFamily.getStatus().equals(RecordStatus.ACTIVE)
+                && !currentFamily.isCaseClosed()) {
+            employeeTitle.getStyle().set("color", "var(--lumo-primary-text-color)").set("cursor", "pointer")
+                    .set("text-decoration", "underline");
+            employeeTitle.addClickListener(e -> openChangeAssigneeDialog());
+        }
+        empLayout.add(employeeTitle, emp);
+
+
+        HorizontalLayout zeusLayout = new HorizontalLayout();
+        zeusLayout.setSpacing(true);
+        zeusLayout.setPadding(false);
+        zeusLayout.setAlignItems(FlexComponent.Alignment.CENTER);
+        String zsId = empty(currentFamily.getZeusId());
+        Span zeusId = new Span(zsId);
+        zeusId.getStyle().set("font-weight", "bold");
+        Span zeusTitle = new Span("Zeus ID: ");
+        if (lvl == 80 || lvl == 100 && currentFamily.getStatus().equals(RecordStatus.ACTIVE)
+                && !currentFamily.isCaseClosed()) {
+            zeusTitle.getStyle().set("color", "var(--lumo-primary-text-color)").set("cursor", "pointer")
+                    .set("text-decoration", "underline");
+            zeusTitle.addClickListener(e -> EditDialogFactory.openEditDialog(
+                    "Zeus ID ändern", List.of(new EditField("zeusId", "Zeus ID",
+                            EditField.Type.TEXT, zsId, false, 255, null, null,
+                            null)), values -> {
+                        String zeusID = (String) values.get("zeusId");
+                        if (!EditDialogFactory.isValidText(zeusID, 255)) {
+                            showOkDialog("Fehler", "Zeus ID ist ungültigt oder zu lang");
+                            return;
+                        }
+                        showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
+                            VaadinRequest req = VaadinRequest.getCurrent();
+                            Family f = familyService.getFamilyById(currentFamily.getId());
+                            f.setZeusId(zeusID);
+                            familyService.updateFamily(f, currentEmployee.getLogin(),
+                                    req != null ? req.getRemoteAddr() : "UNKNOWN",
+                                    req != null ? req.getHeader("User-Agent") : "UNKNOWN");
+                            getUI().ifPresent(ui -> ui.getPage().reload());
+                        }, () -> {
+                        });
+                    }));
+        }
+        zeusLayout.add(zeusTitle, zeusId);
 
         String cnt = "Beratungen: " + getConsultationsCount();
         Span consCount = new Span(cnt);
@@ -241,55 +297,64 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             mnts += c.getDurationMinutes();
         }
         Span hours = new Span("Beratungsstundenanzahl: " + (mnts / 60) + ":" + String.format("%02d", mnts % 60) + " St.");
-        content.add(familyHeader, info, employee, consCount, hours);
-
-        box.add(content, buildButtonsBlock(), buildMembers());
-
-        if (activeDelegation != null) {
-            buildDelegation();
-        }
+        content.add(zeusLayout, empLayout, consCount, hours);
+        infoAndDelegation.add(content);
+        if (activeDelegation != null)
+            infoAndDelegation.add(buildDelegation());
+        box.add(familyHeader, info, infoAndDelegation, buildButtonsBlock(), buildMembers());
 
         add(box);
     }
 
-    private void buildDelegation() {
-        if (activeDelegation == null) return;
+    private VerticalLayout buildDelegation() {
+        if (activeDelegation == null) return null;
 
         VerticalLayout block = new VerticalLayout();
-        block.setSpacing(true);
+        block.setSpacing(false);
         block.setPadding(false);
-        block.getStyle().set("border", "1px solid #ddd").set("background-color", "#fafafa").
-                set("border-radius", "6px").set("padding", "10px");
+        block.getStyle().set("background-color", "#fafafa").set("padding", "5px").set("white-space", "nowrap");
+        block.setWidth(null);
+        block.setAlignItems(FlexComponent.Alignment.END);
 
-        Span title = new Span("Delegation");
-        title.getStyle().set("font-weight", "bold");
-        block.add(title);
+        Span title = new Span("Active Delegation: ");
+        title.getStyle().set("font-weight", "bold").set("font-size", "14px");
+        title.setWidth(null);
 
         Employee from = activeDelegation.getFromEmployee();
         Employee to = activeDelegation.getToEmployee();
 
         boolean isTarget = to.getId().equals(currentEmployee.getId());
+        boolean isSource = from.getId().equals(currentEmployee.getId());
 
-        String line1 = isTarget ? "Delegiert an Sie" : "Delegiert an: " + to.getFirstName() + " " + to.getLastName();
-        String line2 = isTarget ? "Von: " + from.getFirstName() + " " + from.getLastName() : "";
-        String period = activeDelegation.getStartDate() + " - " + activeDelegation.getEndDate();
+        String line1;
+        String line2;
+        if (isTarget) {
+            line1 = "Delegiert an Sie";
+            line2 = "Von: " + from.getFirstName() + " " + from.getLastName();
+        } else if (isSource) {
+            line1 = "Delegiert an: " + to.getFirstName() + " " + to.getLastName();
+            line2 = "Von Ihnen";
+        } else {
+            line1 = "Delegiert an: " + to.getFirstName() + " " + to.getLastName();
+            line2 = "Von: " + from.getFirstName() + " " + from.getLastName();
+        }
+        String period = formatDate(activeDelegation.getStartDate().atStartOfDay()) + " - " +
+                formatDate(activeDelegation.getEndDate().atStartOfDay());
 
         Span s1 = new Span(line1);
         Span s2 = new Span(line2);
         Span s3 = new Span(period);
 
-        s1.getStyle().set("font-size", "13px");
-        s2.getStyle().set("font-size", "13px");
-        s3.getStyle().set("font-size", "13px");
-        block.add(s1);
-        if (line2.isEmpty()) block.add(s2);
-        block.add(s3);
+        s1.getStyle().set("font-size", "12px");
+        s1.setWidth(null);
+        s2.getStyle().set("font-size", "12px");
+        s2.setWidth(null);
+        s3.getStyle().set("font-size", "12px");
+        s3.setWidth(null);
 
-        Span reason = new Span("Grund: " + activeDelegation.getReason());
-        reason.getStyle().set("font-size", "12px").set("font-size", "12px").set("color", "#555");
-        block.add(reason);
+        block.add(title, s1, s2, s3);
 
-        add(block);
+        return block;
     }
 
     private VerticalLayout buildMembers() {
@@ -314,7 +379,8 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         title.getStyle().set("font-weight", "bold");
         header.add(title);
 
-        if (lvl != 10) {
+        if (lvl==100 || lvl==80 || (lvl==50 && (!currentFamily.getStatus().equals(RecordStatus.BLOCKED)
+                && !currentFamily.isCaseClosed()))) {
             Button memberTrash = new Button("Papierkorb", VaadinIcon.TRASH.create());
             memberTrash.setWidth("90px");
             memberTrash.setHeight("26px");
@@ -387,10 +453,11 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             contactEditBtn.addClassName("edit-btn");
             contactEditBtn.addClickListener(ev -> EditDialogFactory.openEditDialog(
                     "Kontakt ändern", List.of(new EditField("phone", "Telefon", EditField.Type.TEXT,
-                            currentFamily.getPhone(), false, 255, null), new EditField(
-                            "email", "E-Mail", EditField.Type.TEXT, currentFamily.getEmail(),
-                            false, 255, null
-                    )), values -> {
+                                    currentFamily.getPhone(), false, 255, null,
+                                    null, null),
+                            new EditField("email", "E-Mail", EditField.Type.TEXT, currentFamily.getEmail(),
+                                    false, 255, null, null, null
+                            )), values -> {
                         String phone = (String) values.get("phone");
                         String email = (String) values.get("email");
 
@@ -454,13 +521,14 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             addressEditBtn.setClassName("edit-btn");
             addressEditBtn.addClickListener(ev -> EditDialogFactory.openEditDialog("Adresse ändern",
                     List.of(new EditField("street", "Straße", EditField.Type.TEXT, currentFamily.getStreet(),
-                                    false, 255, null),
+                                    false, 255, null, null, null),
                             new EditField("houseNumber", "Hausnummer", EditField.Type.TEXT,
-                                    currentFamily.getHouseNumber(), false, 255, null),
+                                    currentFamily.getHouseNumber(), false, 255, null,
+                                    null, null),
                             new EditField("zip", "PLZ", EditField.Type.TEXT, currentFamily.getZip(),
-                                    false, 255, null),
+                                    false, 255, null, null, null),
                             new EditField("city", "Stadt", EditField.Type.TEXT, currentFamily.getCity(),
-                                    false, 255, null)
+                                    false, 255, null, null, null)
                     ), values -> {
                         String street = (String) values.get("street");
                         String houseNumber = (String) values.get("houseNumber");
@@ -539,9 +607,11 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             additionalEditBtn.addClickListener(e -> EditDialogFactory.openEditDialog(
                     "Weitere Angaben ändern", List.of(
                             new EditField("citizenship", "Staatsangehörigkeit", EditField.Type.TEXT,
-                                    currentFamily.getCitizenship(), false, 255, null),
+                                    currentFamily.getCitizenship(), false, 255, null,
+                                    null, null),
                             new EditField("languages", "Sprachen", EditField.Type.TEXT,
-                                    currentFamily.getLanguages(), false, 255, null)),
+                                    currentFamily.getLanguages(), false, 255, null,
+                                    null, null)),
                     values -> {
                         String citizenship = (String) values.get("citizenship");
                         String languages = (String) values.get("languages");
@@ -596,7 +666,8 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             additionalEditBtn.addClickListener(e -> EditDialogFactory.
                     openEditDialog("Grund der Beratung ändern", List.of(
                             new EditField("reason", "Grund der Beratung", EditField.Type.TEXTAREA,
-                                    currentFamily.getReasonDescription(), false, 4000, null)
+                                    currentFamily.getReasonDescription(), false, 4000, null,
+                                    null, null)
                     ), values -> {
                         String reason = (String) values.get("reason");
                         if (!EditDialogFactory.isValidText(reason, 4000)) {
@@ -645,7 +716,8 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             additionalEditBtn.addClassName("edit-btn");
             additionalEditBtn.addClickListener(e -> EditDialogFactory.
                     openEditDialog("Notizen ändern", List.of(new EditField("notes", "Notizen",
-                                    EditField.Type.TEXTAREA, currentFamily.getNotes(), false, 255, null)),
+                                    EditField.Type.TEXTAREA, currentFamily.getNotes(), false,
+                                    255, null, null, null)),
                             values -> {
                                 String notes = (String) values.get("notes");
                                 if (!EditDialogFactory.isValidText(notes, 255)) {
@@ -725,72 +797,48 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
     }
 
     private HorizontalLayout buildButtonsBlock() {
-        HorizontalLayout bar = new HorizontalLayout();
-        bar.setWidthFull();
-        bar.setAlignItems(FlexComponent.Alignment.CENTER);
-        bar.setSpacing(true);
+
+        HorizontalLayout familyActionsBar = new HorizontalLayout();
+        familyActionsBar.setWidthFull();
+        familyActionsBar.setSpacing(true);
+        familyActionsBar.setWidthFull();
+        familyActionsBar.setAlignItems(Alignment.CENTER);
 
         Button viewBtn = new Button("Beratungen", e -> getUI().ifPresent(ui -> ui.navigate(
                 ConsultationsView.class, new RouteParameters("familyId", currentFamily.getId().toString()))));
-        bar.add(viewBtn);
+        familyActionsBar.add(viewBtn);
 
         if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
             Button newBtn = new Button("Beratung", VaadinIcon.PLUS.create(),
                     e -> buildCreateConsultationDialog());
-            bar.add(newBtn);
+            familyActionsBar.add(newBtn);
         }
 
         Button docsBtn = new Button("Dokumente", e -> getUI().ifPresent(ui -> ui.navigate(
                 DocumentsView.class, new RouteParameters("familyId", currentFamily.getId().toString()))));
-        bar.add(docsBtn);
+        familyActionsBar.add(docsBtn);
 
-        if ((lvl == 80 || lvl == 100) && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
-            String zeusId = currentFamily.getZeusId();
-            Button zeusIdBtn;
-            String zsId = empty(currentFamily.getZeusId());
-            if (zeusId == null || zeusId.isEmpty()) {
-                zeusIdBtn = new Button("Zeus ID", VaadinIcon.PLUS.create());
-                zeusIdBtn.getStyle().set("color", "red");
-            } else {
-                zeusIdBtn = new Button("Zeus ID", VaadinIcon.EDIT.create());
-            }
-            zeusIdBtn.addClickListener(e -> EditDialogFactory.openEditDialog(
-                    "Zeus ID ändern", List.of(new EditField("zeusId", "Zeus ID", EditField.Type.TEXT, zsId,
-                            false, 255, null)), values -> {
-                        String zeusID = (String) values.get("zeusId");
-                        if (!EditDialogFactory.isValidText(zeusID, 255)) {
-                            showOkDialog("Fehler", "Zeus ID ist ungültigt oder zu lang");
-                            return;
-                        }
-                        showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
-                            VaadinRequest req = VaadinRequest.getCurrent();
-                            Family f = familyService.getFamilyById(currentFamily.getId());
-                            f.setZeusId(zeusID);
-                            familyService.updateFamily(f, currentEmployee.getLogin(),
-                                    req != null ? req.getRemoteAddr() : "UNKNOWN",
-                                    req != null ? req.getHeader("User-Agent") : "UNKNOWN");
-                            getUI().ifPresent(ui -> ui.getPage().reload());
-                        }, () -> {
-                        });
-                    }));
-            bar.add(zeusIdBtn);
-        }
+        Button delegationsButton = new Button("Delegationen", ev -> getUI().ifPresent(
+                ui -> ui.navigate(DelegationsView.class)
+        ));
+        familyActionsBar.add(delegationsButton);
 
-        if ((lvl == 80 || lvl == 100)
-                && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
-            Button employeeBtn = new Button("Berater*in", VaadinIcon.EDIT.create());
-            employeeBtn.addClickListener(e -> openChangeAssigneeDialog());
-            bar.add(employeeBtn);
-        }
+        return familyActionsBar;
+    }
 
-        if ((lvl == 80 || lvl == 100) ||
-                (lvl == 50 && (currentFamily.getStatus().equals(RecordStatus.ACTIVE) ||
-                        currentFamily.getStatus().equals(RecordStatus.ARCHIVED)))) {
+    private void buildFamilyStatusButtons() {
+        HorizontalLayout familyStatusBar = new HorizontalLayout();
+        familyStatusBar.setWidthFull();
+        familyStatusBar.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
+        familyStatusBar.setAlignItems(Alignment.CENTER);
+        familyStatusBar.setSpacing(true);
+
+        if (lvl == 80 || lvl == 100 || (lvl == 50 && !currentFamily.getStatus().equals(RecordStatus.BLOCKED))) {
             Button statusBtn = new Button("Status");
 
             statusBtn.addClickListener(e -> openFamilyStatusDialog());
 
-            bar.add(statusBtn);
+            familyStatusBar.add(statusBtn);
         }
 
         if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE)) {
@@ -830,10 +878,9 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                             });
                 }
             });
-            bar.add(caseClosedBtn);
+            familyStatusBar.add(caseClosedBtn);
         }
-
-        return bar;
+        add(familyStatusBar);
     }
 
     private void openFamilyStatusDialog() {
@@ -1084,6 +1131,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         dialog.add(title);
 
         DateTimePicker dateTime = new DateTimePicker("Datum und Uhrzeit (*)");
+        dateTime.setMin(LocalDateTime.of(2026, 1, 1, 0, 0, 0));
         dateTime.setWidthFull();
         dateTime.setRequiredIndicatorVisible(true);
 
@@ -1109,6 +1157,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         result.setHeight("130px");
 
         DateTimePicker followUp = new DateTimePicker("Folgetermin");
+        followUp.setMin(LocalDateTime.now());
         followUp.setWidthFull();
 
         Span mainTitle = new Span("Allgemeine Anganem");
@@ -1172,6 +1221,8 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         gender.setPlaceholder("Bitte wählen...");
 
         DatePicker birthDate = new DatePicker("Geburtsdatum (*)");
+        birthDate.setMin(LocalDate.of(1935, 1, 1));
+        birthDate.setMax(LocalDate.now());
         TextField birthCity = new TextField("Geburtsstadt (*)");
         TextField birthCountry = new TextField("Geburtsland (*)");
 

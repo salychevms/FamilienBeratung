@@ -325,6 +325,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         fromDateLabel.getStyle().set("margin-bottom", "0").set("font-weight", "bold");
 
         fromDate = new DatePicker();
+        fromDate.setMin(LocalDate.of(2026, 1, 1));
         fromDate.addValueChangeListener(e -> {
             dateFrom = e.getValue();
             refreshGrid();
@@ -336,6 +337,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         toDateLabel.getStyle().set("margin-bottom", "0").set("font-weight", "bold");
 
         toDate = new DatePicker("");
+        toDate.setMin(LocalDate.of(2026, 1, 1));
         toDate.addValueChangeListener(e -> {
             dateTo = e.getValue();
             refreshGrid();
@@ -485,6 +487,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         dialog.add(title);
 
         DateTimePicker dateTime = new DateTimePicker("Datum und Uhrzeit (*)");
+        dateTime.setMin(LocalDateTime.of(2026, 1, 1, 0, 0, 0));
         dateTime.setWidthFull();
         dateTime.setRequiredIndicatorVisible(true);
 
@@ -510,6 +513,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         result.setHeight("130px");
 
         DateTimePicker followUp = new DateTimePicker("Folgetermin");
+        followUp.setMin(LocalDateTime.now());
         followUp.setWidthFull();
 
         Span mainTitle = new Span("Allgemeine Anganem");

@@ -95,14 +95,6 @@ public class EditDialogFactory {
         return v.chars().allMatch(c -> c >= 32 || c == 10 || c == 13);
     }
 
-    public static boolean isValidBirthday(LocalDate birthday) {
-        if (birthday == null) return false;
-
-        if (birthday.isAfter(LocalDate.now())) return false;
-        if (birthday.isBefore(LocalDate.of(1900, 1, 1))) return false;
-        return true;
-    }
-
     public static boolean isValidFile(String originalName, long size, String type) {
         if (originalName == null) return false;
         if (originalName.contains("..") || originalName.contains("/") || originalName.contains("\\")) return false;
@@ -186,6 +178,12 @@ public class EditDialogFactory {
             if (field.getInitialValue() != null)
                 dp.setValue((LocalDate) field.getInitialValue());
 
+            if(field.getMinDate()!=null)
+                dp.setMin(field.getMinDate());
+
+            if(field.getMaxDate()!=null)
+                dp.setMax(field.getMaxDate());
+
             dp.setRequiredIndicatorVisible(field.isRequired());
             return dp;
         }
@@ -233,10 +231,6 @@ public class EditDialogFactory {
         if (field.getType() == EditField.Type.DATE) {
             if (!(value instanceof LocalDate)) {
                 setInvalid(c, "Ungültiges Datum");
-                return false;
-            }
-            if (!isValidBirthday((LocalDate) value)) {
-                setInvalid(c, "Datum von 01.01.1990 bis heute");
                 return false;
             }
         }

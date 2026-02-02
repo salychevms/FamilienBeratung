@@ -112,8 +112,8 @@ public class DelegationService {
             log.error("Delegation {} has already expired. You have to create new delegation", updated.getId());
             throw new RuntimeException("Delegation " + updated.getId() + " has already expired");
         }
-        if (!end.isAfter(updated.getEndDate())) {
-            log.error("New end date must be after old end date");
+        if (end.isBefore(updated.getEndDate())) {
+            log.error("New end date mustn't be before old end date");
             throw new RuntimeException("New end date must be after old end date");
         }
         if (end.isBefore(LocalDate.now())) {
@@ -206,6 +206,14 @@ public class DelegationService {
                 delegations.size(), LocalDate.now());
     }
 
+    public Delegation getDelegationById(Long id) {
+        if (id == null) {
+            log.error("ID is null");
+            return null;
+        }
+        return delegationRepository.findById(id).orElse(null);
+    }
+
     //all
     public List<Family> getDelegatedFamilies(String login) {
         validator.validateText(login, 255);
@@ -286,5 +294,12 @@ public class DelegationService {
     public boolean hasActiveDelegation(Family family) {
         return delegationRepository.existsByFamilyAndExpiredFalseAndAbortedManuallyFalseAndEndDateGreaterThanEqual(
                 family, LocalDate.now());
+    }
+
+    public Delegation getActiveDelegationForFamily(Family family) {
+        if (family == null)
+            return null;
+        return delegationRepository.findFirstByFamilyAndExpiredFalseAndAbortedManuallyFalseAndEndDateGreaterThanEqual(
+                family, LocalDate.now()).orElse(null);
     }
 }

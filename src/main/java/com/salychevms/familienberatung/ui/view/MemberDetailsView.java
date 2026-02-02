@@ -70,7 +70,7 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
 
         try {
             this.currentFamily = familyService.getFamilyById(familyId);
-        }catch (Exception ex){
+        } catch (Exception ex) {
             event.forwardTo("family/" + familyId);
             return;
         }
@@ -255,20 +255,25 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
                     "Persönliche Daten ändern", List.of(
                             new EditField("gender", "Gender", EditField.Type.SELECT,
                                     currentFamilyMember.getGender(), true, null,
-                                    List.of(FamilyMemberGender.values())),
+                                    List.of(FamilyMemberGender.values()), null, null),
                             new EditField("birthDate", "Geburtsdatum", EditField.Type.DATE,
-                                    currentFamilyMember.getBirthDate(), true, null, null),
+                                    currentFamilyMember.getBirthDate(), true, null, null,
+                                    LocalDate.of(1935, 1, 1), LocalDate.now()),
                             new EditField("birthCity", "Geburtsstadt", EditField.Type.TEXT,
-                                    currentFamilyMember.getBirthCity(), true, 255, null),
+                                    currentFamilyMember.getBirthCity(), true, 255, null,
+                                    null, null),
                             new EditField("birthCountry", "Geburtsland", EditField.Type.TEXT,
-                                    currentFamilyMember.getBirthCountry(), true, 255, null),
+                                    currentFamilyMember.getBirthCountry(), true, 255, null,
+                                    null, null),
                             new EditField("nationality", "Nationalität", EditField.Type.TEXT,
-                                    currentFamilyMember.getNationality(), false, 255, null),
+                                    currentFamilyMember.getNationality(), false, 255, null,
+                                    null, null),
                             new EditField("languages", "Sprachen", EditField.Type.TEXT,
-                                    currentFamilyMember.getLanguages(), false, 255, null),
+                                    currentFamilyMember.getLanguages(), false, 255, null,
+                                    null, null),
                             new EditField("livesWithFamily", "Lebt mit der Familie", EditField.Type.SELECT,
                                     currentFamilyMember.isLivesWithFamily(), true, null,
-                                    List.of("Ja", "Nein"))),
+                                    List.of("Ja", "Nein"), null, null)),
                     values -> {
                         FamilyMember updated = familyMemberService.getMember(currentFamily, currentFamilyMember.getId(),
                                 currentEmployee.getLogin());
@@ -347,12 +352,14 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
             editButton.addClickListener(e -> EditDialogFactory.openEditDialog("Kontakt ändern",
                             List.of(
                                     new EditField("phone", "Telefon", EditField.Type.TEXT,
-                                            currentFamilyMember.getPhone(), false, 255, null),
+                                            currentFamilyMember.getPhone(), false, 255, null,
+                                            null, null),
                                     new EditField("email", "E-Mail", EditField.Type.TEXT,
-                                            currentFamilyMember.getEmail(), false, 255, null)
+                                            currentFamilyMember.getEmail(), false, 255, null,
+                                            null, null)
                             ), values -> {
-                                FamilyMember updated = familyMemberService.getMember(currentFamily, currentFamilyMember.getId(),
-                                        currentEmployee.getLogin());
+                                FamilyMember updated = familyMemberService.getMember(currentFamily,
+                                        currentFamilyMember.getId(), currentEmployee.getLogin());
 
                                 if (values.get("phone") != null)
                                     updated.setPhone((String) values.get("phone"));
@@ -404,16 +411,17 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
             editButton.addClickListener(e ->
                     EditDialogFactory.openEditDialog("Beruf und Bildung ändern", List.of(
                                     new EditField("income", "Einkommen", EditField.Type.TEXT,
-                                            currentFamilyMember.getIncome(), false, 255, null),
+                                            currentFamilyMember.getIncome(), false, 255, null,
+                                            null, null),
                                     new EditField("workInfo", "Berufliche Tätigkeit / Erfahrung",
                                             EditField.Type.TEXTAREA, currentFamilyMember.getWorkInfo(),
-                                            false, 4000, null),
+                                            false, 4000, null, null, null),
                                     new EditField("educationDegree", "Bildungsabschluss",
                                             EditField.Type.TEXT, currentFamilyMember.getEducationDegree(),
-                                            false, 255, null),
+                                            false, 255, null, null, null),
                                     new EditField("educationInfo", "Ausbildung / Studium",
                                             EditField.Type.TEXTAREA, currentFamilyMember.getEducationInfo(),
-                                            false, 4000, null)
+                                            false, 4000, null, null, null)
                             ), values -> {
                                 FamilyMember updated = familyMemberService.getMember(currentFamily,
                                         currentFamilyMember.getId(), currentEmployee.getLogin());
@@ -489,10 +497,11 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
             editButton.addClickListener(e -> EditDialogFactory.openEditDialog("Notizen",
                             List.of(
                                     new EditField("notes", "Notizen", EditField.Type.TEXTAREA,
-                                            currentFamilyMember.getNotes(), false, 1000, null)
+                                            currentFamilyMember.getNotes(), false, 1000, null,
+                                            null, null)
                             ), values -> {
-                                FamilyMember updated = familyMemberService.getMember(currentFamily, currentFamilyMember.getId(),
-                                        currentEmployee.getLogin());
+                                FamilyMember updated = familyMemberService.getMember(currentFamily,
+                                        currentFamilyMember.getId(), currentEmployee.getLogin());
 
                                 if (values.get("notes") != null)
                                     updated.setNotes((String) values.get("notes"));

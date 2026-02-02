@@ -323,6 +323,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         fromLabel.getStyle().set("font-weight", "bold");
 
         DatePicker dateFrom = new DatePicker();
+        dateFrom.setMin(LocalDate.of(2026, 1, 1));
         dateFrom.addValueChangeListener(e -> {
             filterDateFrom = e.getValue();
             refreshGrid();
@@ -338,6 +339,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         toLabel.getStyle().set("font-weight", "bold");
 
         DatePicker dateTo = new DatePicker();
+        dateTo.setMin(LocalDate.of(2026, 1, 1));
         dateTo.addValueChangeListener(e -> {
             filterDateTo = e.getValue();
             refreshGrid();
@@ -588,8 +590,9 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             nameEdit.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             nameEdit.addClassName("edit-btn");
             nameEdit.addClickListener(e -> {
-                EditDialogFactory.openEditDialog("Dateiname ändern", List.of(new EditField("name", "Dateiname",
-                                EditField.Type.TEXT, d.getOriginalFileName(), true, 255, null)),
+                EditDialogFactory.openEditDialog("Dateiname ändern", List.of(new EditField("name",
+                                "Dateiname", EditField.Type.TEXT, d.getOriginalFileName(), true,
+                                255, null, null, null)),
                         values -> {
                             try {
                                 String newName = values.get("name") != null ? values.get("name").toString().trim() : null;
@@ -636,8 +639,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             descEdit.addClassName("edit-btn");
             descEdit.addClickListener(e -> {
                 EditDialogFactory.openEditDialog("Beschreibung ändern", List.of(new EditField(
-                        "desc", "Beschreibung", EditField.Type.TEXTAREA, d.getDescription(),
-                        false, 4000, null)), values -> {
+                        "desc", "Beschreibung", EditField.Type.TEXTAREA, d.getDescription(), false,
+                        4000, null, null, null)), values -> {
                     try {
                         String text = values.get("desc") != null ? values.get("desc").toString().trim() : null;
                         FamilyDocument updated = new FamilyDocument();
@@ -717,7 +720,6 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         block.setSpacing(false);
         block.setPadding(false);
         block.setWidthFull();
-
         block.getStyle().set("border", "1px solid #ddd").set("border-radius", "6px").set("padding", "10px");
 
         Span title = new Span("Verlauf");

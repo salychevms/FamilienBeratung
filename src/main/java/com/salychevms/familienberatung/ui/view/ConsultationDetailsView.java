@@ -142,15 +142,6 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.setSpacing(true);
 
-        if (lvl != 10 && !currentConsultation.isInvalid() && currentFamily.getStatus().equals(RecordStatus.ACTIVE)
-                && !currentFamily.isCaseClosed()) {
-            Button editButton = new Button(VaadinIcon.EDIT.create());
-            editButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-            editButton.addClassName("edit-btn");
-
-            header.add(editButton);
-        }
-
         String date = currentConsultation.getDateTime().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"));
         String duration = formatDuration(currentConsultation.getDurationMinutes());
 
@@ -267,6 +258,7 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
                 dialog.add(dlgTitle);
 
                 DateTimePicker dateTime = new DateTimePicker("Datum und Uhrzeit (*)");
+                dateTime.setMin(LocalDateTime.of(2026, 1, 1, 0, 0, 0));
                 dateTime.setWidthFull();
                 dateTime.setRequiredIndicatorVisible(true);
                 dateTime.setValue(currentConsultation.getDateTime());
@@ -279,6 +271,7 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
                 duration.setMin(1);
 
                 DateTimePicker followUp = new DateTimePicker("Folgetermin");
+                followUp.setMin(LocalDateTime.of(2026, 1, 1, 0, 0, 0));
                 followUp.setWidthFull();
                 followUp.setRequiredIndicatorVisible(true);
                 followUp.setValue(currentConsultation.getFollowUp());
@@ -387,6 +380,7 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
             Button fUpDelete = new Button(VaadinIcon.CLOSE_CIRCLE.create());
             fUpDelete.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             fUpDelete.addClassName("edit-btn");
+            fUpDelete.getStyle().set("color", "red");
             fUpDelete.addClickListener(ev -> {
                 Dialog fUpDialog = new Dialog();
                 fUpDialog.setHeaderTitle("Folgetermin löschen");
@@ -435,11 +429,14 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
             edit.addClickListener(ev ->
                     EditDialogFactory.openEditDialog("Details der Beratung ändern", List.of(
                                     new EditField("topic", "Thema", EditField.Type.TEXT,
-                                            currentConsultation.getTopic(), false, 255, null),
+                                            currentConsultation.getTopic(), false, 255, null,
+                                            null, null),
                                     new EditField("description", "Beschreibung", EditField.Type.TEXTAREA,
-                                            currentConsultation.getDescription(), false, 4000, null),
+                                            currentConsultation.getDescription(), false, 4000,
+                                            null, null, null),
                                     new EditField("result", "Ergebnis", EditField.Type.TEXTAREA,
-                                            currentConsultation.getResult(), false, 4000, null)),
+                                            currentConsultation.getResult(), false, 4000,
+                                            null, null, null)),
                             values -> {
                                 try {
                                     Consultation updated = consultationService.getConsultationById(

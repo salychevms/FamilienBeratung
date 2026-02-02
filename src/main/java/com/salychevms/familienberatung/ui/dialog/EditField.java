@@ -3,6 +3,7 @@ package com.salychevms.familienberatung.ui.dialog;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Setter
@@ -22,9 +23,11 @@ public class EditField {
     private final boolean required;
     private final Integer maxLength;
     private final List<?> options;
+    private final LocalDate minDate;
+    private final LocalDate maxDate;
 
     public EditField(String key, String label, Type type, Object initialValue, boolean required,
-                     Integer maxLength, List<?> options) {
+                     Integer maxLength, List<?> options, LocalDate minDate, LocalDate maxDate) {
         this.key = key;
         this.label = label;
         this.type = type;
@@ -32,5 +35,7 @@ public class EditField {
         this.required = required;
         this.maxLength = maxLength;
         this.options = options;
+        this.minDate = minDate;
+        this.maxDate = maxDate;
     }
 }
