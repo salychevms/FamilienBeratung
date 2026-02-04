@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
+import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -97,10 +98,11 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
 
         buildBreadCrumbs();
         buildHeader();
-        buildTop();
+        buildPersonalData();
         buildContacts();
         buildWorkAndEducation();
         buildNotes();
+        buildButtonArea();
         buildAudit();
     }
 
@@ -110,7 +112,7 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
         bcrumbs.setPadding(true);
         bcrumbs.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        RouterLink l1 = new RouterLink("Übresicht", OverviewView.class);
+        RouterLink l1 = new RouterLink("Übersicht", OverviewView.class);
         RouterLink l2 = new RouterLink("Familien", FamiliesView.class);
         RouterLink l3 = new RouterLink("Familie: " + currentFamily.getFamilyName(), FamilyDetailsView.class,
                 new RouteParameters("id", String.valueOf(currentFamily.getId())));
@@ -136,6 +138,7 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
         box.setWidthFull();
 
         HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(false);
 
         if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
             Button editButton = new Button(VaadinIcon.EDIT.create());
@@ -148,51 +151,46 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
         H2 title = new H2("Familienmitglied: " + fullName);
         header.add(title);
 
-        String fStatus;
-        String status;
-        if (currentFamily.getStatus().equals(RecordStatus.INVALID))
-            fStatus = status = "GELÖSCHT";
-        else if (currentFamily.getStatus().equals(RecordStatus.ARCHIVED))
-            fStatus = status = "ARCHIV";
-        else if (currentFamily.getStatus().equals(RecordStatus.BLOCKED))
-            fStatus = status = "BLOCKIERT";
-        else if (currentFamilyMember.isInvalid()) {
-            fStatus = "AKTIV";
-            status = "GELÖSCHT";
-        } else
-            fStatus = status = "AKTIV";
+        Span fTitle = new Span("Familie: ");
+        Span fName = new Span(currentFamily.getFamilyName());
+        fName.getStyle().set("font-weight", "bold");
+        Span fStatusTitle = new Span("Status: ");
+        Span fStatusIs = new Span(currentFamily.getStatus().toString());
+        fStatusIs.getStyle().set("font-weight", "bold");
 
-        String fName = "Familie: " + currentFamily.getFamilyName() + " | Status: " + fStatus;
-        Span familyName = new Span(fName);
-
-        String line = "Mitglied ID: " + currentFamilyMember.getId() + " | Status: " + status;
-        Span info = new Span(line);
-
-        box.add(header, familyName, info);
+        Span mTitle = new Span("Mitglied ID: ");
+        Span mId = new Span(String.valueOf(currentFamilyMember.getId()));
+        mId.getStyle().set("font-weight", "bold");
+        Span mStatusTitle = new Span("Status: ");
+        Span mStatusIs = new Span();
+        mStatusIs.getStyle().set("font-weight", "bold");
+        if (!currentFamilyMember.isInvalid()) {
+            if (currentFamily.getStatus().equals(RecordStatus.ARCHIVED)) {
+                fStatusIs.getStyle().set("color", "#b58900");
+                mStatusIs.setText(RecordStatus.BLOCKED.toString());
+                mStatusIs.getStyle().set("color", "red");
+            } else if (currentFamily.getStatus().equals(RecordStatus.BLOCKED)) {
+                fStatusIs.getStyle().set("color", "red");
+                mStatusIs.setText(RecordStatus.BLOCKED.toString());
+                mStatusIs.getStyle().set("color", "red");
+            } else if (currentFamily.getStatus().equals(RecordStatus.ACTIVE)) {
+                fStatusIs.getStyle().set("color", "green");
+                mStatusIs.setText(RecordStatus.ACTIVE.toString());
+                mStatusIs.getStyle().set("color", "green");
+            }
+        }
+        box.add(header, new HorizontalLayout(fTitle, fName, fStatusTitle, fStatusIs),
+                new HorizontalLayout(mTitle, mId, mStatusTitle, mStatusIs));
         add(box);
     }
 
-    private void buildTop() {
-        VerticalLayout box = new VerticalLayout();
-        box.setSpacing(false);
-        box.setPadding(false);
-        box.setWidthFull();
-
-        HorizontalLayout btns = buildButtonArea();
-        if (btns != null)
-            box.add(btns);
-        box.add(buildPersonalData());
-        add(box);
-    }
-
-    private HorizontalLayout buildButtonArea() {
+    private void buildButtonArea() {
         if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
             HorizontalLayout buttons = new HorizontalLayout();
-            buttons.setSpacing(false);
-            buttons.setPadding(false);
+            buttons.setSpacing(true);
             buttons.setAlignItems(FlexComponent.Alignment.CENTER);
+            buttons.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
             buttons.setWidthFull();
-            buttons.getStyle().set("margin-bottom", "0px");
 
             Button button = new Button("Mitglied löschen");
             button.getStyle().set("color", "red");
@@ -228,12 +226,11 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
             });
 
             buttons.add(button);
-            return buttons;
+            add(buttons);
         }
-        return null;
     }
 
-    private VerticalLayout buildPersonalData() {
+    private void buildPersonalData() {
         VerticalLayout block = new VerticalLayout();
         block.setSpacing(false);
         block.setPadding(false);
@@ -244,7 +241,7 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
 
         HorizontalLayout header = new HorizontalLayout();
         header.setAlignItems(FlexComponent.Alignment.CENTER);
-        header.setSpacing(true);
+        header.setSpacing(false);
 
         if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
             Button editButton = new Button(VaadinIcon.EDIT.create());
@@ -318,38 +315,37 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
         String birthDateText = currentFamilyMember.getBirthDate() != null
                 ? currentFamilyMember.getBirthDate().format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
                 : "nicht angegeben";
-
-        Span gender = new Span("Gender: " + genderText);
-        Span birthDate = new Span("Geburtsdatum: " + birthDateText);
-        Span birthCity = new Span("Geburtsstadt: " + empty(currentFamilyMember.getBirthCity()));
-        Span birthCountry = new Span("Geburtsland: " + empty(currentFamilyMember.getBirthCountry()));
-        Span nationality = new Span("Nationality: " + empty(currentFamilyMember.getNationality()));
-        Span languages = new Span("Languages: " + empty(currentFamilyMember.getLanguages()));
-        Span livesWithFamily = new Span("lebt mit der Familie: " +
-                (currentFamilyMember.isLivesWithFamily() ? "Ja" : "Nein"));
-
-        block.add(header, gender, birthDate, birthCity, birthCountry, nationality, languages, livesWithFamily);
-        return block;
+        int age = (currentFamilyMember.getBirthDate() != null)
+                ? Period.between(currentFamilyMember.getBirthDate(), LocalDate.now()).getYears() : -1;
+        block.add(header, getHLWithSpans("Gender: ", genderText),
+                getHLWithSpans("Alter: ", String.valueOf(age)),
+                getHLWithSpans("Geburtsdatum: ", birthDateText),
+                getHLWithSpans("Geburtsstadt: ", empty(currentFamilyMember.getBirthCity())),
+                getHLWithSpans("Geburtsland: ", empty(currentFamilyMember.getBirthCountry())),
+                getHLWithSpans("Nationalität/Staatsbürgerschaft: ", empty(currentFamilyMember.getNationality())),
+                getHLWithSpans("Sprachen: ", empty(currentFamilyMember.getLanguages())),
+                getHLWithSpans("lebt mit der Familie: ", (currentFamilyMember.isLivesWithFamily() ? "Ja" : "Nein")));
+        add(block);
     }
 
     private void buildContacts() {
         VerticalLayout block = new VerticalLayout();
         block.setSpacing(false);
-        block.setPadding(true);
+        block.setPadding(false);
         block.setWidthFull();
 
         block.getStyle().set("border", "1px solid #ddd").set("border-radius", "6px").set("padding", "10px");
 
         HorizontalLayout header = new HorizontalLayout();
         header.setAlignItems(FlexComponent.Alignment.CENTER);
-        header.setSpacing(true);
+        header.setSpacing(false);
 
         if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
             Button editButton = new Button(VaadinIcon.EDIT.create());
             editButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             editButton.addClassName("edit-btn");
 
-            editButton.addClickListener(e -> EditDialogFactory.openEditDialog("Kontakt ändern",
+            editButton.addClickListener(e -> EditDialogFactory.openEditDialog("Kontaktdaten ändern",
                             List.of(
                                     new EditField("phone", "Telefon", EditField.Type.TEXT,
                                             currentFamilyMember.getPhone(), false, 255, null,
@@ -379,14 +375,12 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
             header.add(editButton);
         }
 
-        Span title = new Span("Kontakt / Notizen");
+        Span title = new Span("Kontaktdaten");
         title.getStyle().set("font-weight", "bold");
         header.add(title);
 
-        Span phone = new Span("Telefon: " + empty(currentFamilyMember.getPhone()));
-        Span email = new Span("E-Mail: " + empty(currentFamilyMember.getEmail()));
-
-        block.add(header, phone, email);
+        block.add(header, getHLWithSpans("Telefon: ", empty(currentFamilyMember.getPhone())),
+                getHLWithSpans("E-Mail: ", empty(currentFamilyMember.getEmail())));
         add(block);
     }
 
@@ -452,7 +446,11 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
         title.getStyle().set("font-weight", "bold");
         header.add(title);
 
-        Span income = new Span("Einkommen: " + empty(currentFamilyMember.getIncome()));
+        VerticalLayout workLayout = new VerticalLayout();
+        workLayout.setSpacing(false);
+        workLayout.setPadding(false);
+        workLayout.setWidthFull();
+
         TextArea workText = new TextArea("Berufliche Tätigkeit / Erfahrung: ");
         workText.setValue(empty(currentFamilyMember.getWorkInfo()));
         workText.setReadOnly(true);
@@ -461,18 +459,25 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
         workText.setHeight("200px");
         workText.getStyle().set("white-space", "pre-wrap");
 
-        Span sep = new Span();
+        workLayout.add(getHLWithSpans("Einkommen: ", empty(currentFamilyMember.getIncome())), workText);
 
-        Span degree = new Span("Bildungsabschluss: " + empty(currentFamilyMember.getEducationDegree()));
+        VerticalLayout eduLayout = new VerticalLayout();
+        eduLayout.setSpacing(false);
+        eduLayout.setPadding(false);
+        eduLayout.setWidthFull();
+
         TextArea educationText = new TextArea("Ausbildung / Studium: ");
         educationText.setValue(empty(currentFamilyMember.getEducationInfo()));
         educationText.setReadOnly(true);
         educationText.setMaxLength(4000);
         educationText.setWidthFull();
         educationText.setHeight("200px");
-        educationText.getStyle().set("white-space", "pre-wrap").set("margin-bottom", "0");
+        educationText.getStyle().set("white-space", "pre-wrap");
 
-        block.add(header, income, workText, sep, degree, educationText);
+        eduLayout.add(getHLWithSpans("Bildungsabschluss: ",
+                empty(currentFamilyMember.getEducationDegree())), educationText);
+
+        block.add(header, workLayout, eduLayout);
         add(block);
     }
 
@@ -539,7 +544,7 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
     private void buildAudit() {
         VerticalLayout block = new VerticalLayout();
         block.setSpacing(false);
-        block.setPadding(true);
+        block.setPadding(false);
         block.setWidthFull();
 
         block.getStyle().set("border", "1px solid #ddd").set("border-radius", "6px").set("padding", "10px");
@@ -582,5 +587,27 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
         Span s = new Span(text);
         s.getStyle().set("font-size", "12px").set("color", "#555");
         return s;
+    }
+
+    private HorizontalLayout getHLWithSpans(String title, String data) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+
+        Span titleSpan = new Span(title);
+        Span dataSpan = new Span(data);
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
+    }
+
+    private HorizontalLayout getHL(Span titleSpan, Span dataSpan) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+        header.add(titleSpan, dataSpan);
+        return header;
     }
 }

@@ -39,7 +39,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
-@Route(value = "delegations/:employeeId?", layout = MainLayout.class)
+@Route(value = "delegations/:familyId?", layout = MainLayout.class)
 @PageTitle("Delegationen")
 @PermitAll
 @RequiredArgsConstructor
@@ -74,6 +74,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
     private Family selectedFamily;
     private Employee selectedFromEmployee;
     private Grid<Delegation> delegationGrid;
+    private Family currentFamily;
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
@@ -90,17 +91,16 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         } else this.currentEmployee = employee;
 
         lvl = currentEmployee.getRole().getAccessLevel();
-
-        Long optEmpLogin = event.getRouteParameters().getLong("employeeId").orElse(null);
-        if (optEmpLogin == null)
+        Employee toEmployee = employeeService.findByLogin(currentEmployee.getLogin());
+        if (toEmployee == null || !toEmployee.isActive() || toEmployee.isArchived())
             this.currentDelegatedTo = null;
-        else {
-            Employee toEmployee = employeeService.findById(optEmpLogin);
-            if (toEmployee == null || !toEmployee.isActive() || toEmployee.isArchived())
-                this.currentDelegatedTo = null;
-            else
-                this.currentDelegatedTo = toEmployee;
-        }
+        else
+            this.currentDelegatedTo = toEmployee;
+
+        Long optFamId = event.getRouteParameters().getLong("familyId").orElse(null);
+        if (optFamId != null) {
+            this.currentFamily=familyService.getFamilyById(optFamId);
+        }else this.currentFamily=null;
 
         currentToEmployees.clear();
         currentFromEmployees.clear();
@@ -175,22 +175,27 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         breadCrumbs.setAlignItems(FlexComponent.Alignment.CENTER);
 
         RouterLink overview = new RouterLink("Übersicht", OverviewView.class);
+        breadCrumbs.add(overview);
+
+        if (currentFamily != null) {
+            RouterLink fams=new RouterLink("Familien", FamiliesView.class);
+            RouterLink fam = new RouterLink("Familie: "+currentFamily.getFamilyName(),
+                    FamilyDetailsView.class, new RouteParameters("id", currentFamily.getId().toString()));
+            Span sp2 = new Span(" >> ");
+            sp2.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
+            Span sp3 = new Span(" >> ");
+            sp3.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
+
+            breadCrumbs.add(sp2, fams, sp3, fam);
+        }
+
         Span del = new Span("Delegationen");
         del.getStyle().set("font-size", "var(--lumo-font-size-s)").set("font-weight", "bold")
                 .set("color", "var(--lumo-body-text-color)");
         Span sp1 = new Span(" >> ");
         sp1.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
-        breadCrumbs.add(overview, sp1, del);
+        breadCrumbs.add(sp1, del);
 
-        if (currentDelegatedTo != null && lvl != 50) {
-            RouterLink emp = new RouterLink(currentDelegatedTo.getRole().getLabel() + ": "
-                    + currentDelegatedTo.getFirstName() + " " + currentDelegatedTo.getLastName(),
-                    EmployeeDetailsView.class, new RouteParameters("id", currentDelegatedTo.getId().toString()));
-            Span sp2 = new Span(" >> ");
-            sp2.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
-
-            breadCrumbs.add(sp2, emp);
-        }
         add(breadCrumbs);
     }
 
@@ -206,9 +211,12 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         if (lvl == 50)
             title.setText("Delegationen: " + currentEmployee.getFirstName() + " " + currentEmployee.getLastName());
         else title.setText("Delegationen: alle");
-        title.getStyle().set("margin-bottom", "0");
+
         titleLayout.add(title);
-        header.add(titleLayout);
+
+        Span emp = new Span(currentEmployee.getRole().getLabel() + ": " + currentEmployee.getFirstName() +
+                " " + currentEmployee.getLastName());
+        header.add(titleLayout, emp);
         add(header);
     }
 
@@ -549,7 +557,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
                         showOkDialog("Fehler", "Text muss zwischen 5 und 2000 Zeichen enthalten");
                         return;
                     }
-                    if (newEndDate == null){
+                    if (newEndDate == null) {
                         showOkDialog("Fehler", "Der Enddatum ist falsch");
                         return;
                     }

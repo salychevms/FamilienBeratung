@@ -204,11 +204,10 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
             text += "alle";
 
         H2 titleText = new H2(text);
-        titleText.getStyle().set("margin-bottom", "0");
         title.add(titleText);
 
-        Employee e = employeeService.findByLogin(currentEmployee.getLogin());
-        Span emp = new Span(e.getRole().getLabel() + ": " + e.getFirstName() + " " + e.getLastName());
+        Span emp = new Span(currentEmployee.getRole().getLabel() + ": " + currentEmployee.getFirstName() +
+                " " + currentEmployee.getLastName());
 
         content.add(title, emp);
         add(content);
@@ -245,7 +244,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         actionsRow.setSpacing(true);
         actionsRow.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        createButton = new Button("Beratung", VaadinIcon.PLUS.create(),
+        createButton = new Button("Neue Beratung", VaadinIcon.PLUS.create(),
                 e -> openSelectFamilyDialog());
         createButton.getStyle().set("font-size", "16px").set("padding", "8px 16px");
 

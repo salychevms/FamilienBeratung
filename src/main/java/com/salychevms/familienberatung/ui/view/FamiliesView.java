@@ -77,9 +77,10 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         if (lvl == 50) {
             myOwnedFamilies = familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(), currentEmployee);
             allFamilies.addAll(myOwnedFamilies);
-            delegations = delegationService.getDelegationsByToEmployee(currentEmployee);
+            delegations = new ArrayList<>(delegationService.getDelegationsByToEmployee(currentEmployee).stream()
+                    .filter(delegationService::isDelegationActive).toList());
             for (Delegation d : delegations)
-                if (!d.isExpired() && d.getEndDate().isAfter(LocalDate.now())) allFamilies.add(d.getFamily());
+                allFamilies.add(d.getFamily());
         } else if (lvl == 100 || lvl == 80 || lvl == 10) allFamilies = familyService.getFamilies();
 
         employees = new ArrayList<>(employeeService.findAll().stream().filter(Employee::isActive)
@@ -149,10 +150,9 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
     private void buildTopBar() {
         HorizontalLayout searchRow = new HorizontalLayout();
-        searchRow.setSpacing(false);
+        searchRow.setSpacing(true);
         searchRow.setWidthFull();
         searchRow.setAlignItems(FlexComponent.Alignment.CENTER);
-        searchRow.setSpacing(true);
 
         searchField = new TextField();
         searchField.setPlaceholder("Suche...");
@@ -201,29 +201,9 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
         actionsRow.add(createButton, trashButton);
 
-        HorizontalLayout modeRow = new HorizontalLayout();
-        modeRow.setSpacing(true);
-
-        Button listModeButton = new Button("≡");
-        listModeButton.setWidth("20px");
-        listModeButton.setHeight("20px");
-        listModeButton.getStyle().set("font-size", "13px").set("padding", "0").set("min-width", "20px")
-                .set("flex-grow", "0").set("flex-shrink", "0").set("box-sizing", "border-box");
-
-        Button tilesModeButton = new Button("▦");
-        tilesModeButton.setWidth("20px");
-        tilesModeButton.setHeight("20px");
-        tilesModeButton.getStyle().set("font-size", "13px").set("padding", "0").set("min-width", "20px")
-                .set("flex-grow", "0").set("flex-shrink", "0").set("box-sizing", "border-box");
-
-        modeRow.setVisible(lvl == 100);
-
-        modeRow.add(listModeButton, tilesModeButton);
-
         add(searchRow);
         add(filterLayout);
         add(actionsRow);
-        add(modeRow);
     }
 
     private void buildFilters() {
@@ -257,27 +237,21 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         delegatedLayout.setWidthFull();
 
         Span statusLabel = new Span("Status:");
-        statusLabel.getStyle().set("margin-bottom", "0");
         statusLabel.getStyle().set("font-weight", "bold");
 
         ComboBox<RecordStatus> statusFilter = new ComboBox<>();
         statusFilter.setItems(RecordStatus.ACTIVE, RecordStatus.ARCHIVED, RecordStatus.BLOCKED);
-        statusFilter.setPlaceholder("Status wählen...");
         statusFilter.setClearButtonVisible(true);
-        statusFilter.getStyle().set("margin-bottom", "0");
         this.statusFilter = statusFilter;
 
         statusLayout.add(statusLabel, statusFilter);
 
         Span closeLabel = new Span("Ablauf abgeschlossen:");
-        closeLabel.getStyle().set("margin-bottom", "0");
         closeLabel.getStyle().set("font-weight", "bold");
 
         ComboBox<String> closedFilter = new ComboBox<>();
         closedFilter.setItems("Ja", "Nein", "Alle");
-        closedFilter.setPlaceholder("Alle");
         closedFilter.setClearButtonVisible(true);
-        closedFilter.getStyle().set("margin-bottom", "0");
         this.closedFilter = closedFilter;
 
         caseCloseLayout.add(closeLabel, closedFilter);
@@ -288,7 +262,6 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
         ComboBox<String> delegatedFilter = new ComboBox<>();
         delegatedFilter.setItems("Ja", "Nein", "Alle");
-        delegatedFilter.setPlaceholder("Alle");
         delegatedFilter.setClearButtonVisible(true);
         delegatedFilter.getStyle().set("margin-bottom", "0");
         this.delegatedFilter = delegatedFilter;
@@ -297,14 +270,11 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
         if (lvl != 50) {
             Span employeeLabel = new Span("Berater*in:");
-            employeeLabel.getStyle().set("margin-bottom", "0");
             employeeLabel.getStyle().set("font-weight", "bold");
             ComboBox<Employee> employeeFilter = new ComboBox<>();
             employeeFilter.setItems(employeeService.findAll());
             employeeFilter.setItemLabelGenerator(emp -> emp.getFirstName() + " " + emp.getLastName());
-            employeeFilter.setPlaceholder("Mitarbeiter*in wählen:");
             employeeFilter.setClearButtonVisible(true);
-            employeeFilter.getStyle().set("margin-bottom", "0");
             this.employeeFilter = employeeFilter;
 
             empLayout.add(employeeLabel, employeeFilter);
@@ -341,7 +311,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                 .setHeader("Familienname").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(Family::getFamilyName);
 
-        familyGrid.addColumn(f -> f.isCaseClosed() ? "geschlossen" : "öffen")
+        familyGrid.addColumn(f -> f.isCaseClosed() ? "geschlossen" : "offen")
                 .setHeader("Ablauf").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(Family::isCaseClosed);
 
@@ -377,9 +347,9 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                 }).setHeader("Gesamt St.").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(consultationService::getDurationTimeMinutesForFamilyCount);
 
-        familyGrid.addColumn(f -> isDelegated(f) ? "Ja" : "")
+        familyGrid.addColumn(f -> delegationService.hasActiveDelegation(f) ? "Ja" : "")
                 .setHeader("Delegiert").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(this::isDelegated);
+                .setComparator(f -> delegationService.hasActiveDelegation(f) ? "Ja" : "");
 
         familyGrid.addItemClickListener(e -> {
             Family family = e.getItem();
@@ -427,7 +397,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         if (employee != null) filtered = filtered.stream().filter(f -> f.getAssignedEmployee() != null &&
                 f.getAssignedEmployee().getId().equals(employee.getId())).toList();
 
-        if (status != null && !status.equals("Alle")) filtered = filtered.stream().filter(f ->
+        if (status != null) filtered = filtered.stream().filter(f ->
                 f.getStatus() == status).toList();
 
         if (caseClosed != null && !caseClosed.equals("Alle")) {
@@ -436,8 +406,10 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         }
 
         if (onlyDelegated != null && !onlyDelegated.equals("Alle")) {
-            if (onlyDelegated.equals("Ja")) filtered = filtered.stream().filter(this::isDelegated).toList();
-            if (onlyDelegated.equals("Nein")) filtered = filtered.stream().filter(f -> !isDelegated(f)).toList();
+            if (onlyDelegated.equals("Ja")) filtered = filtered.stream()
+                    .filter(delegationService::hasActiveDelegation).toList();
+            if (onlyDelegated.equals("Nein")) filtered = filtered.stream()
+                    .filter(delegationService::hasActiveDelegation).toList();
         }
 
         if (search != null && !search.isBlank()) {
@@ -867,12 +839,6 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         d.add(new Span("Familie \"" + familyName + "\" wurde erstellt."));
         d.add(new Button("Ok", e -> d.close()));
         d.open();
-    }
-
-    private boolean isDelegated(Family f) {
-        if (delegations.isEmpty()) return false;
-        return delegations.stream().anyMatch(d -> d.getFamily().getId().equals(f.getId())
-                && !d.isExpired() && d.getEndDate().isAfter(LocalDate.now()));
     }
 
     private List<Family> loadTrashFamilies() {

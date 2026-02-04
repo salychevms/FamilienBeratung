@@ -81,7 +81,7 @@ public class FamilyMemberService {
         return saved;
     }
 
-    public FamilyMember updateMember(Family family, FamilyMember currentMember, FamilyMember updated, String updatedBy, String ip, String userBrowser) {
+    public void updateMember(Family family, FamilyMember currentMember, FamilyMember updated, String updatedBy, String ip, String userBrowser) {
         if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
             log.error("Failed to update FamilyMember: {}, because Family hasn't status ACTIVE. Family status: {}",
                     family.getId(), family.getStatus());
@@ -143,7 +143,6 @@ public class FamilyMemberService {
         accessLog.log(updatedBy, "FAMILY_MEMBER_UPDATE", "FamilyMember", currentMember.getId(),
                 "FamilyMember updated", ip, userBrowser);
         log.info("FamilyMember Id: {} updated by {}", saved.getId(), updatedBy);
-        return saved;
     }
 
     public void invalidateMember(Family family, FamilyMember member, String invalidatedBy, String ip, String userBrowser) {
