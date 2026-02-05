@@ -463,10 +463,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                             new EditField("zip", "PLZ", EditField.Type.TEXT, currentFamily.getZip(),
                                     false, 255, null, null, null),
                             new EditField("city", "Stadt", EditField.Type.TEXT, currentFamily.getCity(),
-                                    false, 255, null, null, null),
-                            new EditField("citizenship", "Staatsangehörigkeit", EditField.Type.TEXT,
-                                    currentFamily.getCitizenship(), false, 255, null,
-                                    null, null)),
+                                    false, 255, null, null, null)),
                     values -> {
                         String phone = (String) values.get("phone");
                         String email = (String) values.get("email");
@@ -474,7 +471,6 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                         String houseNumber = (String) values.get("houseNumber");
                         String zip = (String) values.get("zip");
                         String city = (String) values.get("city");
-                        String citizenship = (String) values.get("citizenship");
 
                         if (!EditDialogFactory.isValidText(phone, 255)) {
                             showOkDialog("Fehler", "Telefon ist ungültigt");
@@ -491,10 +487,6 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                             showOkDialog("Fehler", "Adresse ist ungültigt");
                             return;
                         }
-                        if (!EditDialogFactory.isValidText(citizenship, 255)) {
-                            showOkDialog("Fehler", "Staatsangehörigkeit ist ungültigt");
-                            return;
-                        }
 
                         showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
                             Family f = familyService.getFamilyById(currentFamily.getId());
@@ -504,7 +496,6 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                             f.setHouseNumber(houseNumber);
                             f.setZip(zip);
                             f.setCity(city);
-                            f.setCitizenship(citizenship);
 
                             VaadinRequest req = VaadinRequest.getCurrent();
                             familyService.updateFamily(f, currentEmployee.getLogin(), req != null ? req.getRemoteAddr() : "UNKNOWN",
@@ -550,8 +541,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         }
 
         block.add(getHLWithSpans("Telefon: ", phone), getHLWithSpans("E-Mail: ", email)
-                , getHLWithSpans("Adresse: ", line1 + line2), getHLWithSpans("Staatsangehörigkeit: ",
-                        empty(currentFamily.getCitizenship())));
+                , getHLWithSpans("Adresse: ", line1 + line2));
         add(block);
     }
 
@@ -1158,7 +1148,6 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
 
         TextField nationality = new TextField("Staatsangehörigkeit");
         TextField languages = new TextField("Sprachen");
-        languages.setValue(currentFamily.getLanguages());
         TextField income = new TextField("Einkommen");
         TextArea workInfo = new TextArea("Berufliche Tätigkeit / Erfahrung");
         TextField educationDegree = new TextField("Bildungsabschluss");
@@ -1211,10 +1200,8 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         Button cancel = new Button("Abbrechen");
         Button save = new Button("Speichern");
 
-        String oLanguages = currentFamily.getLanguages();
-
         cancel.addClickListener(event -> {
-            if (!isMemberFormDirty(oLanguages, firstName.getValue(), lastName.getValue(), gender.getValue(),
+            if (!isMemberFormDirty(firstName.getValue(), lastName.getValue(), gender.getValue(),
                     birthDate.getValue(), birthCity.getValue(), birthCountry.getValue(), nationality.getValue(),
                     languages.getValue(), income.getValue(), workInfo.getValue(), educationDegree.getValue(),
                     educationInfo.getValue(), notes.getValue(), phone.getValue(), email.getValue())) {
@@ -1405,7 +1392,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         }
     }
 
-    private boolean isMemberFormDirty(String oLanguages, String currentFirstName, String currentLastName,
+    private boolean isMemberFormDirty(String currentFirstName, String currentLastName,
                                       FamilyMemberGender currentGender, LocalDate currentBirthDate,
                                       String currentBirthCity, String currentBirthCountry, String currentNationality,
                                       String currentLanguages, String currentIncome, String currentWorkInfo,
@@ -1418,7 +1405,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         if (!currentBirthCity.isEmpty()) return true;
         if (!currentBirthCountry.isEmpty()) return true;
         if (!currentNationality.isEmpty()) return true;
-        if (!currentLanguages.equals(oLanguages)) return true;
+        if (!currentLanguages.isEmpty()) return true;
         if (!currentIncome.isEmpty()) return true;
         if (!currentWorkInfo.isEmpty()) return true;
         if (!currentEducationDegree.isEmpty()) return true;
@@ -1725,6 +1712,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         header.setSpacing(true);
         header.setPadding(false);
         header.setWidthFull();
+        dataSpan.getStyle().set("font-weight", "bold");
         header.add(titleSpan, dataSpan);
         return header;
     }

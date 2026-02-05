@@ -1,9 +1,6 @@
 package com.salychevms.familienberatung.ui.view;
 
-import com.salychevms.familienberatung.model.Delegation;
-import com.salychevms.familienberatung.model.Employee;
-import com.salychevms.familienberatung.model.Family;
-import com.salychevms.familienberatung.model.RecordStatus;
+import com.salychevms.familienberatung.model.*;
 import com.salychevms.familienberatung.service.*;
 import com.salychevms.familienberatung.ui.layout.MainLayout;
 import com.vaadin.flow.component.button.Button;
@@ -45,6 +42,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
     private final EmployeeService employeeService;
 
     private Employee currentEmployee;
+    private List<Employee> currentEmployees;
     private int lvl;
     private TextField searchField;
     private Button filterToggleButton;
@@ -55,8 +53,6 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
     private HorizontalLayout filterLayout;
     private Grid<Family> familyGrid;
     private List<Family> allFamilies;
-    private List<Delegation> delegations;
-    private List<Employee> employees;
     private boolean filterVisible = false;
     private boolean initialized = false;
 
@@ -71,20 +67,34 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         this.lvl = employee.getRole().getAccessLevel();
 
         int lvl = currentEmployee.getRole().getAccessLevel();
-        delegations = new ArrayList<>();
+        List<Delegation> delegations = new ArrayList<>();
         List<Family> myOwnedFamilies;
         allFamilies = new ArrayList<>();
+        currentEmployees=new ArrayList<>();
         if (lvl == 50) {
-            myOwnedFamilies = familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(), currentEmployee);
+            myOwnedFamilies = new ArrayList<>(familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(),
+                            currentEmployee).stream()
+                    .filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList());
             allFamilies.addAll(myOwnedFamilies);
+
             delegations = new ArrayList<>(delegationService.getDelegationsByToEmployee(currentEmployee).stream()
                     .filter(delegationService::isDelegationActive).toList());
             for (Delegation d : delegations)
-                allFamilies.add(d.getFamily());
-        } else if (lvl == 100 || lvl == 80 || lvl == 10) allFamilies = familyService.getFamilies();
+                if (!d.getFamily().getStatus().equals(RecordStatus.INVALID) && !allFamilies.contains(d.getFamily()))
+                    allFamilies.add(d.getFamily());
 
-        employees = new ArrayList<>(employeeService.findAll().stream().filter(Employee::isActive)
-                .filter(e -> !e.isArchived()).toList());
+            for (Family f : allFamilies)
+                if (f.getAssignedEmployee().isActive() && !f.getAssignedEmployee().isArchived() &&
+                        !currentEmployees.contains(f.getAssignedEmployee()))
+                    currentEmployees.add(f.getAssignedEmployee());
+
+        } else if (lvl == 100 || lvl == 80 || lvl == 10) {
+            allFamilies = new ArrayList<>(familyService.getFamilies()
+                    .stream().filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList());
+            this.currentEmployees.addAll(new ArrayList<>(employeeService.findAll().stream()
+                    .filter(empl -> empl.isActive() && !empl.isArchived()
+                            && empl.getRole().getAccessLevel() != 10).toList()));
+        }
 
         if (!initialized) {
             initialized = true;
@@ -102,7 +112,6 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         buildFilters();
         buildTopBar();
         buildGrid();
-        loadFamilies();
     }
 
     private void buildBreadcrumbs() {
@@ -138,13 +147,10 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         title.setWidthFull();
 
         H2 titleText = new H2("Familien");
-        titleText.getStyle().set("margin-bottom", "0");
         title.add(titleText);
 
-        Employee e = employeeService.findByLogin(currentEmployee.getLogin());
-        Span emp = new Span(e.getRole().getLabel() + ": " + e.getFirstName() + " " + e.getLastName());
-
-        content.add(title, emp);
+        content.add(title, getHLWithSpans(currentEmployee.getRole().getLabel() + ": ",
+                currentEmployee.getFirstName() + " " + currentEmployee.getLastName()));
         add(content);
     }
 
@@ -159,16 +165,16 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         searchField.setClearButtonVisible(true);
         searchField.setWidth("250px");
 
-        Button searchButton = new Button(VaadinIcon.SEARCH.create(), e -> applyFilters());
+        Button searchButton = new Button(VaadinIcon.SEARCH.create(), e -> refreshGrid());
         Button resetButton = new Button(VaadinIcon.REFRESH.create(), e -> {
             searchField.clear();
             statusFilter.clear();
             employeeFilter.clear();
             delegatedFilter.clear();
+            closedFilter.clear();
             filterVisible = false;
             filterLayout.setVisible(false);
             filterToggleButton.setText("Filter öffnen");
-            applyFilters();
         });
 
         filterToggleButton = new Button("Filter öffnen", e -> {
@@ -239,56 +245,54 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         Span statusLabel = new Span("Status:");
         statusLabel.getStyle().set("font-weight", "bold");
 
-        ComboBox<RecordStatus> statusFilter = new ComboBox<>();
+        statusFilter = new ComboBox<>();
         statusFilter.setItems(RecordStatus.ACTIVE, RecordStatus.ARCHIVED, RecordStatus.BLOCKED);
         statusFilter.setClearButtonVisible(true);
-        this.statusFilter = statusFilter;
+        statusFilter.addValueChangeListener(e -> refreshGrid());
 
         statusLayout.add(statusLabel, statusFilter);
 
         Span closeLabel = new Span("Ablauf abgeschlossen:");
         closeLabel.getStyle().set("font-weight", "bold");
 
-        ComboBox<String> closedFilter = new ComboBox<>();
-        closedFilter.setItems("Ja", "Nein", "Alle");
+        closedFilter = new ComboBox<>();
+        closedFilter.setItems("Ja", "Nein");
         closedFilter.setClearButtonVisible(true);
-        this.closedFilter = closedFilter;
+        closedFilter.addValueChangeListener(e -> refreshGrid());
 
         caseCloseLayout.add(closeLabel, closedFilter);
 
         Span delegatedLabel = new Span("Delegiert:");
-        delegatedLabel.getStyle().set("margin-bottom", "0");
         delegatedLabel.getStyle().set("font-weight", "bold");
 
-        ComboBox<String> delegatedFilter = new ComboBox<>();
-        delegatedFilter.setItems("Ja", "Nein", "Alle");
+        delegatedFilter = new ComboBox<>();
+        delegatedFilter.setItems("Ja", "Nein");
         delegatedFilter.setClearButtonVisible(true);
-        delegatedFilter.getStyle().set("margin-bottom", "0");
-        this.delegatedFilter = delegatedFilter;
+        delegatedFilter.addValueChangeListener(e -> refreshGrid());
 
         delegatedLayout.add(delegatedLabel, delegatedFilter);
 
         if (lvl != 50) {
             Span employeeLabel = new Span("Berater*in:");
             employeeLabel.getStyle().set("font-weight", "bold");
-            ComboBox<Employee> employeeFilter = new ComboBox<>();
-            employeeFilter.setItems(employeeService.findAll());
+            employeeFilter = new ComboBox<>();
+            employeeFilter.setItems(currentEmployees);
             employeeFilter.setItemLabelGenerator(emp -> emp.getFirstName() + " " + emp.getLastName());
             employeeFilter.setClearButtonVisible(true);
-            this.employeeFilter = employeeFilter;
+            employeeFilter.addValueChangeListener(e -> refreshGrid());
 
             empLayout.add(employeeLabel, employeeFilter);
             filterLayout.add(empLayout);
         }
 
         filterLayout.add(statusLayout, caseCloseLayout, delegatedLayout);
-        add(filterLayout);
     }
 
     private void buildGrid() {
         familyGrid = new Grid<>(Family.class, false);
         familyGrid.setWidthFull();
         familyGrid.setHeight("100%");
+        familyGrid.setItems(allFamilies);
 
         familyGrid.addColumn(Family::getId).setHeader("ID").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(Family::getId);
@@ -359,74 +363,69 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         add(familyGrid);
     }
 
-    private void loadFamilies() {
-        int lvl = this.lvl;
+    private void refreshGrid() {
         List<Family> result = new ArrayList<>();
-        if (lvl == 100 || lvl == 80 || lvl == 10) {
-            List<Family> all = familyService.getFamilies();
-            for (Family f : all) {
-                if (!f.getStatus().equals(RecordStatus.INVALID)) result.add(f);
-            }
-            familyGrid.setItems(result);
-            return;
-        }
 
-        if (lvl == 50) {
-            List<Family> mine = familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(), currentEmployee);
-            for (Family f : mine) {
-                if (!f.getStatus().equals(RecordStatus.INVALID)) result.add(f);
-            }
-            result.addAll(delegationService.getDelegatedFamilies(currentEmployee.getLogin()));
-            familyGrid.setItems(result);
-        }
-    }
+        String q = searchField != null ? searchField.getValue().trim().toLowerCase() : "";
+        Employee emp = employeeFilter != null ? employeeFilter.getValue() : null;
+        String closed = closedFilter != null ? closedFilter.getValue() : null;
+        String delegated = delegatedFilter != null ? delegatedFilter.getValue() : null;
+        RecordStatus status = statusFilter != null ? statusFilter.getValue() : null;
 
-    private void applyFilters() {
-        List<Family> filtered = new ArrayList<>();
         for (Family f : allFamilies) {
-            if (!f.getStatus().equals(RecordStatus.INVALID)) filtered.add(f);
+            if (!q.isBlank()) {
+                boolean match = false;
+                if (f.getFamilyName() != null && f.getFamilyName().toLowerCase().contains(q.toLowerCase()))
+                    match = true;
+                if(!match && f.getZeusId()!=null && f.getZeusId().toLowerCase().contains(q.toLowerCase()))
+                    match = true;
+                if(!match && f.getPhone() !=null && f.getPhone() .toLowerCase().contains(q.toLowerCase()))
+                    match = true;
+                if(!match && f.getEmail() !=null && f.getEmail().toLowerCase().contains(q.toLowerCase()))
+                    match = true;
+                if(!match && f.getStreet() !=null && f.getStreet().toLowerCase().contains(q.toLowerCase()))
+                    match = true;
+                if(!match && f.getCity() !=null && f.getCity().toLowerCase().contains(q.toLowerCase()))
+                    match = true;
+                if(!match && f.getHouseNumber() !=null && f.getHouseNumber().toLowerCase().contains(q.toLowerCase()))
+                    match = true;
+                if(!match && f.getZip() !=null && f.getZip().toLowerCase().contains(q.toLowerCase()))
+                    match = true;
+                if(!match && f.getNotes() !=null && f.getNotes().toLowerCase().contains(q.toLowerCase()))
+                    match = true;
+                if(!match && f.getReasonDescription() !=null
+                        && f.getReasonDescription().toLowerCase().contains(q.toLowerCase()))
+                    match = true;
+                if(!match && f.getAssignedEmployee()!=null){
+                    Employee e=f.getAssignedEmployee();
+                    if(e.getFirstName()!=null && e.getFirstName().toLowerCase().contains(q.toLowerCase()))
+                        match = true;
+                    if(e.getLastName()!=null && e.getLastName().toLowerCase().contains(q.toLowerCase()))
+                        match = true;
+                }
+                if(!match) continue;
+            }
+            if (status != null && !f.getStatus().equals(status)) continue;
+
+            if (closed != null) {
+                boolean isClosed = f.isCaseClosed();
+                if ("Ja".equals(closed) && !isClosed) continue;
+                if ("Nein".equals(closed) && isClosed) continue;
+            }
+
+            if (delegated != null) {
+                boolean isDelegated = delegationService.hasActiveDelegation(f);
+                if ("Ja".equals(delegated) && !isDelegated) continue;
+                if ("Nein".equals(delegated) && isDelegated) continue;
+            }
+
+            if (emp != null) {
+                if (f.getAssignedEmployee() == null || !f.getAssignedEmployee().equals(emp)) continue;
+            }
+
+            result.add(f);
         }
-
-        Employee employee = employeeFilter.getValue();
-        RecordStatus status = statusFilter.getValue();
-        String caseClosed = closedFilter.getValue();
-        String onlyDelegated = delegatedFilter.getValue();
-
-        String search = searchField.getValue();
-
-        if (employee != null) filtered = filtered.stream().filter(f -> f.getAssignedEmployee() != null &&
-                f.getAssignedEmployee().getId().equals(employee.getId())).toList();
-
-        if (status != null) filtered = filtered.stream().filter(f ->
-                f.getStatus() == status).toList();
-
-        if (caseClosed != null && !caseClosed.equals("Alle")) {
-            boolean closed = caseClosed.equals("Ja");
-            filtered = filtered.stream().filter(f -> f.isCaseClosed() == closed).toList();
-        }
-
-        if (onlyDelegated != null && !onlyDelegated.equals("Alle")) {
-            if (onlyDelegated.equals("Ja")) filtered = filtered.stream()
-                    .filter(delegationService::hasActiveDelegation).toList();
-            if (onlyDelegated.equals("Nein")) filtered = filtered.stream()
-                    .filter(delegationService::hasActiveDelegation).toList();
-        }
-
-        if (search != null && !search.isBlank()) {
-            String q = search.toLowerCase();
-
-            filtered = filtered.stream().filter(f -> (f.getFamilyName() != null
-                    && f.getFamilyName().toLowerCase().contains(q)) ||
-                    (f.getZeusId() != null && f.getZeusId().toLowerCase().contains(q)) ||
-                    (f.getCitizenship() != null && f.getCitizenship().toLowerCase().contains(q)) ||
-                    (f.getEmail() != null && f.getEmail().toLowerCase().contains(q)) ||
-                    (f.getPhone() != null && f.getPhone().toLowerCase().contains(q)) ||
-                    (f.getReasonDescription() != null && f.getReasonDescription().toLowerCase().contains(q)) ||
-                    (f.getLanguages() != null && f.getLanguages().toLowerCase().contains(q))).toList();
-
-        }
-
-        familyGrid.setItems(filtered);
+        familyGrid.setItems(result);
     }
 
     private void openTrashDialog() {
@@ -642,12 +641,6 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         TextField email = new TextField("E-Mail");
         email.setWidthFull();
 
-        TextField citizenship = new TextField("Staatsangehörigkeit");
-        citizenship.setWidthFull();
-
-        TextField languages = new TextField("Sprachen");
-        languages.setWidthFull();
-
         TextArea reason = new TextArea("Grund der Beratung");
         reason.setWidthFull();
 
@@ -682,7 +675,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         employeeBlock.add(empTitle);
 
         if (lvl == 80 || lvl == 100) {
-            assignedCombo.setItems(employees);
+            assignedCombo.setItems(currentEmployees);
             employeeBlock.add(assignedCombo);
         } else if (lvl == 50) {
             assignedDisplay.setValue(currentEmployee.getFirstName() + " " + currentEmployee.getLastName());
@@ -742,7 +735,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         detailsBlock.setPadding(true);
         detailsBlock.getStyle().set("border", "1px solid #ddd").set("padding", "10px").set("border-radius", "6px");
 
-        detailsBlock.add(detailsTitle, citizenship, languages, reason, notes);
+        detailsBlock.add(detailsTitle, reason, notes);
 
         VerticalLayout content = new VerticalLayout(employeeBlock, mainBlock, contactBlock, addressBlock, detailsBlock);
         content.setWidthFull();
@@ -786,8 +779,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                     askContact.close();
                     showCreateConfirmDialog(dialog, zeusId.getValue(), familyName.getValue(), street.getValue(),
                             houseNumber.getValue(), zip.getValue(), city.getValue(), phone.getValue(), email.getValue(),
-                            citizenship.getValue(), languages.getValue(), reason.getValue(), notes.getValue(),
-                            assignedEmployee);
+                            reason.getValue(), notes.getValue(), assignedEmployee);
                 });
                 askContact.getFooter().add(yes, no);
                 askContact.open();
@@ -795,8 +787,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
             }
             showCreateConfirmDialog(dialog, zeusId.getValue(), familyName.getValue(), street.getValue(),
                     houseNumber.getValue(), zip.getValue(), city.getValue(), phone.getValue(), email.getValue(),
-                    citizenship.getValue(), languages.getValue(), reason.getValue(), notes.getValue(),
-                    assignedEmployee);
+                    reason.getValue(), notes.getValue(), assignedEmployee);
         });
         HorizontalLayout buttons = new HorizontalLayout(save, cancel);
         buttons.setWidthFull();
@@ -809,7 +800,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
     private void showCreateConfirmDialog(Dialog parent, String zeusId, String familyName, String street,
                                          String houseNumber, String zip, String city, String phone, String email,
-                                         String citizenship, String languages, String reason, String notes, Employee emp) {
+                                         String reason, String notes, Employee emp) {
         Dialog d = new Dialog();
         d.setHeaderTitle("Bestätigen");
 
@@ -821,10 +812,9 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
             String ip = req != null ? req.getRemoteAddr() : "UNKNOWN";
             String browser = req != null ? req.getHeader("User-Agent") : "UNKNOWN";
 
-            familyService.createFamily(zeusId, familyName, street, houseNumber, zip, city, phone, email, citizenship,
-                    languages, reason, notes, emp, currentEmployee.getLogin(), ip, browser);
+            familyService.createFamily(zeusId, familyName, street, houseNumber, zip, city, phone, email, reason,
+                    notes, emp, currentEmployee.getLogin(), ip, browser);
             showSuccessDialog(familyName);
-            loadFamilies();
         });
 
         Button no = new Button("Nein", e -> d.close());
@@ -859,5 +849,28 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                         !f.getInvalidAt().isAfter(LocalDateTime.now().plusDays(14))) result.add(f);
         } else return List.of();
         return result;
+    }
+
+    private HorizontalLayout getHLWithSpans(String title, String data) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+
+        Span titleSpan = new Span(title);
+        Span dataSpan = new Span(data);
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
+    }
+
+    private HorizontalLayout getHL(Span titleSpan, Span dataSpan) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
     }
 }

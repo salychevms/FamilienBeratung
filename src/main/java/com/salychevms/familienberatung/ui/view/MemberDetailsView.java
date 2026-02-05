@@ -607,6 +607,7 @@ public class MemberDetailsView extends VerticalLayout implements BeforeEnterObse
         header.setSpacing(true);
         header.setPadding(false);
         header.setWidthFull();
+        dataSpan.getStyle().set("font-weight", "bold");
         header.add(titleSpan, dataSpan);
         return header;
     }

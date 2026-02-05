@@ -33,8 +33,10 @@ public class Family {
     private String phone;
     @Column
     private String email;
+    //TODO: delete
     @Column
     private String citizenship;
+    //TODO: delete
     @Column
     private String languages;
     @Column(length = 4000)

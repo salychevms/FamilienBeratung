@@ -48,7 +48,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
     private Long familyId;
     private Employee currentEmployee;
     private int lvl;
-    private List<Delegation> currentDelegations=new ArrayList<>();
+    private List<Delegation> currentDelegations = new ArrayList<>();
     private List<Consultation> currentConsultations = new ArrayList<>();
     private List<Employee> currentEmployees = new ArrayList<>();
     private LocalDate dateFrom = null;
@@ -67,7 +67,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
     private DatePicker toDate;
     private Grid<Consultation> consultationGrid;
     private Family selectedFamily;
-    private List<Family> currentFamilies=new ArrayList<>();
+    private List<Family> currentFamilies = new ArrayList<>();
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
@@ -88,7 +88,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
 
             if (lvl == 50) {
                 families = new ArrayList<>(familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(),
-                                currentEmployee).stream().filter(f ->
+                        currentEmployee).stream().filter(f ->
                         !f.getStatus().equals(RecordStatus.INVALID)).toList());
                 delegations = new ArrayList<>(delegationService.getDelegationsByToEmployee(currentEmployee).stream()
                         .filter(delegationService::isDelegationActive)
@@ -374,9 +374,9 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         consultationGrid.addColumn(c -> formatDuration(c.getDurationMinutes()))
                 .setHeader("Dauer St.").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(c -> formatDuration(c.getDurationMinutes()));
-        consultationGrid.addColumn(c -> isDelegatedAt(c) ? "Ja" : "Nein")
+        consultationGrid.addColumn(c -> delegationService.hasActiveDelegation(c.getFamily()) ? "Ja" : "Nein")
                 .setHeader("Delegiert").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(c -> isDelegatedAt(c) ? "Ja" : "Nein");
+                .setComparator(c -> delegationService.hasActiveDelegation(c.getFamily()) ? "Ja" : "Nein");
         consultationGrid.addItemClickListener(e -> {
             Consultation c = e.getItem();
             UI.getCurrent().navigate(ConsultationDetailsView.class,
@@ -666,7 +666,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
                 }
             };
 
-            if(c.getInvalidAt()==null){
+            if (c.getInvalidAt() == null) {
                 showOkDialog("Fehler", "Invalid-Datum fehlt.");
                 return;
             }

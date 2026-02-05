@@ -28,8 +28,8 @@ public class FamilyService {
 
     //admin and lead and consultant
     public Family createFamily(String zeusId, String familyName, String street, String houseNumber, String zip, String city,
-                               String phone, String email, String citizenship, String languages, String reasonDescription,
-                               String notes, Employee assignedEmployee, String createdBy, String ip, String userBrowser) {
+                               String phone, String email, String reasonDescription, String notes,
+                               Employee assignedEmployee, String createdBy, String ip, String userBrowser) {
         try {
             if (!employeeService.hasAccess(createdBy, 50)) {
                 log.error("Access Denied for {}", createdBy);
@@ -42,8 +42,6 @@ public class FamilyService {
             validator.validateText(zip, 255);
             validator.validateText(city, 255);
             validator.validateEmail(email);
-            validator.validateText(citizenship, 255);
-            validator.validateText(languages, 255);
             validator.validateText(reasonDescription, 4000);
             validator.validateText(notes, 255);
             validator.validateIp(ip);
@@ -67,8 +65,6 @@ public class FamilyService {
             family.setCity(city);
             family.setPhone(phone);
             family.setEmail(email);
-            family.setCitizenship(citizenship);
-            family.setLanguages(languages);
             family.setReasonDescription(reasonDescription);
             family.setNotes(notes);
             family.setAssignedEmployee(e);
@@ -112,8 +108,6 @@ public class FamilyService {
             validator.validateText(f.getZip(), 255);
             validator.validateText(f.getCity(), 255);
             validator.validateEmail(f.getEmail());
-            validator.validateText(f.getCitizenship(), 255);
-            validator.validateText(f.getLanguages(), 255);
             validator.validateText(f.getReasonDescription(), 4000);
             validator.validateText(f.getNotes(), 255);
             validator.validateIp(ip);
@@ -126,8 +120,6 @@ public class FamilyService {
             family.setCity(f.getCity());
             family.setPhone(f.getPhone());
             family.setEmail(f.getEmail());
-            family.setCitizenship(f.getCitizenship());
-            family.setLanguages(f.getLanguages());
             family.setReasonDescription(f.getReasonDescription());
             family.setNotes(f.getNotes());
 
