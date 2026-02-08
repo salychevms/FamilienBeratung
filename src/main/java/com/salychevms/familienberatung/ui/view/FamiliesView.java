@@ -290,8 +290,8 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
 
     private void buildGrid() {
         familyGrid = new Grid<>(Family.class, false);
-        familyGrid.setWidthFull();
-        familyGrid.setHeight("100%");
+        familyGrid.setSizeFull();
+        familyGrid.setSelectionMode(Grid.SelectionMode.SINGLE);
         familyGrid.setItems(allFamilies);
 
         familyGrid.addColumn(Family::getId).setHeader("ID").setAutoWidth(true).setFlexGrow(0)

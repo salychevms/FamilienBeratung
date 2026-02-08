@@ -31,11 +31,4 @@ public class Role {
 
     public Role() {
     }
-
-    public Role(int accessLevel,String name, String label, String description) {
-        this.accessLevel = accessLevel;
-        this.name = name;
-        this.label = label;
-        this.description = description;
-    }
 }

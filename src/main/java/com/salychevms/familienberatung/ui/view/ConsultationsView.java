@@ -55,19 +55,15 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
     private LocalDate dateTo = null;
     private HorizontalLayout filterLayout;
     private boolean filterVisible = false;
-    private Button searchButton;
-    private Button resetButton;
     private Button filterToggleButton;
-    private Button createButton;
-    private Button trashButton;
     private TextField searchField;
     ComboBox<Family> familyFilter;
     ComboBox<Employee> employeeFilter;
-    private DatePicker fromDate;
-    private DatePicker toDate;
     private Grid<Consultation> consultationGrid;
     private Family selectedFamily;
     private List<Family> currentFamilies = new ArrayList<>();
+    private DatePicker fromDate;
+    private DatePicker toDate;
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
@@ -224,9 +220,18 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         searchField.setClearButtonVisible(true);
         searchField.setWidth("250px");
 
-        searchButton = new Button(VaadinIcon.SEARCH.create(), e -> refreshGrid());
-        resetButton = new Button(VaadinIcon.REFRESH.create(), e ->
-                UI.getCurrent().navigate(ConsultationsView.class));
+        Button searchButton = new Button(VaadinIcon.SEARCH.create(), e -> refreshGrid());
+        Button resetButton = new Button(VaadinIcon.REFRESH.create(), e -> {
+            searchField.clear();
+            familyFilter.clear();
+            employeeFilter.clear();
+            fromDate.clear();
+            toDate.clear();
+            filterVisible=false;
+            filterLayout.setVisible(false);
+            filterToggleButton.setText("Filter öffnen");
+            refreshGrid();
+        });
 
         filterToggleButton = new Button("Filter öffnen", e -> {
             filterVisible = !filterVisible;
@@ -244,11 +249,11 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         actionsRow.setSpacing(true);
         actionsRow.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        createButton = new Button("Neue Beratung", VaadinIcon.PLUS.create(),
+        Button createButton = new Button("Neue Beratung", VaadinIcon.PLUS.create(),
                 e -> openSelectFamilyDialog());
         createButton.getStyle().set("font-size", "16px").set("padding", "8px 16px");
 
-        trashButton = new Button("Papierkorb", VaadinIcon.TRASH.create(),
+        Button trashButton = new Button("Papierkorb", VaadinIcon.TRASH.create(),
                 e -> buildConsultationsTrashDialog());
         trashButton.setWidth("90px");
         trashButton.setHeight("26px");
@@ -349,7 +354,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
     }
 
     private void buildGrid() {
-        consultationGrid = new Grid<>();
+        consultationGrid = new Grid<>(Consultation.class, false);
         consultationGrid.setSizeFull();
         consultationGrid.setSelectionMode(Grid.SelectionMode.SINGLE);
 
@@ -1035,23 +1040,5 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         if (dateTo != null && d.isAfter(dateTo)) return false;
 
         return !d.isAfter(LocalDate.now());
-    }
-
-    private boolean isDelegatedAt(Consultation c) {
-        if (currentDelegations == null || currentDelegations.isEmpty()) return false;
-        if (c.getFamily() == null || c.getDateTime() == null) return false;
-
-        LocalDate d = c.getDateTime().toLocalDate();
-
-        for (Delegation del : currentDelegations) {
-            if (del.getFamily() == null) continue;
-            if (!del.getFamily().getId().equals(c.getFamily().getId())) continue;
-
-            LocalDate start = del.getStartDate();
-            LocalDate end = del.getEndDate();
-
-            if ((start == null || !d.isBefore(start)) && (end == null || !d.isAfter(end))) return true;
-        }
-        return false;
     }
 }

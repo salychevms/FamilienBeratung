@@ -2,19 +2,21 @@ package com.salychevms.familienberatung.ui.layout;
 
 import com.salychevms.familienberatung.model.Employee;
 import com.salychevms.familienberatung.service.AuthService;
+import com.salychevms.familienberatung.service.EmployeeService;
 import com.salychevms.familienberatung.ui.view.*;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dependency.CssImport;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.router.HighlightConditions;
-import com.vaadin.flow.router.RouterLink;
+import com.vaadin.flow.router.*;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 
@@ -22,20 +24,34 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MainLayout extends AppLayout {
     private final AuthService authService;
+    private final EmployeeService employeeService;
     private Span timeSpan;
+    private Employee currentEmployee;
+    private int lvl;
+    private boolean warningShown = false;
 
     @PostConstruct
     public void init() {
-        buildHeader();
-        buildSidebar();
-
-        Employee e = authService.getCurrentEmployee();
-        if (e == null) {
+        Employee authorized = authService.getCurrentEmployee();
+        if (authorized == null || !authorized.isActive() || authorized.isArchived()) {
             UI.getCurrent().navigate("login");
             return;
         }
-        // TODO: add SessionHeartbeatListener here
-        // auto-reset logout timer
+
+        this.currentEmployee = employeeService.findByLogin(authorized.getLogin());
+        if (currentEmployee == null) {
+            UI.getCurrent().navigate("login");
+            return;
+        }
+        this.lvl = currentEmployee.getRole().getAccessLevel();
+
+        buildHeader();
+        buildSidebar();
+
+        UI ui = UI.getCurrent();
+        ui.getSession().setAttribute("lastActivity", System.currentTimeMillis());
+
+        initActivityTracking();
         startLogoutTimer();
     }
 
@@ -69,9 +85,6 @@ public class MainLayout extends AppLayout {
         buttons.setSpacing(true);
         buttons.setPadding(true);
 
-        Employee e = authService.getCurrentEmployee();
-        int lvl = (e != null) ? e.getRole().getAccessLevel() : 0;
-
         Button overview = new Button("Übersicht",
                 event -> UI.getCurrent().navigate("overview"));
         overview.setWidthFull();
@@ -96,31 +109,48 @@ public class MainLayout extends AppLayout {
         docs.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         buttons.add(docs);
 
-        Button delegations=new Button("Delegationen",
+        Button delegations = new Button("Delegationen",
                 event -> UI.getCurrent().navigate(DelegationsView.class));
         delegations.setWidthFull();
         delegations.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         buttons.add(delegations);
 
         if (lvl >= 80) {
-            Button employees=new Button("Mitarbeiter*innen",
+            Button employees = new Button("Mitarbeiter*innen",
                     event -> UI.getCurrent().navigate(EmployeesView.class));
             employees.setWidthFull();
             employees.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
-            Button log=new Button("Log",event -> UI.getCurrent().navigate(LogView.class));
+            Button log = new Button("Log", event -> UI.getCurrent().navigate(LogView.class));
             log.setWidthFull();
             log.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
             buttons.add(employees, log);
         }
         if (lvl == 100) {
-            Button admPanel=new Button("Admin Panel",
-                    event ->  UI.getCurrent().navigate(AdminView.class));
+            Button admPanel = new Button("Admin Panel",
+                    event -> UI.getCurrent().navigate(AdminView.class));
             admPanel.setWidthFull();
             admPanel.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
             buttons.add(admPanel);
+        }
+
+        if (currentEmployee != null) {
+            HorizontalLayout personalLayout = new HorizontalLayout();
+            personalLayout.setSpacing(true);
+            personalLayout.setPadding(true);
+            personalLayout.setWidthFull();
+            personalLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+            personalLayout.setAlignItems(FlexComponent.Alignment.END);
+
+            Button personalEmployeeDetails = new Button("Meine Daten",
+                    event -> UI.getCurrent().navigate(EmployeeDetailsView.class,
+                            new RouteParameters("id", currentEmployee.getId().toString())));
+            personalEmployeeDetails.setWidthFull();
+            personalEmployeeDetails.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+
+            buttons.add(personalEmployeeDetails);
         }
 
         top.add(buttons);
@@ -130,8 +160,8 @@ public class MainLayout extends AppLayout {
         bottom.setSpacing(false);
         bottom.setAlignItems(FlexComponent.Alignment.START);
 
-        Span labelSpan = new Span((e != null) ? e.getRole().getLabel() + ": " : "nicht gefunden");
-        Span loginSpan = new Span((e != null) ? e.getLogin() : "nicht gefunden");
+        Span labelSpan = new Span(currentEmployee != null ? currentEmployee.getRole().getLabel() + ": " : "nicht gefunden");
+        Span loginSpan = new Span(currentEmployee != null ? currentEmployee.getLogin() : "nicht gefunden");
         bottom.add(labelSpan, loginSpan);
 
         timeSpan = new Span("30:00");
@@ -147,5 +177,70 @@ public class MainLayout extends AppLayout {
     }
 
     private void startLogoutTimer() {
+        if (timeSpan == null) return;
+
+        UI ui = UI.getCurrent();
+        ui.setPollInterval(1000);
+        ui.addPollListener(event -> {
+            Long last = (Long) ui.getSession().getAttribute("lastActivity");
+            if (last == null) return;
+            long diff = System.currentTimeMillis() - last;
+            long remaining = (30 * 60 * 1000) - diff;
+            if (remaining <= 0) {
+                authService.logout();
+                return;
+            }
+            long sec = remaining / 1000;
+            timeSpan.setText(String.format("%02d:%02d", sec / 60, sec % 60));
+
+            if (remaining <= 5 * 60 * 1000)
+                timeSpan.getStyle().set("color", "red");
+            else
+                timeSpan.getStyle().set("color", "black");
+
+            if ((remaining <= 5 * 60 * 1000) && !warningShown) {
+                warningShown = true;
+                showSessionWarning(String.format("%02d", remaining / 1000 / 60));
+            }
+        });
+    }
+
+    private void initActivityTracking() {
+        UI ui = UI.getCurrent();
+        ui.getPage().executeJs("""
+                const reset = () => {
+                fetch('/heartbeat');
+                };
+                ['click','mousemove','keydown','scroll'].forEach(e=>
+                document.addEventListener(e, reset, true)
+                );""");
+    }
+
+    private void showSessionWarning(String time) {
+        Dialog dialog = new Dialog("Sitzung läuft bald ab!!!");
+        Span text = new Span("Ihre Sitzung endet in weniger als " + time + " Minuten.");
+        Span text2 = new Span("Sind Sie hier? Kliecken Sie bitte \"Ja\"");
+        dialog.add(text, text2);
+
+        Button okButton = new Button("Ja", ev -> {
+            markActivity();
+            warningShown = false;
+            dialog.close();
+        });
+
+        HorizontalLayout buttons = new HorizontalLayout(okButton);
+        buttons.setWidthFull();
+        buttons.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
+
+        dialog.getFooter().add(buttons);
+        dialog.open();
+    }
+
+    private void markActivity() {
+        UI ui = UI.getCurrent();
+        if (ui != null) {
+            ui.getSession().setAttribute("lastActivity",
+                    System.currentTimeMillis());
+        }
     }
 }

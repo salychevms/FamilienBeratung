@@ -142,9 +142,6 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.setSpacing(true);
 
-        String date = currentConsultation.getDateTime().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"));
-        String duration = formatDuration(currentConsultation.getDurationMinutes());
-
         H2 title = new H2("Beratung ID: " + currentConsultation.getId());
         Span family = new Span("Familie: " + currentFamily.getFamilyName());
         Span backdated = new Span("Nachträglich gespeichert: " +

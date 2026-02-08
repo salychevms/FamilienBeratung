@@ -75,6 +75,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     private List<Employee> assignedEmployees = new ArrayList<>();
     private List<Employee> createdByEmployees = new ArrayList<>();
     private Grid<FamilyDocument> documentsGrid;
+    private DatePicker dateFromFilter;
+    private DatePicker dateToFilter;
     private static final Semaphore UPLOAD_LOCK = new Semaphore(1);
     @Value("${storage.base-path}")
     private String storageBasePath;
@@ -245,8 +247,18 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
         Button searchButton = new Button(VaadinIcon.SEARCH.create(), e -> refreshGrid());
 
-        Button resetButton = new Button(VaadinIcon.REFRESH.create(), e ->
-                UI.getCurrent().navigate(DocumentsView.class));
+        Button resetButton = new Button(VaadinIcon.REFRESH.create(), e -> {
+            searchField.clear();
+            familyFilter.clear();
+            fileTypeFilter.clear();
+            dateFromFilter.clear();
+            dateToFilter.clear();
+            uploaderEmployeeFilter.clear();
+            filterVisible=false;
+            filterLayout.setVisible(false);
+            filterToggleButton.setText("Filter öffnen");
+            refreshGrid();
+        });
 
         filterToggleButton = new Button("Filter öffnen", e -> {
             filterVisible = !filterVisible;
@@ -322,14 +334,14 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         Span fromLabel = new Span("Von");
         fromLabel.getStyle().set("font-weight", "bold");
 
-        DatePicker dateFrom = new DatePicker();
-        dateFrom.setMin(LocalDate.of(2026, 1, 1));
-        dateFrom.addValueChangeListener(e -> {
+        dateFromFilter = new DatePicker();
+        dateFromFilter.setMin(LocalDate.of(2026, 1, 1));
+        dateFromFilter.addValueChangeListener(e -> {
             filterDateFrom = e.getValue();
             refreshGrid();
         });
 
-        fromLayout.add(fromLabel, dateFrom);
+        fromLayout.add(fromLabel, dateFromFilter);
 
         VerticalLayout toLayout = new VerticalLayout();
         toLayout.setSpacing(false);
@@ -338,14 +350,14 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         Span toLabel = new Span("Bis");
         toLabel.getStyle().set("font-weight", "bold");
 
-        DatePicker dateTo = new DatePicker();
-        dateTo.setMin(LocalDate.of(2026, 1, 1));
-        dateTo.addValueChangeListener(e -> {
+        dateToFilter = new DatePicker();
+        dateToFilter.setMin(LocalDate.of(2026, 1, 1));
+        dateToFilter.addValueChangeListener(e -> {
             filterDateTo = e.getValue();
             refreshGrid();
         });
 
-        toLayout.add(toLabel, dateTo);
+        toLayout.add(toLabel, dateToFilter);
 
         filterLayout.add(fileTypeLayout, uploadLayout, fromLayout, toLayout);
         add(filterLayout);
@@ -452,7 +464,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     }
 
     private void buildGrid() {
-        documentsGrid = new Grid<>();
+        documentsGrid = new Grid<>(FamilyDocument.class, false);
         documentsGrid.setSizeFull();
         documentsGrid.setSelectionMode(Grid.SelectionMode.SINGLE);
 

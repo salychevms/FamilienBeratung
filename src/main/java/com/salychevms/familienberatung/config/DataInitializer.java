@@ -217,7 +217,11 @@ public class DataInitializer implements CommandLineRunner {
                 log.info("Role {} updated (access level {})", name, accessLevel);
             }
         }, () -> {
-            Role role = new Role(accessLevel, name, label, description);
+            Role role = new Role();
+            role.setAccessLevel(accessLevel);
+            role.setName(name);
+            role.setLabel(label);
+            role.setDescription(description);
             roleRepository.save(role);
             log.info("Role {} created (access level {})", name, accessLevel);
         });

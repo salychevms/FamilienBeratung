@@ -75,6 +75,8 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
     private Employee selectedFromEmployee;
     private Grid<Delegation> delegationGrid;
     private Family currentFamily;
+    private DatePicker fromDate;
+    private DatePicker toDate;
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
@@ -233,7 +235,19 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
 
         Button searchButton = new Button(VaadinIcon.SEARCH.create(), e -> refreshGrid());
         Button resetButton = new Button(VaadinIcon.REFRESH.create(),
-                e -> getUI().ifPresent(ui -> ui.getPage().reload()));
+                e -> {
+                    searchField.clear();
+                    fromEmployeeFilter.clear();
+                    toEmployeeFilter.clear();
+                    familyFilter.clear();
+                    isActiveFilter.clear();
+                    fromDate.clear();
+                    toDate.clear();
+                    filterVisible=false;
+                    filterLayout.setVisible(false);
+                    filterToggleButton.setText("Filter öffnen");
+                    refreshGrid();
+                });
 
         filterToggleButton = new Button("Filter öffnen", e -> {
             filterVisible = !filterVisible;
@@ -324,14 +338,14 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         Span fromDateLabel = new Span("Beginn");
         fromDateLabel.getStyle().set("font-weight", "bold");
 
-        DatePicker fromDatePicker = new DatePicker();
-        fromDatePicker.setMin(LocalDate.of(2026, 1, 1));
-        fromDatePicker.addValueChangeListener(ev -> {
+        fromDate = new DatePicker();
+        fromDate.setMin(LocalDate.of(2026, 1, 1));
+        fromDate.addValueChangeListener(ev -> {
             fromDateFilter = ev.getValue();
             refreshGrid();
         });
 
-        fromDateLayout.add(fromDateLabel, fromDatePicker);
+        fromDateLayout.add(fromDateLabel, fromDate);
 
         VerticalLayout toDateLayout = new VerticalLayout();
         toDateLayout.setSpacing(false);
@@ -340,14 +354,14 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         Span toDateLabel = new Span("Ende");
         toDateLabel.getStyle().set("font-weight", "bold");
 
-        DatePicker toDatePicker = new DatePicker();
-        toDatePicker.setMin(LocalDate.of(2026, 1, 1));
-        toDatePicker.addValueChangeListener(ev -> {
+        toDate = new DatePicker();
+        toDate.setMin(LocalDate.of(2026, 1, 1));
+        toDate.addValueChangeListener(ev -> {
             toDateFilter = ev.getValue();
             refreshGrid();
         });
 
-        toDateLayout.add(toDateLabel, toDatePicker);
+        toDateLayout.add(toDateLabel, toDate);
 
         filterLayout.add(fromEmpLayout, familyLayout, isActiveLayout, fromDateLayout, toDateLayout);
         add(filterLayout);
@@ -489,7 +503,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
     }
 
     private void buildGrid() {
-        delegationGrid = new Grid<>();
+        delegationGrid = new Grid<>(Delegation.class, false);
         delegationGrid.setWidthFull();
         delegationGrid.setSelectionMode(Grid.SelectionMode.SINGLE);
         delegationGrid.setItems(currentDelegations);
