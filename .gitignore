@@ -38,3 +38,7 @@ app/storage
 app.db
 dev.bundle
 vite.generated.ts
+
+.env
+*.log
+hs_err_pid*
