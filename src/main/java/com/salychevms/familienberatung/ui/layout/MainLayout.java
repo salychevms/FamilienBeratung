@@ -11,6 +11,7 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
@@ -56,12 +57,15 @@ public class MainLayout extends AppLayout {
     }
 
     private void buildHeader() {
+        Image logo = new Image("/images/logo.png", "Logo");
+        logo.setHeight("40px");
+
         H1 title = new H1("Familienberatung");
         title.getStyle().set("margin", "0")
                 .set("font-size", "24px")
                 .set("color", "#0067A0");
 
-        FlexLayout header = new FlexLayout(title);
+        FlexLayout header = new FlexLayout(logo, title);
         header.setWidthFull();
         header.getStyle().set("padding", "10px")
                 .set("background", "white")

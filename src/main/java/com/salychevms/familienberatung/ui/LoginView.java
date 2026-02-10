@@ -4,6 +4,7 @@ import com.salychevms.familienberatung.service.AuthService;
 import com.salychevms.familienberatung.ui.view.OverviewView;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.notification.Notification;
@@ -35,6 +36,9 @@ public class LoginView extends VerticalLayout {
     }
 
     private void buildUI() {
+        Image logo=new Image("/images/logo.png","Logo");
+        logo.setWidth("185px");
+
         H1 title = new H1("Familienberatung");
 
         TextField loginField = new TextField("Login");
@@ -47,7 +51,7 @@ public class LoginView extends VerticalLayout {
         loginButton.addClickShortcut(Key.ENTER);
         loginButton.setDisableOnClick(false);
 
-        add(title, loginField, passwordField, loginButton);
+        add(logo, title, loginField, passwordField, loginButton);
         setAlignItems(Alignment.CENTER);
         setJustifyContentMode(JustifyContentMode.CENTER);
     }
