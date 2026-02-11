@@ -17,9 +17,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     vim \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /data
 
 # Копируем JAR
-COPY target/*.jar app.jar
+COPY target/*.jar /app/app.jar
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

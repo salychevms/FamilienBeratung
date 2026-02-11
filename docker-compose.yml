@@ -10,7 +10,7 @@ services:
       - "8080:8080"
 
     volumes:
-      - ./data:/app/data
+      - ./data:/data
 
     environment:
       - TZ=Europe/Berlin

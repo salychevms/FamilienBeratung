@@ -197,14 +197,14 @@ public class MainLayout extends AppLayout {
             long sec = remaining / 1000;
             timeSpan.setText(String.format("%02d:%02d", sec / 60, sec % 60));
 
-            if (remaining <= 5 * 60 * 1000)
+            if (remaining <= 10 * 60 * 1000)
                 timeSpan.getStyle().set("color", "red");
             else
                 timeSpan.getStyle().set("color", "black");
 
             if ((remaining <= 5 * 60 * 1000) && !warningShown) {
                 warningShown = true;
-                showSessionWarning(String.format("%02d", remaining / 1000 / 60));
+                showSessionWarning();
             }
         });
     }
@@ -220,9 +220,9 @@ public class MainLayout extends AppLayout {
                 );""");
     }
 
-    private void showSessionWarning(String time) {
+    private void showSessionWarning() {
         Dialog dialog = new Dialog("Sitzung läuft bald ab!!!");
-        Span text = new Span("Ihre Sitzung endet in weniger als " + time + " Minuten.");
+        Span text = new Span("Ihre Sitzung endet in 5 Minuten.");
         Span text2 = new Span("Sind Sie hier? Kliecken Sie bitte \"Ja\"");
         dialog.add(text, text2);
 
