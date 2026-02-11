@@ -53,11 +53,7 @@ public class RoleService {
         throw new RuntimeException("Access denied");
     }
 
-    public List<Role> getAll(Employee employee) {
-        if (employee == null) throw new RuntimeException("Employee is null");
-        int lvl = employeeService.findByLogin(employee.getLogin()).getRole().getAccessLevel();
-        if (lvl == 100)
-            return roleRepository.findAll();
-        throw new RuntimeException("Access denied");
+    public List<Role> getAll() {
+        return roleRepository.findAll();
     }
 }

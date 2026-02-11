@@ -73,6 +73,7 @@ public class EmployeeService {
         employee.setLandNumber(created.getLandNumber());
         employee.setNotes(created.getNotes());
         employee.setCreatedBy(createdBy);
+        employee.setRole(created.getRole());
         employee.setCreatedDate(LocalDateTime.now());
         employee.setPasswordChangeRequired(true);
         employee.setArchived(false);

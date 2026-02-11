@@ -4,6 +4,7 @@ import com.salychevms.familienberatung.model.Employee;
 import com.salychevms.familienberatung.model.Role;
 import com.salychevms.familienberatung.service.AuthService;
 import com.salychevms.familienberatung.service.EmployeeService;
+import com.salychevms.familienberatung.service.RoleService;
 import com.salychevms.familienberatung.service.ValidationService;
 import com.salychevms.familienberatung.ui.layout.MainLayout;
 import com.vaadin.flow.component.button.Button;
@@ -37,6 +38,7 @@ public class EmployeesView extends VerticalLayout implements BeforeEnterObserver
     private final EmployeeService employeeService;
     private final AuthService authService;
     private final ValidationService validator;
+    private final RoleService roleService;
 
     private Employee currentEmployee;
     private int lvl;
@@ -47,10 +49,9 @@ public class EmployeesView extends VerticalLayout implements BeforeEnterObserver
     private ComboBox<String> statusFilter;
     private Button filterToggleButton;
     private TextField searchField;
-    private List<String> currentRoles = new ArrayList<>();
+    private List<String> currentRoleLabels = new ArrayList<>();
+    private List<Role> currentRoles = new ArrayList<>();
     private boolean filterVisible = false;
-    private Button searchButton;
-    private Button resetButton;
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
@@ -76,10 +77,13 @@ public class EmployeesView extends VerticalLayout implements BeforeEnterObserver
         this.currentEmployees = new ArrayList<>(employeeService.findAll().stream()
                 .filter(e -> e.getRole().getAccessLevel() <= lvl).toList());
 
-        currentRoles.clear();
+        currentRoleLabels.clear();
         for (Employee e : currentEmployees)
-            if (!currentRoles.contains(e.getRole().getLabel()))
-                currentRoles.add(e.getRole().getLabel());
+            if (!currentRoleLabels.contains(e.getRole().getLabel()))
+                currentRoleLabels.add(e.getRole().getLabel());
+
+        currentRoles = roleService.getAll().stream().filter(
+                r -> r != null && r.getAccessLevel() <= currentEmployee.getRole().getAccessLevel()).toList();
 
         removeAll();
         buildUI();
@@ -149,8 +153,8 @@ public class EmployeesView extends VerticalLayout implements BeforeEnterObserver
         searchField.setClearButtonVisible(true);
         searchField.setWidth("250px");
 
-        searchButton = new Button(VaadinIcon.SEARCH.create(), e -> refreshGrid());
-        resetButton = new Button(VaadinIcon.REFRESH.create(), e -> {
+        Button searchButton = new Button(VaadinIcon.SEARCH.create(), e -> refreshGrid());
+        Button resetButton = new Button(VaadinIcon.REFRESH.create(), e -> {
             searchField.clear();
             roleFilter.clear();
             statusFilter.clear();
@@ -194,7 +198,7 @@ public class EmployeesView extends VerticalLayout implements BeforeEnterObserver
         roleLabel.getStyle().set("font-weight", "bold");
 
         roleFilter = new ComboBox<>();
-        roleFilter.setItems(currentRoles);
+        roleFilter.setItems(currentRoleLabels);
         roleFilter.setClearButtonVisible(true);
         roleFilter.addValueChangeListener(event -> refreshGrid());
 
@@ -314,9 +318,9 @@ public class EmployeesView extends VerticalLayout implements BeforeEnterObserver
         dialog.setCloseOnOutsideClick(false);
         dialog.setWidth("800px");
 
+
         ComboBox<Role> role = new ComboBox<>("Rolle (*)");
-        role.setItems(employeeService.findAll().stream().map(Employee::getRole).distinct()
-                .filter(r -> r.getAccessLevel() < lvl && lvl == 80).toList());
+        role.setItems(currentRoles);
         role.setItemLabelGenerator(Role::getLabel);
         role.setRequiredIndicatorVisible(true);
         role.setWidthFull();
@@ -363,6 +367,11 @@ public class EmployeesView extends VerticalLayout implements BeforeEnterObserver
                 return;
             }
             showConfirmDialog("Bestätigen", "Mitarbeiter*in anlegen?", () -> {
+                Role chosenRole = roleService.getRoleByLabel(currentEmployee, role.getValue().getLabel());
+                if (chosenRole == null) {
+                    showOkDialog("Fehler", "Rolle existiert nicht oder wurde nicht gefunden.");
+                    return;
+                }
                 String password = generateValidPassword(login.getValue(), email.getValue(), mobileN.getValue(),
                         landN.getValue());
                 Employee emp = new Employee();
@@ -373,7 +382,9 @@ public class EmployeesView extends VerticalLayout implements BeforeEnterObserver
                 emp.setMobileNumber(mobileN.getValue());
                 emp.setLandNumber(landN.getValue());
                 emp.setNotes(notes.getValue());
-                emp.setRole(role.getValue());
+                System.out.println("ROLE ID = " +
+                        (chosenRole != null ? chosenRole.getId() : "NULL"));
+                emp.setRole(chosenRole);
                 emp.setPassword(password);
 
                 VaadinRequest req = VaadinRequest.getCurrent();
@@ -528,7 +539,10 @@ public class EmployeesView extends VerticalLayout implements BeforeEnterObserver
         layout.setSpacing(true);
         layout.setPadding(false);
 
-        Button ok = new Button("OK", e -> dialog.close());
+        Button ok = new Button("OK", e -> {
+            getUI().ifPresent(ui->ui.getPage().reload());
+            dialog.close();
+        });
         HorizontalLayout btns = new HorizontalLayout(ok);
         btns.setWidthFull();
         btns.setJustifyContentMode(JustifyContentMode.END);

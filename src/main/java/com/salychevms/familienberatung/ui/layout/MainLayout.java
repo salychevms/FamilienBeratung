@@ -226,9 +226,21 @@ public class MainLayout extends AppLayout {
         Span text2 = new Span("Sind Sie hier? Kliecken Sie bitte \"Ja\"");
         dialog.add(text, text2);
 
+        UI ui = UI.getCurrent();
+        ui.getPage().executeJs("""
+                    window.logoutTimeout = setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 300000);
+                """);
+
         Button okButton = new Button("Ja", ev -> {
             markActivity();
             warningShown = false;
+            ui.getPage().executeJs("""
+                        if (window.logoutTimeout) {
+                            clearTimeout(window.logoutTimeout);
+                        }
+                    """);
             dialog.close();
         });
 

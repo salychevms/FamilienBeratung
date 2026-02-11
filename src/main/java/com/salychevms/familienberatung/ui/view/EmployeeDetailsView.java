@@ -88,9 +88,10 @@ public class EmployeeDetailsView extends VerticalLayout implements BeforeEnterOb
         }
 
         roles.clear();
-        if (lvl == 100)
-            this.roles.addAll(new ArrayList<>(roleService.getAll(currentEmployee).stream()
-                    .filter(r -> r != null && !roles.contains(r)).toList()));
+        if (lvl >= 80)
+            this.roles.addAll(new ArrayList<>(roleService.getAll().stream()
+                    .filter(r -> r != null
+                            && r.getAccessLevel() <= currentEmployee.getRole().getAccessLevel()).toList()));
 
         removeAll();
         buildUI();
