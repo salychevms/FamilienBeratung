@@ -15,11 +15,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     procps \
     vim \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    locales \
+        && locale-gen de_DE.UTF-8 \
+        && update-locale LANG=de_DE.UTF-8 \
+        && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /data
+WORKDIR /app
 
 # Копируем JAR
-COPY target/*.jar /app/app.jar
+COPY target/*.jar /app.jar
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-jar", "/app.jar"]

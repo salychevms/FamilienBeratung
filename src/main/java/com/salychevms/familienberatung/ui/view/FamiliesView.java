@@ -70,7 +70,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
         List<Delegation> delegations = new ArrayList<>();
         List<Family> myOwnedFamilies;
         allFamilies = new ArrayList<>();
-        currentEmployees=new ArrayList<>();
+        currentEmployees = new ArrayList<>();
         if (lvl == 50) {
             myOwnedFamilies = new ArrayList<>(familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(),
                             currentEmployee).stream()
@@ -377,33 +377,33 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
                 boolean match = false;
                 if (f.getFamilyName() != null && f.getFamilyName().toLowerCase().contains(q.toLowerCase()))
                     match = true;
-                if(!match && f.getZeusId()!=null && f.getZeusId().toLowerCase().contains(q.toLowerCase()))
+                if (!match && f.getZeusId() != null && f.getZeusId().toLowerCase().contains(q.toLowerCase()))
                     match = true;
-                if(!match && f.getPhone() !=null && f.getPhone() .toLowerCase().contains(q.toLowerCase()))
+                if (!match && f.getPhone() != null && f.getPhone().toLowerCase().contains(q.toLowerCase()))
                     match = true;
-                if(!match && f.getEmail() !=null && f.getEmail().toLowerCase().contains(q.toLowerCase()))
+                if (!match && f.getEmail() != null && f.getEmail().toLowerCase().contains(q.toLowerCase()))
                     match = true;
-                if(!match && f.getStreet() !=null && f.getStreet().toLowerCase().contains(q.toLowerCase()))
+                if (!match && f.getStreet() != null && f.getStreet().toLowerCase().contains(q.toLowerCase()))
                     match = true;
-                if(!match && f.getCity() !=null && f.getCity().toLowerCase().contains(q.toLowerCase()))
+                if (!match && f.getCity() != null && f.getCity().toLowerCase().contains(q.toLowerCase()))
                     match = true;
-                if(!match && f.getHouseNumber() !=null && f.getHouseNumber().toLowerCase().contains(q.toLowerCase()))
+                if (!match && f.getHouseNumber() != null && f.getHouseNumber().toLowerCase().contains(q.toLowerCase()))
                     match = true;
-                if(!match && f.getZip() !=null && f.getZip().toLowerCase().contains(q.toLowerCase()))
+                if (!match && f.getZip() != null && f.getZip().toLowerCase().contains(q.toLowerCase()))
                     match = true;
-                if(!match && f.getNotes() !=null && f.getNotes().toLowerCase().contains(q.toLowerCase()))
+                if (!match && f.getNotes() != null && f.getNotes().toLowerCase().contains(q.toLowerCase()))
                     match = true;
-                if(!match && f.getReasonDescription() !=null
+                if (!match && f.getReasonDescription() != null
                         && f.getReasonDescription().toLowerCase().contains(q.toLowerCase()))
                     match = true;
-                if(!match && f.getAssignedEmployee()!=null){
-                    Employee e=f.getAssignedEmployee();
-                    if(e.getFirstName()!=null && e.getFirstName().toLowerCase().contains(q.toLowerCase()))
+                if (!match && f.getAssignedEmployee() != null) {
+                    Employee e = f.getAssignedEmployee();
+                    if (e.getFirstName() != null && e.getFirstName().toLowerCase().contains(q.toLowerCase()))
                         match = true;
-                    if(e.getLastName()!=null && e.getLastName().toLowerCase().contains(q.toLowerCase()))
+                    if (e.getLastName() != null && e.getLastName().toLowerCase().contains(q.toLowerCase()))
                         match = true;
                 }
-                if(!match) continue;
+                if (!match) continue;
             }
             if (status != null && !f.getStatus().equals(status)) continue;
 
@@ -815,6 +815,7 @@ public class FamiliesView extends VerticalLayout implements BeforeEnterObserver 
             familyService.createFamily(zeusId, familyName, street, houseNumber, zip, city, phone, email, reason,
                     notes, emp, currentEmployee.getLogin(), ip, browser);
             showSuccessDialog(familyName);
+            getUI().ifPresent(ui -> ui.getPage().reload());
         });
 
         Button no = new Button("Nein", e -> d.close());

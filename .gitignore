@@ -35,7 +35,7 @@ build/
 
 data/app/storage
 app/storage
-app.db
+data/backup/app.db
 dev.bundle
 vite.generated.ts
 

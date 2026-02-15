@@ -254,7 +254,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             dateFromFilter.clear();
             dateToFilter.clear();
             uploaderEmployeeFilter.clear();
-            filterVisible=false;
+            filterVisible = false;
             filterLayout.setVisible(false);
             filterToggleButton.setText("Filter öffnen");
             refreshGrid();
@@ -558,8 +558,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             if (familyId != 0 && f.getId() != familyId) continue;
             if (familyId == 0 && fam != null && !f.equals(fam)) continue;
             if (fileType != null) {
-                if (d.getFileType() == null) continue;
-                if (!Objects.equals(toReadableType(d.getFileType()), fileType)) continue;
+                if (d.getOriginalFileName() == null) continue;
+                if (!Objects.equals(toReadableType(d.getOriginalFileName()), fileType)) continue;
             }
             if (uploader != null) {
                 if (d.getUploadedByEmployee() == null) continue;
@@ -1053,18 +1053,20 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     }
 
     private List<String> collectFileTypes() {
-        return currentDocuments.stream().map(FamilyDocument::getFileType).filter(Objects::nonNull)
+        return currentDocuments.stream().map(FamilyDocument::getOriginalFileName).filter(Objects::nonNull)
                 .map(this::toReadableType).filter(Objects::nonNull).distinct().sorted().toList();
     }
 
-    private String toReadableType(String mime) {
-        if (mime == null) return null;
-        if (mime.contains("pdf")) return "PDF";
-        if (mime.contains("doc") || mime.contains("docx") || mime.contains("word")) return "DOC/DOCX";
-        if (mime.contains("xls") || mime.contains("xlsx") || mime.contains("excel") || mime.contains("sheet"))
-            return "XLS/XLSX";
-        if (mime.contains("jpeg") || mime.contains("jpg")) return "JPEG";
-        if (mime.contains("png")) return "PNG";
+    private String toReadableType(String name) {
+        if (name == null) return null;
+
+        String n = name.toLowerCase(Locale.ROOT);
+
+        if (n.endsWith("pdf")) return "PDF";
+        if (n.endsWith("doc") || n.endsWith("docx") || n.endsWith("word")) return "DOC/DOCX";
+        if (n.endsWith("xls") || n.endsWith("xlsx") || n.endsWith("excel") || n.endsWith("sheet")) return "XLS/XLSX";
+        if (n.endsWith("jpeg") || n.endsWith("jpg")) return "JPEG";
+        if (n.endsWith("png")) return "PNG";
         return null;
     }
 
@@ -1074,8 +1076,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     }
 
     private boolean isPreviewable(FamilyDocument d) {
-        String t = d.getFileType();
-        if (t == null) return false;
-        return t.contains("pdf") || t.contains("jpg") || t.contains("jpeg") || t.contains("png");
+        if (d == null || d.getOriginalFileName() == null) return false;
+        String t = d.getOriginalFileName().toLowerCase(Locale.ROOT);
+        return t.endsWith("pdf") || t.endsWith("jpg") || t.endsWith("jpeg") || t.endsWith("png");
     }
 }
