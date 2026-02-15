@@ -1,22 +1,22 @@
 # =========================
 # STAGE 1: BUILD
 # =========================
-FROM maven:3.9.9-eclipse-temurin-21 AS builder   # ADDED
+FROM maven:3.9.9-eclipse-temurin-21 AS builder
 
-WORKDIR /build                                   # ADDED
+WORKDIR /build
 
-COPY pom.xml .                                   # ADDED
-RUN mvn -B dependency:go-offline                 # ADDED
+COPY pom.xml .
+RUN mvn -B dependency:go-offline
 
-COPY src ./src                                   # ADDED
+COPY src ./src
 
-RUN mvn clean package -Pproduction -DskipTests   # ADDED
+RUN mvn clean package -Pproduction -DskipTests
 
 
 # =========================
 # STAGE 2: RUNTIME
 # =========================
-FROM eclipse-temurin:21-jre-jammy                # CHANGED (kept base)
+FROM eclipse-temurin:21-jre-jammy
 
 # оставляем твои диагностические инструменты
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -41,6 +41,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # CHANGED: копируем jar из builder stage
-COPY --from=builder /build/target/*.jar /app.jar   # CHANGED
+COPY --from=builder /build/target/*.jar /app.jar
 
 ENTRYPOINT ["java", "-jar", "/app.jar"]
