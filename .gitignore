@@ -39,6 +39,11 @@ data/backup/app.db
 dev.bundle
 vite.generated.ts
 
+app.db
+
+/data/app.db
+/data
+
 .env
 *.log
 hs_err_pid*
