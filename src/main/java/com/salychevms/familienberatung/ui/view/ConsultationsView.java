@@ -202,10 +202,8 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         H2 titleText = new H2(text);
         title.add(titleText);
 
-        Span emp = new Span(currentEmployee.getRole().getLabel() + ": " + currentEmployee.getFirstName() +
-                " " + currentEmployee.getLastName());
-
-        content.add(title, emp);
+        content.add(title, getHLWithSpans(currentEmployee.getRole().getLabel() + ": ",
+                currentEmployee.getFirstName() + " " + currentEmployee.getLastName()));
         add(content);
     }
 
@@ -1040,5 +1038,28 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         if (dateTo != null && d.isAfter(dateTo)) return false;
 
         return !d.isAfter(LocalDate.now());
+    }
+
+    private HorizontalLayout getHLWithSpans(String title, String data) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+
+        Span titleSpan = new Span(title);
+        Span dataSpan = new Span(data);
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
+    }
+
+    private HorizontalLayout getHL(Span titleSpan, Span dataSpan) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
     }
 }

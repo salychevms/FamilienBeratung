@@ -227,10 +227,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         title.getStyle().set("margin-bottom", "0");
         titleLayout.add(title);
 
-        String role = currentEmployee.getRole().getLabel();
-        String name = currentEmployee.getFirstName() + " " + currentEmployee.getLastName();
-        Span employeeInfo = new Span(role + ": " + name);
-        header.add(titleLayout, employeeInfo);
+        header.add(titleLayout, getHLWithSpans(currentEmployee.getRole().getLabel() + ": ",
+                currentEmployee.getFirstName() + " " + currentEmployee.getLastName()));
         add(header);
     }
 
@@ -1079,5 +1077,28 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         if (d == null || d.getOriginalFileName() == null) return false;
         String t = d.getOriginalFileName().toLowerCase(Locale.ROOT);
         return t.endsWith("pdf") || t.endsWith("jpg") || t.endsWith("jpeg") || t.endsWith("png");
+    }
+
+    private HorizontalLayout getHLWithSpans(String title, String data) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+
+        Span titleSpan = new Span(title);
+        Span dataSpan = new Span(data);
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
+    }
+
+    private HorizontalLayout getHL(Span titleSpan, Span dataSpan) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
     }
 }

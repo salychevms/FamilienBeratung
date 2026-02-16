@@ -143,18 +143,15 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
         header.setSpacing(true);
 
         H2 title = new H2("Beratung ID: " + currentConsultation.getId());
-        Span family = new Span("Familie: " + currentFamily.getFamilyName());
-        Span backdated = new Span("Nachträglich gespeichert: " +
-                (currentConsultation.isBackdated() ? "Ja" : "Nein"));
         header.add(title);
-        box.add(header, family, backdated);
+        box.add(header, getHLWithSpans("Familie: ", currentFamily.getFamilyName()));
+        box.add(getHLWithSpans("Berater*in: ",
+                currentConsultation.getFamily().getAssignedEmployee().getFirstName()
+                        + " " + currentConsultation.getFamily().getAssignedEmployee().getLastName()));
+        box.add(getHLWithSpans("Durchgeführt von: ", currentConsultation.getEmployee().getFirstName()
+                + " " + currentConsultation.getEmployee().getLastName()));
+        box.add(getHLWithSpans("Nachträglich gespeichert: ", (currentConsultation.isBackdated() ? "Ja" : "Nein")));
 
-        Span assignedE = new Span("Berater*in: " + currentConsultation.getFamily().getAssignedEmployee().getFirstName()
-                + " " + currentConsultation.getFamily().getAssignedEmployee().getLastName());
-        box.add(assignedE);
-        Span managed = new Span("Durchgeführt von: " + currentConsultation.getEmployee().getFirstName()
-                + " " + currentConsultation.getEmployee().getLastName());
-        box.add(managed);
         if (!currentConsultation.getFamily().getAssignedEmployee().equals(currentConsultation.getEmployee())) {
             List<Delegation> delegationList = delegationService.getDelegationsByToEmployeeAndFamily(
                     currentConsultation.getEmployee(), currentFamily);
@@ -359,9 +356,6 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
         String dateTime = currentConsultation.getDateTime().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"));
         String duration = formatDuration(currentConsultation.getDurationMinutes());
 
-        Span dateRow = new Span("Datum und Uhrzeit: " + dateTime);
-        Span durationRow = new Span("Dauer: " + duration + " St.");
-
         HorizontalLayout fuLayout = new HorizontalLayout();
         fuLayout.setSpacing(false);
         fuLayout.setPadding(false);
@@ -369,9 +363,9 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
         fuLayout.setAlignItems(FlexComponent.Alignment.CENTER);
 
         LocalDateTime fu = currentConsultation.getFollowUp();
-        Span followUpRow = new Span("Folgetermin: " +
-                (fu != null ? fu.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) : "-"));
-        fuLayout.add(followUpRow);
+
+        fuLayout.add(getHLWithSpans("Folgetermin: ",
+                (fu != null ? fu.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")) : "-")));
 
         if (currentConsultation.getFollowUp() != null) {
             Button fUpDelete = new Button(VaadinIcon.CLOSE_CIRCLE.create());
@@ -402,7 +396,8 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
             fuLayout.add(fUpDelete);
         }
 
-        block.add(titleLayout, dateRow, durationRow, fuLayout);
+        block.add(titleLayout, getHLWithSpans("Datum und Uhrzeit: ", dateTime),
+                getHLWithSpans("Dauer: ", duration + " St."), fuLayout);
         return block;
     }
 
@@ -465,8 +460,6 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
         title.getStyle().set("font-weight", "bold");
         titleLayout.add(title);
 
-        Span topic = new Span("Thema: " + empty(currentConsultation.getTopic()));
-
         TextArea description = new TextArea("Beschreibung");
         description.setReadOnly(true);
         description.setWidthFull();
@@ -481,7 +474,7 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
         result.setValue(empty(currentConsultation.getResult()));
         result.getStyle().set("white-space", "pre-wrap").set("margin-bottom", "0");
 
-        block.add(titleLayout, topic, description, result);
+        block.add(titleLayout, getHLWithSpans("Thema: ", empty(currentConsultation.getTopic())), description, result);
         add(block);
     }
 
@@ -552,5 +545,28 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
     private String formatTime(LocalDateTime dt) {
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
         return dt.format(timeFormatter);
+    }
+
+    private HorizontalLayout getHLWithSpans(String title, String data) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+
+        Span titleSpan = new Span(title);
+        Span dataSpan = new Span(data);
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
+    }
+
+    private HorizontalLayout getHL(Span titleSpan, Span dataSpan) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
     }
 }

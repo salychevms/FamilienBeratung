@@ -6,6 +6,7 @@ import com.salychevms.familienberatung.model.Family;
 import com.salychevms.familienberatung.model.RecordStatus;
 import com.salychevms.familienberatung.service.AuthService;
 import com.salychevms.familienberatung.service.ConsultationService;
+import com.salychevms.familienberatung.service.EmployeeService;
 import com.salychevms.familienberatung.service.FamilyService;
 import com.salychevms.familienberatung.ui.layout.MainLayout;
 import com.vaadin.flow.component.Component;
@@ -34,6 +35,7 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
     private final AuthService authService;
     private final FamilyService familyService;
     private final ConsultationService consultationService;
+    private final EmployeeService employeeService;
 
     @Override
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
@@ -56,8 +58,9 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
         top.setSpacing(false);
         top.setWidthFull();
 
-        Employee e = authService.getCurrentEmployee();
-        if (e == null) return;
+        Employee auth = authService.getCurrentEmployee();
+        if (auth == null) return;
+        Employee e=employeeService.findByLogin(auth.getLogin());
 
         int lvl = e.getRole().getAccessLevel();
 
@@ -78,15 +81,6 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
         HorizontalLayout nav = new HorizontalLayout();
         nav.setSpacing(true);
         nav.add(makeNavButton("Familien", FamiliesView.class));
-        /*nav.add(new Button("Beratungen", ev ->
-                getUI().ifPresent(ui -> ui.navigate(ConsultationsView.class))));
-        nav.add(new Button("Dokumente", ev ->
-                getUI().ifPresent(ui -> ui.navigate(DocumentsView.class))));
-        nav.add(new Button("Delegationen", ev ->
-                getUI().ifPresent(ui -> ui.navigate(DelegationsView.class))));
-        if (lvl >= 80)
-            nav.add(new Button("Mitarbeiter", ev ->
-                    getUI().ifPresent(ui -> ui.navigate(EmployeesView.class))));*/
 
         top.add(title, stats, nav);
 
