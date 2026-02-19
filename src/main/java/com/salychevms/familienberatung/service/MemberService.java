@@ -1,9 +1,9 @@
 package com.salychevms.familienberatung.service;
 
 import com.salychevms.familienberatung.model.Employee;
-import com.salychevms.familienberatung.model.Family;
+import com.salychevms.familienberatung.model.Member;
 import com.salychevms.familienberatung.model.RecordStatus;
-import com.salychevms.familienberatung.repository.FamilyRepository;
+import com.salychevms.familienberatung.repository.MemberRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import jakarta.transaction.Transactional;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,24 +20,27 @@ import java.util.List;
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class FamilyService {
+public class MemberService {
 
-    private final FamilyRepository familyRepository;
+    private final MemberRepository memberRepository;
     private final EmployeeService employeeService;
     private final ValidationService validator;
     private final AccessLogService accessLog;
 
     //admin and lead and consultant
-    public Family createFamily(String zeusId, String familyName, String street, String houseNumber, String zip, String city,
-                               String phone, String email, String reasonDescription, String notes,
-                               Employee assignedEmployee, String createdBy, String ip, String userBrowser) {
+    public void createMember(String zeusId, LocalDate joinedAt, LocalDate birthdate, String firstName, String lastName,
+                             String street, String houseNumber, String zip, String city, String phone, String email,
+                             String reasonDescription, String notes, Employee assignedEmployee,
+                             String createdBy, String ip, String userBrowser) {
         try {
             if (!employeeService.hasAccess(createdBy, 50)) {
                 log.error("Access Denied for {}", createdBy);
                 throw new RuntimeException("Access Denied for " + createdBy);
             }
 
-            validator.validateText(familyName, 255);
+            validator.validateBirthday(birthdate);
+            validator.validateText(firstName, 255);
+            validator.validateText(lastName, 255);
             validator.validateText(street, 255);
             validator.validateText(houseNumber, 255);
             validator.validateText(zip, 255);
@@ -46,6 +50,11 @@ public class FamilyService {
             validator.validateText(notes, 255);
             validator.validateIp(ip);
 
+            if (joinedAt.isAfter(LocalDate.now())
+                    || joinedAt.isBefore(LocalDate.of(2026, 1, 1))) {
+                log.error("Joined Date is before 2026");
+                throw new RuntimeException("Joined Date is before 2026");
+            }
             if (assignedEmployee == null) {
                 log.error("Employee not found");
                 throw new EntityNotFoundException("Employee not found");
@@ -55,39 +64,42 @@ public class FamilyService {
                 log.error("Employee {} not found ", assignedEmployee.getLogin());
             }
 
-            Family family = new Family();
+            Member member = new Member();
 
-            family.setZeusId(zeusId);
-            family.setFamilyName(familyName);
-            family.setStreet(street);
-            family.setHouseNumber(houseNumber);
-            family.setZip(zip);
-            family.setCity(city);
-            family.setPhone(phone);
-            family.setEmail(email);
-            family.setReasonDescription(reasonDescription);
-            family.setNotes(notes);
-            family.setAssignedEmployee(e);
+            member.setBirthDate(birthdate);
+            member.setJoinedAt(joinedAt);
+            member.setZeusId(zeusId);
+            member.setFirstName(firstName);
+            member.setLastName(lastName);
+            member.setStreet(street);
+            member.setHouseNumber(houseNumber);
+            member.setZip(zip);
+            member.setCity(city);
+            member.setPhone(phone);
+            member.setEmail(email);
+            member.setReasonDescription(reasonDescription);
+            member.setNotes(notes);
+            member.setAssignedEmployee(e);
 
-            family.setStatus(RecordStatus.ACTIVE);
-            family.setCaseClosed(false);
-            family.setCreatedAt(LocalDateTime.now());
-            family.setCreatedBy(createdBy);
+            member.setStatus(RecordStatus.ACTIVE);
+            member.setCaseClosed(false);
+            member.setCreatedAt(LocalDateTime.now());
+            member.setCreatedBy(createdBy);
+            //TODO
+            System.out.println(member);
+            Member saved = memberRepository.save(member);
 
-            Family saved = familyRepository.save(family);
-
-            accessLog.log(createdBy, "FAMILY_CREATE", "Family", saved.getId(),
-                    "Created family " + familyName, ip, userBrowser);
-            log.info("Family {} created by {}", familyName, createdBy);
-            return saved;
+            accessLog.log(createdBy, "MEMBER_CREATE", "Member", saved.getId(),
+                    "Created member " + firstName + " " + lastName, ip, userBrowser);
+            log.info("Member {} created by {}", firstName + " " + lastName, createdBy);
         } catch (Exception e) {
-            log.error("Error while saving family {}", familyName, e);
-            throw new RuntimeException("Error while saving family " + familyName, e);
+            log.error("Error while saving member {}", firstName + " " + lastName, e);
+            throw new RuntimeException("Error while saving member " + firstName + " " + lastName, e);
         }
     }
 
     //admin and lead and consultant and delegated
-    public Family updateFamily(Family f, String updatedBy, String ip, String userBrowser) {
+    public void updateMember(Member f, String updatedBy, String ip, String userBrowser) {
         try {
             if (!employeeService.hasAccess(updatedBy, 50)) {
                 log.error("Access Denied for {}", updatedBy);
@@ -95,14 +107,20 @@ public class FamilyService {
             }
 
             if (f == null) {
-                log.error("Family not found");
-                throw new EntityNotFoundException("Family not found");
+                log.error("Member not found");
+                throw new EntityNotFoundException("Member not found");
             }
+            if (f.getJoinedAt().isAfter(LocalDate.now())
+                    || f.getJoinedAt().isBefore(LocalDate.of(2026, 1, 1))) {
+                log.error("Joined Date is before 2026");
+                throw new RuntimeException("Joined Date is before 2026");
+            }
+            Member member = memberRepository.findById(f.getId()).orElseThrow(() ->
+                    new EntityNotFoundException("Member with Id: " + f.getId() + " not found"));
 
-            Family family = familyRepository.findById(f.getId()).orElseThrow(() ->
-                    new EntityNotFoundException("Family with Id: " + f.getId() + " not found"));
-
-            validator.validateText(f.getFamilyName(), 255);
+            validator.validateBirthday(f.getBirthDate());
+            validator.validateText(f.getFirstName(), 255);
+            validator.validateText(f.getLastName(), 255);
             validator.validateText(f.getStreet(), 255);
             validator.validateText(f.getHouseNumber(), 255);
             validator.validateText(f.getZip(), 255);
@@ -112,34 +130,37 @@ public class FamilyService {
             validator.validateText(f.getNotes(), 255);
             validator.validateIp(ip);
 
-            family.setZeusId(f.getZeusId());
-            family.setFamilyName(f.getFamilyName());
-            family.setStreet(f.getStreet());
-            family.setHouseNumber(f.getHouseNumber());
-            family.setZip(f.getZip());
-            family.setCity(f.getCity());
-            family.setPhone(f.getPhone());
-            family.setEmail(f.getEmail());
-            family.setReasonDescription(f.getReasonDescription());
-            family.setNotes(f.getNotes());
+            member.setBirthDate(f.getBirthDate());
+            member.setJoinedAt(f.getJoinedAt());
+            member.setZeusId(f.getZeusId());
+            member.setLastName(f.getFirstName());
+            member.setLastName(f.getLastName());
+            member.setStreet(f.getStreet());
+            member.setHouseNumber(f.getHouseNumber());
+            member.setZip(f.getZip());
+            member.setCity(f.getCity());
+            member.setPhone(f.getPhone());
+            member.setEmail(f.getEmail());
+            member.setReasonDescription(f.getReasonDescription());
+            member.setNotes(f.getNotes());
 
-            family.setUpdatedAt(LocalDateTime.now());
-            family.setUpdatedBy(updatedBy);
+            member.setUpdatedAt(LocalDateTime.now());
+            member.setUpdatedBy(updatedBy);
 
-            Family saved = familyRepository.save(family);
+            Member saved = memberRepository.save(member);
 
-            accessLog.log(updatedBy, "FAMILY_UPDATE", "Family", saved.getId(),
-                    "Updated family " + family.getFamilyName(), ip, userBrowser);
-            log.info("Family {} updated by {}", family.getFamilyName(), updatedBy);
-            return saved;
+            accessLog.log(updatedBy, "MEMBER_UPDATE", "Member", saved.getId(),
+                    "Updated member " + member.getFirstName() + " " + member.getLastName(), ip, userBrowser);
+            log.info("Member {} updated by {}", member.getFirstName() + " " + member.getLastName(), updatedBy);
         } catch (Exception e) {
-            log.error("Error while saving family, error: {}", e.getMessage(), e);
-            throw new RuntimeException("Error while saving family ", e);
+            log.error("Error while saving member, error: {}", e.getMessage(), e);
+            throw new RuntimeException("Error while saving member ", e);
         }
     }
 
     //admin and lead
-    public void updateAssignedEmployee(Long id, Long assignedEmployeeId, String updatedBy, String ip, String userBrowser) {
+    public void updateAssignedEmployee(Long id, Long assignedEmployeeId, String updatedBy, String ip,
+                                       String userBrowser) {
         try {
             if (!employeeService.hasAccess(updatedBy, 80)) {
                 log.error("Access Denied for {}", updatedBy);
@@ -155,29 +176,30 @@ public class FamilyService {
                 log.error("Employee {} has no access to this role", updatedBy);
                 throw new RuntimeException("Employee with Login: " + updatedBy + " has no access to this role");
             }
-            Family family = familyRepository.findById(id).orElseThrow(() ->
-                    new RuntimeException("Family with Id: " + id + " not found"));
+            Member member = memberRepository.findById(id).orElseThrow(() ->
+                    new RuntimeException("Member with Id: " + id + " not found"));
 
             Employee employee = employeeService.findById(assignedEmployeeId);
             if (employee == null) {
                 log.error("Employee with Id: {} not found", assignedEmployeeId);
                 throw new RuntimeException("Employee with Id: " + assignedEmployeeId + " not found");
             }
-            if (family.getAssignedEmployee().getId().equals(assignedEmployeeId)) {
-                log.error("Assigned employee with Id: {} already assigned for family with Id: {}", assignedEmployeeId, family.getId());
+            if (member.getAssignedEmployee().getId().equals(assignedEmployeeId)) {
+                log.error("Assigned employee with Id: {} already assigned for member with Id: {}", assignedEmployeeId,
+                        member.getId());
                 throw new RuntimeException("Assigned employee with Id: " + assignedEmployeeId +
-                        " already assigned for family with Id: " + family.getId());
+                        " already assigned for member with Id: " + member.getId());
             }
 
-            family.setAssignedEmployee(employee);
-            family.setUpdatedAt(LocalDateTime.now());
-            family.setUpdatedBy(updatedBy);
+            member.setAssignedEmployee(employee);
+            member.setUpdatedAt(LocalDateTime.now());
+            member.setUpdatedBy(updatedBy);
 
-            familyRepository.save(family);
-            accessLog.log(updatedBy, "FAMILY_UPDATE ASSIGNED_EMPLOYEE", "Family", family.getId(),
-                    "Family has new assigned employee with Id: " + assignedEmployeeId, ip, userBrowser);
-            log.info("Family assigned employee has been changed. Family Id: {}, new employee id: {}, updater id: {}",
-                    family.getId(), assignedEmployeeId, updatedBy);
+            memberRepository.save(member);
+            accessLog.log(updatedBy, "MEMBER_UPDATE ASSIGNED_EMPLOYEE", "Member", member.getId(),
+                    "Member has new assigned employee with Id: " + assignedEmployeeId, ip, userBrowser);
+            log.info("Member assigned employee has been changed. Member Id: {}, new employee id: {}, updater id: {}",
+                    member.getId(), assignedEmployeeId, updatedBy);
 
         } catch (
                 Exception e) {
@@ -193,39 +215,39 @@ public class FamilyService {
                 log.error("Access Denied for {}", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
-            Family family = familyRepository.findById(id).orElseThrow(() ->
-                    new EntityNotFoundException("Family with Id: " + id + " not found"));
-            if (family.isCaseClosed()) {
-                log.warn("Case for family with id: {} is already closed.", id);
-                throw new RuntimeException("Case for family with id: " + id + " is already closed");
+            Member member = memberRepository.findById(id).orElseThrow(() ->
+                    new EntityNotFoundException("Member with Id: " + id + " not found"));
+            if (member.isCaseClosed()) {
+                log.warn("Case for member with id: {} is already closed.", id);
+                throw new RuntimeException("Case for member with id: " + id + " is already closed");
             }
-            if (family.getStatus().equals(RecordStatus.BLOCKED)) {
-                log.warn("Case for family with id: {} is blocked.", id);
-                throw new RuntimeException("Case for family with id: " + id + " is blocked");
+            if (member.getStatus().equals(RecordStatus.BLOCKED)) {
+                log.warn("Case for member with id: {} is blocked.", id);
+                throw new RuntimeException("Case for member with id: " + id + " is blocked");
             }
-            if (family.getStatus().equals(RecordStatus.ARCHIVED)) {
-                log.warn("Case for family with id: {} is archived.", id);
-                throw new RuntimeException("Case for family with id: " + id + " is archived");
+            if (member.getStatus().equals(RecordStatus.ARCHIVED)) {
+                log.warn("Case for member with id: {} is archived.", id);
+                throw new RuntimeException("Case for member with id: " + id + " is archived");
             }
-            if (family.getStatus().equals(RecordStatus.INVALID)) {
-                log.warn("Case for family with id: {} is invalid.", id);
-                throw new RuntimeException("Case for family with id: " + id + " is invalid");
+            if (member.getStatus().equals(RecordStatus.INVALID)) {
+                log.warn("Case for member with id: {} is invalid.", id);
+                throw new RuntimeException("Case for member with id: " + id + " is invalid");
             }
 
-            family.setCaseClosed(true);
-            family.setCaseClosedAt(LocalDateTime.now());
-            family.setDeletePlannedAt(family.getCaseClosedAt().plusYears(10));
-            family.setUpdatedAt(LocalDateTime.now());
-            family.setUpdatedBy(updatedBy);
+            member.setCaseClosed(true);
+            member.setCaseClosedAt(LocalDateTime.now());
+            member.setDeletePlannedAt(member.getCaseClosedAt().plusYears(10));
+            member.setUpdatedAt(LocalDateTime.now());
+            member.setUpdatedBy(updatedBy);
 
-            familyRepository.save(family);
-            accessLog.log(updatedBy, "FAMILY_CLOSE_CASE", "Family", family.getId(),
+            memberRepository.save(member);
+            accessLog.log(updatedBy, "MEBER_CLOSE_CASE", "Member", member.getId(),
                     "Case closed", ip, userBrowser);
 
-            log.info("Family {} case closed by {}", family.getId(), updatedBy);
+            log.info("Member {} case closed by {}", member.getId(), updatedBy);
         } catch (Exception e) {
-            log.error("Error while closing family case. Family Id: {}, error: ", id, e);
-            throw new RuntimeException("Error while closing family case. Family Id: " + id, e);
+            log.error("Error while closing member case. Member Id: {}, error: ", id, e);
+            throw new RuntimeException("Error while closing member case. Member Id: " + id, e);
         }
     }
 
@@ -237,93 +259,93 @@ public class FamilyService {
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
 
-            Family family = familyRepository.findById(id).orElseThrow(() ->
-                    new EntityNotFoundException("Family with Id: " + id + " not found"));
-            if (!family.isCaseClosed()) {
-                log.error("Family case still open, family id: {}", id);
-                throw new RuntimeException("Family case still open, family id: " + id);
+            Member member = memberRepository.findById(id).orElseThrow(() ->
+                    new EntityNotFoundException("Member with Id: " + id + " not found"));
+            if (!member.isCaseClosed()) {
+                log.error("Member case still open, member id: {}", id);
+                throw new RuntimeException("Member case still open, member id: " + id);
             }
-            if (family.getStatus().equals(RecordStatus.BLOCKED)) {
-                log.warn("Case for family with id: {} is blocked.", id);
-                throw new RuntimeException("Case for family with id: " + id + " is blocked");
+            if (member.getStatus().equals(RecordStatus.BLOCKED)) {
+                log.warn("Case for member with id: {} is blocked.", id);
+                throw new RuntimeException("Case for member with id: " + id + " is blocked");
             }
-            if (family.getStatus().equals(RecordStatus.ARCHIVED)) {
-                log.warn("Case for family with id: {} is archived.", id);
-                throw new RuntimeException("Case for family with id: " + id + " is archived");
+            if (member.getStatus().equals(RecordStatus.ARCHIVED)) {
+                log.warn("Case for member with id: {} is archived.", id);
+                throw new RuntimeException("Case for member with id: " + id + " is archived");
             }
-            if (family.getStatus().equals(RecordStatus.INVALID)) {
-                log.warn("Case for family with id: {} is invalid.", id);
-                throw new RuntimeException("Case for family with id: " + id + " is invalid");
+            if (member.getStatus().equals(RecordStatus.INVALID)) {
+                log.warn("Case for member with id: {} is invalid.", id);
+                throw new RuntimeException("Case for member with id: " + id + " is invalid");
             }
-            family.setCaseClosed(false);
-            family.setCaseClosedAt(null);
-            family.setDeletePlannedAt(null);
-            family.setUpdatedAt(LocalDateTime.now());
-            family.setUpdatedBy(updatedBy);
+            member.setCaseClosed(false);
+            member.setCaseClosedAt(null);
+            member.setDeletePlannedAt(null);
+            member.setUpdatedAt(LocalDateTime.now());
+            member.setUpdatedBy(updatedBy);
 
-            familyRepository.save(family);
-            accessLog.log(updatedBy, "FAMILY_CASE_OPEN_BACK", "Family", family.getId(),
-                    "Family case opened back", ip, userBrowser);
-            log.info("Family {} case opened back by {}", family.getId(), updatedBy);
+            memberRepository.save(member);
+            accessLog.log(updatedBy, "MEMBER_CASE_OPEN_BACK", "Member", member.getId(),
+                    "Member case opened back", ip, userBrowser);
+            log.info("Member {} case opened back by {}", member.getId(), updatedBy);
         } catch (Exception e) {
-            log.error("Failed to open family case back. Family Id: {}, error: {}", id, e.getMessage(), e);
-            throw new RuntimeException("Failed to open family case back. Family Id: " + id, e);
+            log.error("Failed to open member case back. Member Id: {}, error: {}", id, e.getMessage(), e);
+            throw new RuntimeException("Failed to open member case back. Member Id: " + id, e);
         }
     }
 
     //admin and lead and consultant and delegated
-    public void invalidateFamily(Long id, String updatedBy, String ip, String userBrowser) {
+    public void invalidateMember(Long id, String updatedBy, String ip, String userBrowser) {
         try {
             if (!employeeService.hasAccess(updatedBy, 50)) {
                 log.error("Access Denied for {}", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
 
-            Family family = familyRepository.findById(id).orElseThrow(() ->
-                    new EntityNotFoundException("Family with Id: " + id + " not found"));
+            Member member = memberRepository.findById(id).orElseThrow(() ->
+                    new EntityNotFoundException("Member with Id: " + id + " not found"));
 
-            if (family.isCaseClosed()) {
-                log.warn("Case for family with id: {} is already closed.", id);
-                throw new RuntimeException("Case for family with id: " + id + " is already closed");
+            if (member.isCaseClosed()) {
+                log.warn("Case for member with id: {} is already closed.", id);
+                throw new RuntimeException("Case for member with id: " + id + " is already closed");
             }
-            if (family.getStatus().equals(RecordStatus.INVALID)) {
-                log.warn("Family with id: {} is already invalid (soft delete).", id);
-                throw new RuntimeException("Family with id: " + id + " is already invalid (soft delete)");
+            if (member.getStatus().equals(RecordStatus.INVALID)) {
+                log.warn("Member with id: {} is already invalid (soft delete).", id);
+                throw new RuntimeException("Member with id: " + id + " is already invalid (soft delete)");
             }
-            if (family.getStatus().equals(RecordStatus.BLOCKED)) {
-                log.warn("Family with id: {} is already blocked.", id);
-                throw new RuntimeException("Family with id: " + id + " is already blocked");
+            if (member.getStatus().equals(RecordStatus.BLOCKED)) {
+                log.warn("Member with id: {} is already blocked.", id);
+                throw new RuntimeException("Member with id: " + id + " is already blocked");
             }
-            if (family.getStatus().equals(RecordStatus.ARCHIVED)) {
-                log.warn("Family with id: {} is already archived.", id);
-                throw new RuntimeException("Family with id: " + id + " is already archived");
+            if (member.getStatus().equals(RecordStatus.ARCHIVED)) {
+                log.warn("Member with id: {} is already archived.", id);
+                throw new RuntimeException("Member with id: " + id + " is already archived");
             }
 
-            family.setStatus(RecordStatus.INVALID);
-            family.setInvalidBy(updatedBy);
-            family.setInvalidAt(LocalDateTime.now());
-            family.setDeletePlannedAt(family.getInvalidAt().plusYears(10));
+            member.setStatus(RecordStatus.INVALID);
+            member.setInvalidBy(updatedBy);
+            member.setInvalidAt(LocalDateTime.now());
+            member.setDeletePlannedAt(member.getInvalidAt().plusYears(10));
 
-            familyRepository.save(family);
+            memberRepository.save(member);
 
-            accessLog.log(updatedBy, "FAMILY_INVALID_(SOFT_DELETE)", "Family", family.getId(),
-                    "Family is invalid (soft delete)", ip, userBrowser);
+            accessLog.log(updatedBy, "MEMBER_INVALID_(SOFT_DELETE)", "Member", member.getId(),
+                    "Member is invalid (soft delete)", ip, userBrowser);
 
-            log.info("Family {} is invalid (soft delete) by {}", family.getId(), updatedBy);
+            log.info("Member {} is invalid (soft delete) by {}", member.getId(), updatedBy);
         } catch (Exception e) {
-            log.error("Error while making family invalid (soft delete). Family Id: {}, error: ", id, e);
-            throw new RuntimeException("Error while making family invalid (soft delete). Family Id: " + id, e);
+            log.error("Error while making member invalid (soft delete). Member Id: {}, error: ", id, e);
+            throw new RuntimeException("Error while making member invalid (soft delete). Member Id: " + id, e);
         }
     }
 
     //admin and lead
-    public void restoreFamily(Long id, String updatedBy, String restoreReason, String ip, String userBrowser) {
+    public void restoreMember(Long id, String updatedBy, String restoreReason, String ip, String userBrowser) {
         try {
-            Family family = familyRepository.findById(id).orElseThrow(() ->
-                    new EntityNotFoundException("Family with Id: " + id + " not found"));
-            if (!family.getStatus().equals(RecordStatus.INVALID)) {
-                log.warn("Family with id: {} is not invalid.", id);
-                throw new RuntimeException("Family with id: " + id + " is not invalid");
+            Member member = memberRepository.findById(id).orElseThrow(() ->
+                    new EntityNotFoundException("Member with Id: " + id + " not found"));
+            if (!member.getStatus().equals(RecordStatus.INVALID)) {
+                log.warn("Member with id: {} is not invalid.", id);
+                throw new RuntimeException("Member with id: " + id + " is not invalid");
             }
 
             Employee employee = employeeService.findByLogin(updatedBy);
@@ -332,7 +354,7 @@ public class FamilyService {
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
 
-            long days = java.time.Duration.between(family.getInvalidAt(), LocalDateTime.now()).toDays();
+            long days = java.time.Duration.between(member.getInvalidAt(), LocalDateTime.now()).toDays();
 
             if (days > 14) {
                 if (employee.getRole().getAccessLevel() == 50) {
@@ -340,188 +362,188 @@ public class FamilyService {
                     throw new RuntimeException("Access Denied for " + updatedBy + " after 14 days");
                 } else if (employee.getRole().getAccessLevel() >= 80) {
                     validator.validateText(restoreReason, 255);
-                    family.setRestoredReason(restoreReason);
-                    log.info("Employee {} has been restored Family {} after 14 days. Reason: {}",
-                            employee.getLogin(), family.getId(), restoreReason);
-                    accessLog.log(updatedBy, "FAMILY_RESTORE_AFTER_14_DAYS", "Family", family.getId(),
-                            "Family has been restored after 14 days. Reason: " + restoreReason, ip, userBrowser);
+                    member.setRestoredReason(restoreReason);
+                    log.info("Employee {} has been restored Member {} after 14 days. Reason: {}",
+                            employee.getLogin(), member.getId(), restoreReason);
+                    accessLog.log(updatedBy, "MEMBER_RESTORE_AFTER_14_DAYS", "Member", member.getId(),
+                            "Member has been restored after 14 days. Reason: " + restoreReason, ip, userBrowser);
                 }
             } else {
-                family.setRestoredReason("Restore permitted before 14 days");
-                log.info("Family {} has been restored by Employee {} before 14 days.", family.getId(), employee.getLogin());
+                member.setRestoredReason("Restore permitted before 14 days");
+                log.info("Member {} has been restored by Employee {} before 14 days.", member.getId(), employee.getLogin());
             }
 
-            family.setStatus(RecordStatus.ACTIVE);
-            family.setInvalidBy(null);
-            family.setInvalidAt(null);
-            family.setDeletePlannedAt(null);
-            family.setRestoredBy(updatedBy);
-            family.setRestoredAt(LocalDateTime.now());
+            member.setStatus(RecordStatus.ACTIVE);
+            member.setInvalidBy(null);
+            member.setInvalidAt(null);
+            member.setDeletePlannedAt(null);
+            member.setRestoredBy(updatedBy);
+            member.setRestoredAt(LocalDateTime.now());
 
-            familyRepository.save(family);
-            log.info("Family {} restored (soft delete off)", family.getId());
+            memberRepository.save(member);
+            log.info("Member {} restored (soft delete off)", member.getId());
         } catch (Exception e) {
-            log.error("Error while restoring family with Id: {}, error: {}", id, e.getMessage(), e);
-            throw new RuntimeException("Error while restoring family with Id: " + id, e);
+            log.error("Error while restoring member with Id: {}, error: {}", id, e.getMessage(), e);
+            throw new RuntimeException("Error while restoring member with Id: " + id, e);
         }
     }
 
     //admin and lead
-    public void archiveFamily(Long id, String updatedBy, String ip, String userBrowser) {
+    public void archiveMember(Long id, String updatedBy, String ip, String userBrowser) {
         try {
             if (!employeeService.hasAccess(updatedBy, 50)) {
                 log.error("Access Denied for {}", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
 
-            Family family = familyRepository.findById(id).orElseThrow(() ->
-                    new EntityNotFoundException("Family with Id: " + id + " not found"));
-            if (family.getStatus().equals(RecordStatus.ARCHIVED)) {
-                log.warn("Family with id: {} is already archived.", id);
-                throw new RuntimeException("Family with id: " + id + " is already archived");
+            Member member = memberRepository.findById(id).orElseThrow(() ->
+                    new EntityNotFoundException("Member with Id: " + id + " not found"));
+            if (member.getStatus().equals(RecordStatus.ARCHIVED)) {
+                log.warn("Member with id: {} is already archived.", id);
+                throw new RuntimeException("Member with id: " + id + " is already archived");
             }
 
-            family.setStatus(RecordStatus.ARCHIVED);
-            family.setArchivedBy(updatedBy);
-            family.setArchivedAt(LocalDateTime.now());
+            member.setStatus(RecordStatus.ARCHIVED);
+            member.setArchivedBy(updatedBy);
+            member.setArchivedAt(LocalDateTime.now());
 
-            if (family.getInvalidAt() != null) {
-                family.setDeletePlannedAt(family.getInvalidAt().plusYears(10));
-                family.setInvalidAt(null);
-                family.setInvalidBy(null);
-            } else if (family.getCaseClosedAt() != null) {
-                family.setDeletePlannedAt(family.getCaseClosedAt().plusYears(10));
-            } else family.setDeletePlannedAt(family.getArchivedAt().plusYears(10));
+            if (member.getInvalidAt() != null) {
+                member.setDeletePlannedAt(member.getInvalidAt().plusYears(10));
+                member.setInvalidAt(null);
+                member.setInvalidBy(null);
+            } else if (member.getCaseClosedAt() != null) {
+                member.setDeletePlannedAt(member.getCaseClosedAt().plusYears(10));
+            } else member.setDeletePlannedAt(member.getArchivedAt().plusYears(10));
 
-            familyRepository.save(family);
-            accessLog.log(updatedBy, "FAMILY_ARCHIVE", "Family", family.getId(),
-                    "Family archived.", ip, userBrowser);
-            log.info("Family {} archived.", family.getId());
+            memberRepository.save(member);
+            accessLog.log(updatedBy, "MEMBER_ARCHIVE", "Member", member.getId(),
+                    "Member archived.", ip, userBrowser);
+            log.info("Member {} archived.", member.getId());
         } catch (Exception e) {
-            log.error("Error while archiving family with Id: {}, error: {}", id, e.getMessage(), e);
-            throw new RuntimeException("Error while archiving family with Id: " + id, e);
+            log.error("Error while archiving member with Id: {}, error: {}", id, e.getMessage(), e);
+            throw new RuntimeException("Error while archiving member with Id: " + id, e);
         }
     }
 
     //admin and lead
-    public void unarchiveFamily(Long id, String restoreReason, String updatedBy, String ip, String userBrowser) {
+    public void unarchiveMember(Long id, String restoreReason, String updatedBy, String ip, String userBrowser) {
         try {
             if (!employeeService.hasAccess(updatedBy, 50)) {
                 log.error("Access Denied for {}", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
 
-            Family family = familyRepository.findById(id).orElseThrow(() ->
-                    new EntityNotFoundException("Family with Id: " + id + " not found"));
+            Member member = memberRepository.findById(id).orElseThrow(() ->
+                    new EntityNotFoundException("Member with Id: " + id + " not found"));
             validator.validateText(restoreReason, 255);
-            if (!family.getStatus().equals(RecordStatus.ARCHIVED)) {
-                log.warn("Family with id: {} is not archived.", id);
-                throw new RuntimeException("Family with id: " + id + " is not archived");
+            if (!member.getStatus().equals(RecordStatus.ARCHIVED)) {
+                log.warn("Member with id: {} is not archived.", id);
+                throw new RuntimeException("Member with id: " + id + " is not archived");
             }
-            family.setStatus(RecordStatus.ACTIVE);
-            family.setArchivedBy(null);
-            family.setArchivedAt(null);
-            family.setDeletePlannedAt(null);
-            family.setRestoredBy(updatedBy);
-            family.setRestoredAt(LocalDateTime.now());
-            family.setRestoredReason(restoreReason);
+            member.setStatus(RecordStatus.ACTIVE);
+            member.setArchivedBy(null);
+            member.setArchivedAt(null);
+            member.setDeletePlannedAt(null);
+            member.setRestoredBy(updatedBy);
+            member.setRestoredAt(LocalDateTime.now());
+            member.setRestoredReason(restoreReason);
 
-            familyRepository.save(family);
-            accessLog.log(updatedBy, "FAMILY_UNARCHIVE", "Family", family.getId(),
-                    "Family unarchived. Reason: " + restoreReason, ip, userBrowser);
-            log.info("Family {} unarchived. Reason: {}", family.getId(), restoreReason);
+            memberRepository.save(member);
+            accessLog.log(updatedBy, "Member_UNARCHIVE", "Member", member.getId(),
+                    "Member unarchived. Reason: " + restoreReason, ip, userBrowser);
+            log.info("Member {} unarchived. Reason: {}", member.getId(), restoreReason);
         } catch (Exception e) {
-            log.error("Error while unarchiving family with Id: {}, error: ", id, e);
-            throw new RuntimeException("Error while unarchiving family with Id: " + id, e);
+            log.error("Error while unarchiving member with Id: {}, error: ", id, e);
+            throw new RuntimeException("Error while unarchiving member with Id: " + id, e);
         }
     }
 
     //admin and lead
-    public void blockFamily(Long id, String blockReason, String updatedBy, String ip, String userBrowser) {
+    public void blockMember(Long id, String blockReason, String updatedBy, String ip, String userBrowser) {
         try {
             if (!employeeService.hasAccess(updatedBy, 80)) {
                 log.error("Access Denied for {}", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
 
-            Family family = familyRepository.findById(id).orElseThrow(() ->
-                    new EntityNotFoundException("Family with Id: " + id + " not found"));
+            Member member = memberRepository.findById(id).orElseThrow(() ->
+                    new EntityNotFoundException("Member with Id: " + id + " not found"));
 
             validator.validateText(blockReason, 255);
-            if (family.getStatus().equals(RecordStatus.ARCHIVED)) {
-                log.warn("Family with id: {} is already archived.", id);
-                throw new RuntimeException("Family with id: " + id + " is already archived");
+            if (member.getStatus().equals(RecordStatus.ARCHIVED)) {
+                log.warn("Member with id: {} is already archived.", id);
+                throw new RuntimeException("Member with id: " + id + " is already archived");
             }
-            if (family.getStatus().equals(RecordStatus.INVALID)) {
-                log.warn("Family with id: {} is already invalid (soft delete).", id);
-                throw new RuntimeException("Family with id: " + id + " is already invalid");
+            if (member.getStatus().equals(RecordStatus.INVALID)) {
+                log.warn("Member with id: {} is already invalid (soft delete).", id);
+                throw new RuntimeException("Member with id: " + id + " is already invalid");
             }
-            if (family.getStatus().equals(RecordStatus.BLOCKED)) {
-                log.warn("Family with id: {} is already blocked.", id);
-                throw new RuntimeException("Family with id: " + id + " is already blocked");
+            if (member.getStatus().equals(RecordStatus.BLOCKED)) {
+                log.warn("Member with id: {} is already blocked.", id);
+                throw new RuntimeException("Member with id: " + id + " is already blocked");
             }
-            family.setStatus(RecordStatus.BLOCKED);
-            family.setBlockedReason(blockReason);
-            family.setBlockedAt(LocalDateTime.now());
-            family.setBlockedBy(updatedBy);
+            member.setStatus(RecordStatus.BLOCKED);
+            member.setBlockedReason(blockReason);
+            member.setBlockedAt(LocalDateTime.now());
+            member.setBlockedBy(updatedBy);
 
-            familyRepository.save(family);
-            accessLog.log(updatedBy, "FAMILY_BLOCK", "Family", family.getId(),
-                    "Family blocked. Reason: " + blockReason, ip, userBrowser);
-            log.info("Family {} blocked. Reason: {}", family.getId(), blockReason);
+            memberRepository.save(member);
+            accessLog.log(updatedBy, "MEMBER_BLOCK", "Member", member.getId(),
+                    "Member blocked. Reason: " + blockReason, ip, userBrowser);
+            log.info("Member {} blocked. Reason: {}", member.getId(), blockReason);
         } catch (Exception e) {
-            log.error("Error while blocking family with Id: {}, error: ", id, e);
-            throw new RuntimeException("Error while blocking family with Id: " + id, e);
+            log.error("Error while blocking member with Id: {}, error: ", id, e);
+            throw new RuntimeException("Error while blocking member with Id: " + id, e);
         }
     }
 
     //admin and lead
-    public void unblockFamily(Long id, String restoreReason, String updatedBy, String ip, String userBrowser) {
+    public void unblockMember(Long id, String restoreReason, String updatedBy, String ip, String userBrowser) {
         try {
             if (!employeeService.hasAccess(updatedBy, 80)) {
                 log.error("Access Denied for {}", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
 
-            Family family = familyRepository.findById(id).orElseThrow(() ->
-                    new EntityNotFoundException("Family with Id: " + id + " not found"));
+            Member member = memberRepository.findById(id).orElseThrow(() ->
+                    new EntityNotFoundException("Member with Id: " + id + " not found"));
 
             validator.validateText(restoreReason, 255);
-            if (!family.getStatus().equals(RecordStatus.BLOCKED)) {
-                log.warn("Family with id: {} is not blocked.", id);
-                throw new RuntimeException("Family with id: " + id + " is not blocked");
+            if (!member.getStatus().equals(RecordStatus.BLOCKED)) {
+                log.warn("Member with id: {} is not blocked.", id);
+                throw new RuntimeException("Member with id: " + id + " is not blocked");
             }
-            family.setStatus(RecordStatus.ACTIVE);
-            family.setBlockedAt(null);
-            family.setBlockedBy(null);
-            family.setRestoredReason(restoreReason);
-            family.setRestoredBy(updatedBy);
-            family.setRestoredAt(LocalDateTime.now());
+            member.setStatus(RecordStatus.ACTIVE);
+            member.setBlockedAt(null);
+            member.setBlockedBy(null);
+            member.setRestoredReason(restoreReason);
+            member.setRestoredBy(updatedBy);
+            member.setRestoredAt(LocalDateTime.now());
 
-            familyRepository.save(family);
-            accessLog.log(updatedBy, "FAMILY_UNBLOCKED", "Family", family.getId(),
-                    "Family unblocked. Reason: " + restoreReason, ip, userBrowser);
-            log.info("Family {} unblocked. Reason: {}", family.getId(), restoreReason);
+            memberRepository.save(member);
+            accessLog.log(updatedBy, "MEMBER_UNBLOCKED", "Member", member.getId(),
+                    "Member unblocked. Reason: " + restoreReason, ip, userBrowser);
+            log.info("Member {} unblocked. Reason: {}", member.getId(), restoreReason);
         } catch (Exception e) {
-            log.error("Error while unblocking family with Id: {}, error: {}", id, e.getMessage(), e);
-            throw new RuntimeException("Error while unblocking family with Id: " + id, e);
+            log.error("Error while unblocking member with Id: {}, error: {}", id, e.getMessage(), e);
+            throw new RuntimeException("Error while unblocking member with Id: " + id, e);
         }
     }
 
     //admin and lead and readonly
-    public Family getFamilyById(Long familyId) {
-        return familyRepository.findById(familyId).orElseThrow(() ->
-                new RuntimeException("Family with Id: " + familyId + " not found"));
+    public Member getMemberById(Long memberId) {
+        return memberRepository.findById(memberId).orElseThrow(() ->
+                new RuntimeException("Member with Id: " + memberId + " not found"));
     }
 
     //admin and lead and readonly
-    public List<Family> getFamilies() {
-        return familyRepository.findAll();
+    public List<Member> getMembers() {
+        return memberRepository.findAll();
     }
 
 
     //all
-    public List<Family> getFamiliesByAssignedEmployee(String login, Employee assignedEmployee) {
+    public List<Member> getMembersByAssignedEmployee(String login, Employee assignedEmployee) {
         validator.validateText(login, 255);
         Employee requester = employeeService.findByLogin(login);
         if (assignedEmployee == null) {
@@ -538,13 +560,13 @@ public class FamilyService {
 
         //admin and lead and readonly
         if (lvl == 100 || lvl == 80 || lvl == 10)
-            return familyRepository.findAllByAssignedEmployee(exists);
+            return memberRepository.findAllByAssignedEmployee(exists);
 
         //consultant
         if (lvl == 50) {
-            List<Family> families = familyRepository.findAllByAssignedEmployee(exists);
-            List<Family> response = new ArrayList<>();
-            for (Family f : families) {
+            List<Member> members = memberRepository.findAllByAssignedEmployee(exists);
+            List<Member> response = new ArrayList<>();
+            for (Member f : members) {
                 if (f.getStatus().equals(RecordStatus.INVALID)) {
                     long days = Duration.between(f.getInvalidAt(), LocalDateTime.now()).toDays();
                     if (days > 14) continue;

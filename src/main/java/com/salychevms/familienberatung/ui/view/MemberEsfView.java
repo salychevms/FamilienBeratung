@@ -28,23 +28,23 @@ import java.util.List;
 import java.util.Optional;
 
 @Slf4j
-@Route(value = "member/:id/:familyId", layout = MainLayout.class)
-@PageTitle("Mitglied")
+@Route(value = "member/:id/:memberId", layout = MainLayout.class)
+@PageTitle("ESF-Teilnehmer*in")
 @RequiredArgsConstructor
 @PermitAll
-public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterObserver {
+public class MemberEsfView extends VerticalLayout implements BeforeEnterObserver {
 
     private final AuthService authService;
     private final EmployeeService employeeService;
     private final MemberService memberService;
-    private final MemberEsfDetailsService memberEsfDetailsService;
+    private final MemberEsfService memberEsfService;
 
     Employee currentEmployee;
     int lvl;
     Long familyId;
-    Long memberId;
+    Long memberEsfId;
     Member currentMember;
-    MemberEsfDetails currentMemberEsfDetails;
+    MemberEsf currentMemberEsf;
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
@@ -58,19 +58,19 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
         this.currentEmployee = employeeService.findByLogin(employee.getLogin());
         this.lvl = currentEmployee.getRole().getAccessLevel();
 
-        Optional<Long> optMemberId = event.getRouteParameters().getLong("id");
+        Optional<Long> optMemberEsfId = event.getRouteParameters().getLong("id");
         Optional<Long> optFamilyId = event.getRouteParameters().getLong("familyId");
 
-        if (optMemberId.isEmpty() || optFamilyId.isEmpty()) {
+        if (optMemberEsfId.isEmpty() || optFamilyId.isEmpty()) {
             event.forwardTo("families");
             return;
         }
 
-        this.memberId = optMemberId.get();
+        this.memberEsfId = optMemberEsfId.get();
         this.familyId = optFamilyId.get();
 
         try {
-            this.currentMember = memberService.getFamilyById(familyId);
+            this.currentMember = memberService.getMemberById(familyId);
         } catch (Exception ex) {
             event.forwardTo("family/" + familyId);
             return;
@@ -82,7 +82,7 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
         }
 
         try {
-            this.currentMemberEsfDetails = memberEsfDetailsService.getMember(currentMember, memberId, currentEmployee.getLogin());
+            this.currentMemberEsf = memberEsfService.getMember(currentMember, memberEsfId, currentEmployee.getLogin());
         } catch (Exception e) {
             event.forwardTo("family/" + familyId);
             return;
@@ -113,16 +113,15 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
         bcrumbs.setAlignItems(FlexComponent.Alignment.CENTER);
 
         RouterLink l1 = new RouterLink("Übersicht", OverviewView.class);
-        RouterLink l2 = new RouterLink("Familien", MembersView.class);
-        RouterLink l3 = new RouterLink("Familie: " + currentMember.getFamilyName(), MemberView.class,
+        RouterLink l2 = new RouterLink("Alle Teilnehmer*innen", MembersView.class);
+        RouterLink l3 = new RouterLink("Teilnehmer*in: " + currentMember.getLastName(), MemberView.class,
                 new RouteParameters("id", String.valueOf(currentMember.getId())));
 
         Span sep1 = new Span(" >> ");
         Span sep2 = new Span(" >> ");
         Span sep3 = new Span(" >> ");
 
-        Span member = new Span("Mitglied: " + currentMemberEsfDetails.getFirstName() +
-                " " + currentMemberEsfDetails.getLastName());
+        Span member = new Span("ESF-Teilnehmer*in: " + currentMemberEsf.getId());
 
         member.getStyle().set("font-weight", "bold");
 
@@ -147,24 +146,24 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
             header.add(editButton);
         }
 
-        String fullName = currentMemberEsfDetails.getFirstName() + " " + currentMemberEsfDetails.getLastName();
-        H2 title = new H2("Familienmitglied: " + fullName);
+        String fullName = currentMemberEsf.getId().toString();
+        H2 title = new H2("ESF-Teilnehmer*in: " + fullName);
         header.add(title);
 
-        Span fTitle = new Span("Familie: ");
-        Span fName = new Span(currentMember.getFamilyName());
+        Span fTitle = new Span("Teilnehmer*in: ");
+        Span fName = new Span(currentMember.getFirstName() + " " + currentMember.getLastName());
         fName.getStyle().set("font-weight", "bold");
         Span fStatusTitle = new Span("Status: ");
         Span fStatusIs = new Span(currentMember.getStatus().toString());
         fStatusIs.getStyle().set("font-weight", "bold");
 
         Span mTitle = new Span("Mitglied ID: ");
-        Span mId = new Span(String.valueOf(currentMemberEsfDetails.getId()));
+        Span mId = new Span(String.valueOf(currentMemberEsf.getId()));
         mId.getStyle().set("font-weight", "bold");
         Span mStatusTitle = new Span("Status: ");
         Span mStatusIs = new Span();
         mStatusIs.getStyle().set("font-weight", "bold");
-        if (!currentMemberEsfDetails.isInvalid()) {
+        if (!currentMemberEsf.isInvalid()) {
             if (currentMember.getStatus().equals(RecordStatus.ARCHIVED)) {
                 fStatusIs.getStyle().set("color", "#b58900");
                 mStatusIs.setText(RecordStatus.BLOCKED.toString());
@@ -200,13 +199,13 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
                 okDialog.setWidth("300px");
 
                 Span text = new Span("Wollen Sie Mitglied löschen?");
-                Span name = new Span(currentMemberEsfDetails.getFirstName() + " " + currentMemberEsfDetails.getLastName());
+                Span name = new Span(currentMemberEsf.getId().toString());
                 name.getStyle().set("font-weight", "bold");
                 okDialog.add(new VerticalLayout(text, name));
 
                 Button ok = new Button("Ja", e -> {
                     VaadinRequest req = VaadinRequest.getCurrent();
-                    memberEsfDetailsService.invalidateMember(currentMember, currentMemberEsfDetails, currentEmployee.getLogin(),
+                    memberEsfService.invalidateMember(currentMember, currentMemberEsf, currentEmployee.getLogin(),
                             req != null ? req.getRemoteAddr() : "UNKNOWN",
                             req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                     getUI().ifPresent(ui -> ui.navigate(MemberView.class,
@@ -251,28 +250,28 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
             editButton.addClickListener(e -> EditDialogFactory.openEditDialog(
                     "Persönliche Daten ändern", List.of(
                             new EditField("gender", "Gender", EditField.Type.SELECT,
-                                    currentMemberEsfDetails.getGender(), true, null,
+                                    currentMemberEsf.getGender(), true, null,
                                     List.of(MemberGender.values()), null, null),
                             new EditField("birthDate", "Geburtsdatum", EditField.Type.DATE,
-                                    currentMemberEsfDetails.getBirthDate(), true, null, null,
+                                    currentMemberEsf.getBirthDate(), true, null, null,
                                     LocalDate.of(1935, 1, 1), LocalDate.now()),
                             new EditField("birthCity", "Geburtsstadt", EditField.Type.TEXT,
-                                    currentMemberEsfDetails.getBirthCity(), true, 255, null,
+                                    currentMemberEsf.getBirthCity(), true, 255, null,
                                     null, null),
                             new EditField("birthCountry", "Geburtsland", EditField.Type.TEXT,
-                                    currentMemberEsfDetails.getBirthCountry(), true, 255, null,
+                                    currentMemberEsf.getBirthCountry(), true, 255, null,
                                     null, null),
                             new EditField("nationality", "Nationalität", EditField.Type.TEXT,
-                                    currentMemberEsfDetails.getNationality(), false, 255, null,
+                                    currentMemberEsf.getNationality(), false, 255, null,
                                     null, null),
                             new EditField("languages", "Sprachen", EditField.Type.TEXT,
-                                    currentMemberEsfDetails.getLanguages(), false, 255, null,
+                                    currentMemberEsf.getLanguages(), false, 255, null,
                                     null, null),
                             new EditField("livesWithFamily", "Lebt mit der Familie", EditField.Type.SELECT,
-                                    currentMemberEsfDetails.isLivesWithFamily(), true, null,
+                                    currentMemberEsf.isLivesWithFamily(), true, null,
                                     List.of("Ja", "Nein"), null, null)),
                     values -> {
-                        MemberEsfDetails updated = memberEsfDetailsService.getMember(currentMember, currentMemberEsfDetails.getId(),
+                        MemberEsf updated = memberEsfService.getMember(currentMember, currentMemberEsf.getId(),
                                 currentEmployee.getLogin());
 
                         if (values.get("gender") != null)
@@ -292,7 +291,7 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
 
                         VaadinRequest req = VaadinRequest.getCurrent();
 
-                        memberEsfDetailsService.updateMember(currentMember, currentMemberEsfDetails, updated,
+                        memberEsfService.updateMember(currentMember, currentMemberEsf, updated,
                                 currentEmployee.getLogin(), req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         getUI().ifPresent(ui -> ui.getPage().reload());
@@ -305,26 +304,26 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
         header.add(title);
 
         String genderText;
-        if (currentMemberEsfDetails.getGender().equals(MemberGender.MAENNLICH))
+        if (currentMemberEsf.getGender().equals(MemberGender.MAENNLICH))
             genderText = "männlich";
-        else if (currentMemberEsfDetails.getGender().equals(MemberGender.DIVERS))
+        else if (currentMemberEsf.getGender().equals(MemberGender.DIVERS))
             genderText = "divers";
         else
             genderText = "weiblich";
 
-        String birthDateText = currentMemberEsfDetails.getBirthDate() != null
-                ? currentMemberEsfDetails.getBirthDate().format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+        String birthDateText = currentMemberEsf.getBirthDate() != null
+                ? currentMemberEsf.getBirthDate().format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
                 : "nicht angegeben";
-        int age = (currentMemberEsfDetails.getBirthDate() != null)
-                ? Period.between(currentMemberEsfDetails.getBirthDate(), LocalDate.now()).getYears() : -1;
+        int age = (currentMemberEsf.getBirthDate() != null)
+                ? Period.between(currentMemberEsf.getBirthDate(), LocalDate.now()).getYears() : -1;
         block.add(header, getHLWithSpans("Gender: ", genderText),
                 getHLWithSpans("Alter: ", String.valueOf(age)),
                 getHLWithSpans("Geburtsdatum: ", birthDateText),
-                getHLWithSpans("Geburtsstadt: ", empty(currentMemberEsfDetails.getBirthCity())),
-                getHLWithSpans("Geburtsland: ", empty(currentMemberEsfDetails.getBirthCountry())),
-                getHLWithSpans("Nationalität/Staatsbürgerschaft: ", empty(currentMemberEsfDetails.getNationality())),
-                getHLWithSpans("Sprachen: ", empty(currentMemberEsfDetails.getLanguages())),
-                getHLWithSpans("lebt mit der Familie: ", (currentMemberEsfDetails.isLivesWithFamily() ? "Ja" : "Nein")));
+                getHLWithSpans("Geburtsstadt: ", empty(currentMemberEsf.getBirthCity())),
+                getHLWithSpans("Geburtsland: ", empty(currentMemberEsf.getBirthCountry())),
+                getHLWithSpans("Nationalität/Staatsbürgerschaft: ", empty(currentMemberEsf.getNationality())),
+                getHLWithSpans("Sprachen: ", empty(currentMemberEsf.getLanguages())),
+                getHLWithSpans("lebt mit der Familie: ", (currentMemberEsf.isLivesWithFamily() ? "Ja" : "Nein")));
         add(block);
     }
 
@@ -348,14 +347,14 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
             editButton.addClickListener(e -> EditDialogFactory.openEditDialog("Kontaktdaten ändern",
                             List.of(
                                     new EditField("phone", "Telefon", EditField.Type.TEXT,
-                                            currentMemberEsfDetails.getPhone(), false, 255, null,
+                                            currentMemberEsf.getPhone(), false, 255, null,
                                             null, null),
                                     new EditField("email", "E-Mail", EditField.Type.TEXT,
-                                            currentMemberEsfDetails.getEmail(), false, 255, null,
+                                            currentMemberEsf.getEmail(), false, 255, null,
                                             null, null)
                             ), values -> {
-                                MemberEsfDetails updated = memberEsfDetailsService.getMember(currentMember,
-                                        currentMemberEsfDetails.getId(), currentEmployee.getLogin());
+                                MemberEsf updated = memberEsfService.getMember(currentMember,
+                                        currentMemberEsf.getId(), currentEmployee.getLogin());
 
                                 if (values.get("phone") != null)
                                     updated.setPhone((String) values.get("phone"));
@@ -364,7 +363,7 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
 
                                 VaadinRequest req = VaadinRequest.getCurrent();
 
-                                memberEsfDetailsService.updateMember(currentMember, currentMemberEsfDetails, updated,
+                                memberEsfService.updateMember(currentMember, currentMemberEsf, updated,
                                         currentEmployee.getLogin(), req != null ? req.getRemoteAddr() : "UNKNOWN",
                                         req != null ? req.getHeader("User-Agent") : "UNKNOWN");
 
@@ -379,8 +378,8 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
         title.getStyle().set("font-weight", "bold");
         header.add(title);
 
-        block.add(header, getHLWithSpans("Telefon: ", empty(currentMemberEsfDetails.getPhone())),
-                getHLWithSpans("E-Mail: ", empty(currentMemberEsfDetails.getEmail())));
+        block.add(header, getHLWithSpans("Telefon: ", empty(currentMemberEsf.getPhone())),
+                getHLWithSpans("E-Mail: ", empty(currentMemberEsf.getEmail())));
         add(block);
     }
 
@@ -405,20 +404,20 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
             editButton.addClickListener(e ->
                     EditDialogFactory.openEditDialog("Beruf und Bildung ändern", List.of(
                                     new EditField("income", "Einkommen", EditField.Type.TEXT,
-                                            currentMemberEsfDetails.getIncome(), false, 255, null,
+                                            currentMemberEsf.getIncome(), false, 255, null,
                                             null, null),
                                     new EditField("workInfo", "Berufliche Tätigkeit / Erfahrung",
-                                            EditField.Type.TEXTAREA, currentMemberEsfDetails.getWorkInfo(),
+                                            EditField.Type.TEXTAREA, currentMemberEsf.getWorkInfo(),
                                             false, 4000, null, null, null),
                                     new EditField("educationDegree", "Bildungsabschluss",
-                                            EditField.Type.TEXT, currentMemberEsfDetails.getEducationDegree(),
+                                            EditField.Type.TEXT, currentMemberEsf.getEducationDegree(),
                                             false, 255, null, null, null),
                                     new EditField("educationInfo", "Ausbildung / Studium",
-                                            EditField.Type.TEXTAREA, currentMemberEsfDetails.getEducationInfo(),
+                                            EditField.Type.TEXTAREA, currentMemberEsf.getEducationInfo(),
                                             false, 4000, null, null, null)
                             ), values -> {
-                                MemberEsfDetails updated = memberEsfDetailsService.getMember(currentMember,
-                                        currentMemberEsfDetails.getId(), currentEmployee.getLogin());
+                                MemberEsf updated = memberEsfService.getMember(currentMember,
+                                        currentMemberEsf.getId(), currentEmployee.getLogin());
 
                                 if (values.get("income") != null)
                                     updated.setIncome((String) values.get("income"));
@@ -431,7 +430,7 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
 
                                 VaadinRequest req = VaadinRequest.getCurrent();
 
-                                memberEsfDetailsService.updateMember(currentMember, currentMemberEsfDetails, updated,
+                                memberEsfService.updateMember(currentMember, currentMemberEsf, updated,
                                         currentEmployee.getLogin(), req != null ? req.getRemoteAddr() : "UNKNOWN",
                                         req != null ? req.getHeader("User-Agent") : "UNKNOWN");
 
@@ -452,14 +451,14 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
         workLayout.setWidthFull();
 
         TextArea workText = new TextArea("Berufliche Tätigkeit / Erfahrung: ");
-        workText.setValue(empty(currentMemberEsfDetails.getWorkInfo()));
+        workText.setValue(empty(currentMemberEsf.getWorkInfo()));
         workText.setReadOnly(true);
         workText.setMaxLength(4000);
         workText.setWidthFull();
         workText.setHeight("200px");
         workText.getStyle().set("white-space", "pre-wrap");
 
-        workLayout.add(getHLWithSpans("Einkommen: ", empty(currentMemberEsfDetails.getIncome())), workText);
+        workLayout.add(getHLWithSpans("Einkommen: ", empty(currentMemberEsf.getIncome())), workText);
 
         VerticalLayout eduLayout = new VerticalLayout();
         eduLayout.setSpacing(false);
@@ -467,7 +466,7 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
         eduLayout.setWidthFull();
 
         TextArea educationText = new TextArea("Ausbildung / Studium: ");
-        educationText.setValue(empty(currentMemberEsfDetails.getEducationInfo()));
+        educationText.setValue(empty(currentMemberEsf.getEducationInfo()));
         educationText.setReadOnly(true);
         educationText.setMaxLength(4000);
         educationText.setWidthFull();
@@ -475,7 +474,7 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
         educationText.getStyle().set("white-space", "pre-wrap");
 
         eduLayout.add(getHLWithSpans("Bildungsabschluss: ",
-                empty(currentMemberEsfDetails.getEducationDegree())), educationText);
+                empty(currentMemberEsf.getEducationDegree())), educationText);
 
         block.add(header, workLayout, eduLayout);
         add(block);
@@ -502,11 +501,11 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
             editButton.addClickListener(e -> EditDialogFactory.openEditDialog("Notizen",
                             List.of(
                                     new EditField("notes", "Notizen", EditField.Type.TEXTAREA,
-                                            currentMemberEsfDetails.getNotes(), false, 1000, null,
+                                            currentMemberEsf.getNotes(), false, 1000, null,
                                             null, null)
                             ), values -> {
-                                MemberEsfDetails updated = memberEsfDetailsService.getMember(currentMember,
-                                        currentMemberEsfDetails.getId(), currentEmployee.getLogin());
+                                MemberEsf updated = memberEsfService.getMember(currentMember,
+                                        currentMemberEsf.getId(), currentEmployee.getLogin());
 
                                 if (values.get("notes") != null)
                                     updated.setNotes((String) values.get("notes"));
@@ -514,7 +513,7 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
 
                                 VaadinRequest req = VaadinRequest.getCurrent();
 
-                                memberEsfDetailsService.updateMember(currentMember, currentMemberEsfDetails, updated,
+                                memberEsfService.updateMember(currentMember, currentMemberEsf, updated,
                                         currentEmployee.getLogin(), req != null ? req.getRemoteAddr() : "UNKNOWN",
                                         req != null ? req.getHeader("User-Agent") : "UNKNOWN");
 
@@ -532,7 +531,7 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
         TextArea notes = new TextArea();
         notes.setReadOnly(true);
         notes.setMaxLength(1000);
-        notes.setValue(empty(currentMemberEsfDetails.getNotes()));
+        notes.setValue(empty(currentMemberEsf.getNotes()));
         notes.setHeight("200px");
         notes.setWidthFull();
         notes.getStyle().set("white-space", "pre-wrap").set("margin-bottom", "0");
@@ -555,23 +554,23 @@ public class MemberEsfDetailsView extends VerticalLayout implements BeforeEnterO
 
         DateTimeFormatter df = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
-        if (currentMemberEsfDetails.getCreatedAt() != null) {
-            block.add(makeAuditLine("Erstellt am " + currentMemberEsfDetails.getCreatedAt().format(df) + " von " +
-                    empty(currentMemberEsfDetails.getCreatedBy())));
+        if (currentMemberEsf.getCreatedAt() != null) {
+            block.add(makeAuditLine("Erstellt am " + currentMemberEsf.getCreatedAt().format(df) + " von " +
+                    empty(currentMemberEsf.getCreatedBy())));
         }
-        if (currentMemberEsfDetails.getUpdatedAt() != null) {
-            block.add(makeAuditLine("Geändert am " + currentMemberEsfDetails.getUpdatedAt().format(df) + " von " +
-                    empty(currentMemberEsfDetails.getUpdatedBy())));
+        if (currentMemberEsf.getUpdatedAt() != null) {
+            block.add(makeAuditLine("Geändert am " + currentMemberEsf.getUpdatedAt().format(df) + " von " +
+                    empty(currentMemberEsf.getUpdatedBy())));
         }
-        if (currentMemberEsfDetails.getInvalidAt() != null) {
-            block.add(makeAuditLine("Gelöscht am " + currentMemberEsfDetails.getInvalidAt().format(df) + " von " +
-                    empty(currentMemberEsfDetails.getInvalidBy())));
+        if (currentMemberEsf.getInvalidAt() != null) {
+            block.add(makeAuditLine("Gelöscht am " + currentMemberEsf.getInvalidAt().format(df) + " von " +
+                    empty(currentMemberEsf.getInvalidBy())));
         }
-        if (currentMemberEsfDetails.getRestoredAt() != null) {
-            block.add(makeAuditLine("Wiederherstellt am " + currentMemberEsfDetails.getRestoredAt().format(df) +
-                    " von " + empty(currentMemberEsfDetails.getRestoredBy())));
-            if (currentMemberEsfDetails.getRestoredReason() != null) {
-                block.add(makeAuditLine("Grund: " + currentMemberEsfDetails.getRestoredReason()));
+        if (currentMemberEsf.getRestoredAt() != null) {
+            block.add(makeAuditLine("Wiederherstellt am " + currentMemberEsf.getRestoredAt().format(df) +
+                    " von " + empty(currentMemberEsf.getRestoredBy())));
+            if (currentMemberEsf.getRestoredReason() != null) {
+                block.add(makeAuditLine("Grund: " + currentMemberEsf.getRestoredReason()));
             }
         }
         add(block);

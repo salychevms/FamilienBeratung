@@ -21,8 +21,8 @@ public class Delegation {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name="family_id", nullable = false)
-    private Family family;
+    @JoinColumn(name="member_id", nullable = false)
+    private Member member;
 
     @ManyToOne
     @JoinColumn(name="from_employee_id", nullable = false)

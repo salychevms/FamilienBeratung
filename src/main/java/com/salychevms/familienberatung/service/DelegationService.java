@@ -2,7 +2,7 @@ package com.salychevms.familienberatung.service;
 
 import com.salychevms.familienberatung.model.Delegation;
 import com.salychevms.familienberatung.model.Employee;
-import com.salychevms.familienberatung.model.Family;
+import com.salychevms.familienberatung.model.Member;
 import com.salychevms.familienberatung.model.RecordStatus;
 import com.salychevms.familienberatung.repository.DelegationRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,30 +30,30 @@ public class DelegationService {
             log.error("Employee {} does not have access to create delegation", login);
             throw new RuntimeException("Employee " + login + " does not have access to create delegation");
         }
-        if (!created.getFamily().getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Family status is not ACTIVE. Family status is {}", created.getFamily().getStatus());
-            throw new RuntimeException("Family status is not ACTIVE. Family status is: " + created.getFamily().getStatus());
+        if (!created.getMember().getStatus().equals(RecordStatus.ACTIVE)) {
+            log.error("Member status is not ACTIVE. Member status is {}", created.getMember().getStatus());
+            throw new RuntimeException("Member status is not ACTIVE. Member status is: " + created.getMember().getStatus());
         }
         Employee employee = employeeService.findByLogin(created.getToEmployee().getLogin());
         List<Delegation> delegationList = getDelegationsByToEmployeeAndFamily(
-                employee, created.getFamily());
+                employee, created.getMember());
         if (!delegationList.isEmpty()) {
             for (Delegation d : delegationList) {
                 if (isDelegationActive(d)) {
-                    log.error("Family {} already delegated to {}, delegation ends: {}",
-                            created.getFamily().getId(), d.getToEmployee().getLogin(), d.getEndDate());
-                    throw new RuntimeException("Family " + created.getFamily().getId() +
+                    log.error("Member {} already delegated to {}, delegation ends: {}",
+                            created.getMember().getId(), d.getToEmployee().getLogin(), d.getEndDate());
+                    throw new RuntimeException("Member " + created.getMember().getId() +
                             " already delegated to " + d.getToEmployee().getLogin() +
                             ", delegation ends: " + d.getEndDate());
                 }
             }
         }
-        if (!created.getFamily().getAssignedEmployee().getId().equals(created.getFromEmployee().getId())) {
+        if (!created.getMember().getAssignedEmployee().getId().equals(created.getFromEmployee().getId())) {
             log.error("Employee FROM and assigned Employee are not the same. " +
                             "FROM Employee: {}, Assigned Employee: {}",
-                    created.getFromEmployee().getLogin(), created.getFamily().getAssignedEmployee().getLogin());
+                    created.getFromEmployee().getLogin(), created.getMember().getAssignedEmployee().getLogin());
             throw new RuntimeException("Employee FROM and assignedEmployee are not the same. FROM Employee: " +
-                    created.getFromEmployee().getLogin() + ", Assigned Employee: " + created.getFamily().getAssignedEmployee().getLogin());
+                    created.getFromEmployee().getLogin() + ", Assigned Employee: " + created.getMember().getAssignedEmployee().getLogin());
         }
         if (created.getToEmployee().getId().equals(created.getFromEmployee().getId())) {
             log.error("Employee FROM and Employee TO must be different");
@@ -75,7 +75,7 @@ public class DelegationService {
         validator.validateText(created.getReason(), 2000);
 
         Delegation saved = new Delegation();
-        saved.setFamily(created.getFamily());
+        saved.setMember(created.getMember());
         saved.setFromEmployee(created.getFromEmployee());
         saved.setToEmployee(created.getToEmployee());
         saved.setReason(created.getReason());
@@ -164,8 +164,8 @@ public class DelegationService {
         log.info("Delegation {} manually aborted by {}", delegation.getId(), login);
     }
 
-    public List<Delegation> getDelegationsByToEmployeeAndFamily(Employee employee, Family family) {
-        return new ArrayList<>(delegationRepository.findDelegationsByToEmployeeAndFamily(employee, family)
+    public List<Delegation> getDelegationsByToEmployeeAndFamily(Employee employee, Member member) {
+        return new ArrayList<>(delegationRepository.findDelegationsByToEmployeeAndMember(employee, member)
                 .stream().filter(this::isDelegationActive).toList());
     }
 
@@ -215,7 +215,7 @@ public class DelegationService {
     }
 
     //all
-    public List<Family> getDelegatedFamilies(String login) {
+    public List<Member> getDelegatedFamilies(String login) {
         validator.validateText(login, 255);
 
         Employee requester = employeeService.findByLogin(login);
@@ -224,14 +224,14 @@ public class DelegationService {
             return List.of();
         }
 
-        List<Family> response = new ArrayList<>();
+        List<Member> response = new ArrayList<>();
         int lvl = requester.getRole().getAccessLevel();
         //admin and lead and readonly
         if (lvl == 100 || lvl == 80 || lvl == 10) {
             List<Delegation> delegations = getDelegations();
             for (Delegation delegation : delegations) {
                 if (delegation.getEndDate().isAfter(LocalDate.now()) && !delegation.isExpired())
-                    response.add(delegation.getFamily());
+                    response.add(delegation.getMember());
             }
         }
 
@@ -241,7 +241,7 @@ public class DelegationService {
 
             for (Delegation delegation : delegations) {
                 if (delegation.getEndDate().isAfter(LocalDate.now()) && !delegation.isExpired()) {
-                    response.add(delegation.getFamily());
+                    response.add(delegation.getMember());
                 }
             }
         }
@@ -284,22 +284,22 @@ public class DelegationService {
         return !end.isBefore(LocalDate.now());
     }
 
-    public boolean hasActiveDelegationTo(Family family, Employee employee) {
+    public boolean hasActiveDelegationTo(Member member, Employee employee) {
         LocalDate today = LocalDate.now();
         return delegationRepository
-                .existsByFamilyAndToEmployeeAndExpiredFalseAndAbortedManuallyFalseAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
-                        family, employee, today, today);
+                .existsByMemberAndToEmployeeAndExpiredFalseAndAbortedManuallyFalseAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+                        member, employee, today, today);
     }
 
-    public boolean hasActiveDelegation(Family family) {
-        return delegationRepository.existsByFamilyAndExpiredFalseAndAbortedManuallyFalseAndEndDateGreaterThanEqual(
-                family, LocalDate.now());
+    public boolean hasActiveDelegation(Member member) {
+        return delegationRepository.existsByMemberAndExpiredFalseAndAbortedManuallyFalseAndEndDateGreaterThanEqual(
+                member, LocalDate.now());
     }
 
-    public Delegation getActiveDelegationForFamily(Family family) {
-        if (family == null)
+    public Delegation getActiveDelegationForFamily(Member member) {
+        if (member == null)
             return null;
-        return delegationRepository.findFirstByFamilyAndExpiredFalseAndAbortedManuallyFalseAndEndDateGreaterThanEqual(
-                family, LocalDate.now()).orElse(null);
+        return delegationRepository.findFirstByMemberAndExpiredFalseAndAbortedManuallyFalseAndEndDateGreaterThanEqual(
+                member, LocalDate.now()).orElse(null);
     }
 }

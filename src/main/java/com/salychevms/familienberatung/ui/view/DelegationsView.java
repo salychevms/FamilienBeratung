@@ -2,12 +2,12 @@ package com.salychevms.familienberatung.ui.view;
 
 import com.salychevms.familienberatung.model.Delegation;
 import com.salychevms.familienberatung.model.Employee;
-import com.salychevms.familienberatung.model.Family;
+import com.salychevms.familienberatung.model.Member;
 import com.salychevms.familienberatung.model.RecordStatus;
 import com.salychevms.familienberatung.service.AuthService;
 import com.salychevms.familienberatung.service.DelegationService;
 import com.salychevms.familienberatung.service.EmployeeService;
-import com.salychevms.familienberatung.service.FamilyService;
+import com.salychevms.familienberatung.service.MemberService;
 import com.salychevms.familienberatung.ui.dialog.EditDialogFactory;
 import com.salychevms.familienberatung.ui.dialog.EditField;
 import com.salychevms.familienberatung.ui.layout.MainLayout;
@@ -46,7 +46,7 @@ import java.util.List;
 public class DelegationsView extends VerticalLayout implements BeforeEnterObserver {
     private final DelegationService delegationService;
     private final EmployeeService employeeService;
-    private final FamilyService familyService;
+    private final MemberService memberService;
     private final AuthService authService;
 
     private Employee currentEmployee;
@@ -60,21 +60,21 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
     private boolean filterVisible = false;
     private List<Employee> currentToEmployees = new ArrayList<>();
     private List<Employee> currentFromEmployees = new ArrayList<>();
-    private List<Family> currentFamilies = new ArrayList<>();
-    private List<Family> currentDelegatedFamilies = new ArrayList<>();
+    private List<Member> currentFamilies = new ArrayList<>();
+    private List<Member> currentDelegatedFamilies = new ArrayList<>();
     private List<Employee> currentConsultants = new ArrayList<>();
     private ComboBox<Employee> toEmployeeFilter;
     private ComboBox<Employee> fromEmployeeFilter;
-    private ComboBox<Family> familyFilter;
+    private ComboBox<Member> familyFilter;
     private ComboBox<String> isActiveFilter;
     private LocalDate fromDateFilter;
     private LocalDate toDateFilter;
     private Button addDelegationButton;
     private Employee selectedToEmployee;
-    private Family selectedFamily;
+    private Member selectedMember;
     private Employee selectedFromEmployee;
     private Grid<Delegation> delegationGrid;
-    private Family currentFamily;
+    private Member currentMember;
     private DatePicker fromDate;
     private DatePicker toDate;
 
@@ -101,8 +101,8 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
 
         Long optFamId = event.getRouteParameters().getLong("familyId").orElse(null);
         if (optFamId != null) {
-            this.currentFamily=familyService.getFamilyById(optFamId);
-        }else this.currentFamily=null;
+            this.currentMember = memberService.getMemberById(optFamId);
+        }else this.currentMember =null;
 
         currentToEmployees.clear();
         currentFromEmployees.clear();
@@ -118,7 +118,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
                 return a.getEndDate().compareTo(b.getEndDate());
             }).toList();
             this.currentActiveDelegations = delegationService.getAllActiveDelegations();
-            this.currentFamilies = new ArrayList<>(familyService.getFamilies().stream()
+            this.currentFamilies = new ArrayList<>(memberService.getMembers().stream()
                     .filter(f -> f.getStatus().equals(RecordStatus.ACTIVE) && !f.isCaseClosed()
                             && !delegationService.hasActiveDelegation(f)).toList());
             this.currentConsultants = new ArrayList<>(employeeService.findAll().stream()
@@ -135,7 +135,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
                         return a.getEndDate().compareTo(b.getEndDate());
                     }).toList();
             this.currentActiveDelegations = delegationService.getAllActiveDelegationsByToEmployee(currentEmployee);
-            this.currentFamilies = new ArrayList<>(familyService.getFamiliesByAssignedEmployee(
+            this.currentFamilies = new ArrayList<>(memberService.getMembersByAssignedEmployee(
                             currentEmployee.getLogin(), currentEmployee).stream()
                     .filter(f -> f.getStatus().equals(RecordStatus.ACTIVE) && !f.isCaseClosed()
                             && !delegationService.hasActiveDelegation(f)).toList());
@@ -151,9 +151,9 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
             if (d.getFromEmployee().isActive() && !d.getFromEmployee().isArchived()
                     && !currentFromEmployees.contains(d.getFromEmployee()))
                 this.currentFromEmployees.add(d.getFromEmployee());
-            if (d.getFamily().getStatus().equals(RecordStatus.ACTIVE) && !d.getFamily().isCaseClosed()
-                    && !currentDelegatedFamilies.contains(d.getFamily()))
-                this.currentDelegatedFamilies.add(d.getFamily());
+            if (d.getMember().getStatus().equals(RecordStatus.ACTIVE) && !d.getMember().isCaseClosed()
+                    && !currentDelegatedFamilies.contains(d.getMember()))
+                this.currentDelegatedFamilies.add(d.getMember());
         }
 
         removeAll();
@@ -179,10 +179,10 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         RouterLink overview = new RouterLink("Übersicht", OverviewView.class);
         breadCrumbs.add(overview);
 
-        if (currentFamily != null) {
-            RouterLink fams=new RouterLink("Familien", FamiliesView.class);
-            RouterLink fam = new RouterLink("Familie: "+currentFamily.getFamilyName(),
-                    FamilyDetailsView.class, new RouteParameters("id", currentFamily.getId().toString()));
+        if (currentMember != null) {
+            RouterLink fams=new RouterLink("Familien", MembersView.class);
+            RouterLink fam = new RouterLink("Familie: "+ currentMember.getLastName(),
+                    MemberView.class, new RouteParameters("id", currentMember.getId().toString()));
             Span sp2 = new Span(" >> ");
             sp2.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
             Span sp3 = new Span(" >> ");
@@ -310,7 +310,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
 
         familyFilter = new ComboBox<>();
         familyFilter.setItems(currentFamilies);
-        familyFilter.setItemLabelGenerator(Family::getFamilyName);
+        familyFilter.setItemLabelGenerator(Member::getLastName);
         familyFilter.setClearButtonVisible(true);
         familyFilter.addValueChangeListener(e -> refreshGrid());
 
@@ -390,9 +390,9 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
             H2 title = new H2("Neue Delegation");
             dlgLayout.add(title);
 
-            ComboBox<Family> familyComboBox = new ComboBox<>("Familie auswählen (*)");
+            ComboBox<Member> familyComboBox = new ComboBox<>("Familie auswählen (*)");
             familyComboBox.setItems(currentFamilies);
-            familyComboBox.setItemLabelGenerator(Family::getFamilyName);
+            familyComboBox.setItemLabelGenerator(Member::getLastName);
             familyComboBox.setClearButtonVisible(true);
             familyComboBox.setPlaceholder("Bitte Familie wählen...");
             dlgLayout.add(familyComboBox);
@@ -405,15 +405,15 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
             ComboBox<Employee> toEmpComboBox = new ComboBox<>("An wem delegieren (*)");
             toEmpComboBox.setPlaceholder("Bitte Berater*in wählen...");
             familyComboBox.addValueChangeListener(ev -> {
-                selectedFamily = ev.getValue();
+                selectedMember = ev.getValue();
                 filteredConsultants.clear();
-                if (selectedFamily == null) {
+                if (selectedMember == null) {
                     consultant.setText("Familie noch nicht ausgewählt!");
                     consultant.getStyle().set("color", "red").set("font-weight", "bold");
                     selectedFromEmployee = null;
                     return;
                 }
-                selectedFromEmployee = selectedFamily.getAssignedEmployee();
+                selectedFromEmployee = selectedMember.getAssignedEmployee();
                 consultant.setText("Berater*in: " + selectedFromEmployee.getFirstName() + " "
                         + selectedFromEmployee.getLastName());
                 consultant.getStyle().set("font-weight", "bold").set("color", "black");
@@ -465,13 +465,13 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
                 LocalDate endDate = endDatePicker.getValue();
                 if (endDate == null || startDate == null || endDate.isBefore(startDate) || endDate.isBefore(now)
                         || startDate.isBefore(now) || reasonText.getStyle() == null || reasonText.getValue().length() < 5
-                        || reasonText.getValue().isBlank() || toEmpComboBox.getValue() == null || selectedFamily == null) {
+                        || reasonText.getValue().isBlank() || toEmpComboBox.getValue() == null || selectedMember == null) {
                     showOkDialog("Fehler", "Alle Felder mit Zeichen (*) müssen ausgefüllt werden!");
 
                 } else {
                     VaadinRequest req = VaadinRequest.getCurrent();
                     Delegation create = new Delegation();
-                    create.setFamily(selectedFamily);
+                    create.setMember(selectedMember);
                     create.setFromEmployee(selectedFromEmployee);
                     create.setToEmployee(toEmpComboBox.getValue());
                     create.setReason(reasonText.getValue());
@@ -511,9 +511,9 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         delegationGrid.addColumn(Delegation::getId)
                 .setHeader("ID").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(Delegation::getId);
-        delegationGrid.addColumn(d -> d.getFamily().getFamilyName())
+        delegationGrid.addColumn(d -> d.getMember().getLastName())
                 .setHeader("Familie").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(d -> d.getFamily().getFamilyName());
+                .setComparator(d -> d.getMember().getLastName());
         delegationGrid.addColumn(d -> d.getFromEmployee().getFirstName() + " "
                         + d.getFromEmployee().getLastName())
                 .setHeader("Familie gehört").setAutoWidth(true).setFlexGrow(0)
@@ -611,7 +611,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
                     }));
 
             boolean active = delegationService.isDelegationActive(d);
-            boolean familyOk = d.getFamily().getStatus().equals(RecordStatus.ACTIVE) && !d.getFamily().isCaseClosed();
+            boolean familyOk = d.getMember().getStatus().equals(RecordStatus.ACTIVE) && !d.getMember().isCaseClosed();
             boolean canEditAndAbort = active && familyOk && (lvl != 10);
 
             editButton.setVisible(canEditAndAbort);
@@ -629,7 +629,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         String q = searchField != null ? searchField.getValue() : null;
         Employee toEmp = toEmployeeFilter != null ? toEmployeeFilter.getValue() : null;
         Employee fromEmp = fromEmployeeFilter != null ? fromEmployeeFilter.getValue() : null;
-        Family fam = familyFilter != null ? familyFilter.getValue() : null;
+        Member fam = familyFilter != null ? familyFilter.getValue() : null;
         String active = isActiveFilter != null ? isActiveFilter.getValue() : null;
 
         List<Delegation> result = new ArrayList<>();
@@ -638,14 +638,14 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
             if (d == null) continue;
             if (toEmp != null && !d.getToEmployee().equals(toEmp)) continue;
             if (fromEmp != null && !d.getFromEmployee().equals(fromEmp)) continue;
-            if (fam != null && !d.getFamily().equals(fam)) continue;
+            if (fam != null && !d.getMember().equals(fam)) continue;
             if ("Aktiv".equals(active) && d.isExpired()) continue;
             if ("Abgelaufen".equals(active) && !d.isExpired()) continue;
             if (fromDateFilter != null && d.getStartDate().isBefore(fromDateFilter)) continue;
             if (toDateFilter != null && d.getEndDate().isAfter(toDateFilter)) continue;
             if (q != null && !q.isBlank()) {
                 String qq = q.toLowerCase().trim();
-                boolean match = d.getFamily().getFamilyName().toLowerCase().contains(qq)
+                boolean match = d.getMember().getLastName().toLowerCase().contains(qq)
                         || d.getFromEmployee().getFirstName().toLowerCase().contains(qq)
                         || d.getFromEmployee().getLastName().toLowerCase().contains(qq)
                         || d.getToEmployee().getFirstName().toLowerCase().contains(qq)
@@ -671,7 +671,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         content.setSpacing(true);
         content.setMaxWidth("400px");
 
-        content.add(new Span("Familie: " + d.getFamily().getFamilyName()),
+        content.add(new Span("Familie: " + d.getMember().getLastName()),
                 new Span("Delegiert von: " + d.getFromEmployee().getFirstName() + " "
                         + d.getFromEmployee().getLastName()),
                 new Span("Delegiert an: " + d.getToEmployee().getFirstName() + " "

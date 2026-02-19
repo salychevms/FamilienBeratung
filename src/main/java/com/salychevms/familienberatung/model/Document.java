@@ -8,11 +8,11 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name="family_document")
+@Table(name="document")
 @Getter
 @Setter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class FamilyDocument {
+public class Document {
 
     @Id
     @GeneratedValue(strategy= GenerationType.IDENTITY)
@@ -20,8 +20,8 @@ public class FamilyDocument {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name="family_id", nullable = false)
-    private Family family;
+    @JoinColumn(name="member_id", nullable = false)
+    private Member member;
     @Column(nullable=false)
     private String originalFileName;
     @Column(nullable=false)
@@ -55,5 +55,5 @@ public class FamilyDocument {
     @Column
     private String restoredReason;
 
-    public FamilyDocument() {}
+    public Document() {}
 }

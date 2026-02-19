@@ -7,13 +7,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
-public interface FamilyRepository extends JpaRepository<Member, Long> {
+public interface MemberRepository extends JpaRepository<Member, Long> {
 
     List<Member> findAllByAssignedEmployee(Employee assignedEmployee);
 
     Member findByZeusIdContaining(String zeusId);
 
-    Optional<Member> findByFamilyName(String familyName);
+    Optional<Member> findByLastName(String lastName);
+
+    Optional<Member> findByFirstName(String firstName);
 
     Optional<Member> getByAssignedEmployeeAndId(Employee employee, Long id);
 }

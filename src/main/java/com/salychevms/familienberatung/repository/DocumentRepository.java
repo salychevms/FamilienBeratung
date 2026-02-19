@@ -5,8 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface FamilyDocumentRepository extends JpaRepository<Document, Long> {
-    List<Document> findByFamilyId(Long familyId);
+public interface DocumentRepository extends JpaRepository<Document, Long> {
+    List<Document> findByMemberId(Long memberId);
 
-    List<Document> findAllByFamilyIdAndIsInvalidFalse(Long familyId);
+    List<Document> findAllByMemberIdAndIsInvalidFalse(Long memberId);
 }

@@ -40,7 +40,7 @@ import java.util.List;
 @PermitAll
 public class ConsultationsView extends VerticalLayout implements BeforeEnterObserver {
     private final AuthService authService;
-    private final FamilyService familyService;
+    private final MemberService memberService;
     private final EmployeeService employeeService;
     private final ConsultationService consultationService;
     private final DelegationService delegationService;
@@ -57,11 +57,11 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
     private boolean filterVisible = false;
     private Button filterToggleButton;
     private TextField searchField;
-    ComboBox<Family> familyFilter;
+    ComboBox<Member> familyFilter;
     ComboBox<Employee> employeeFilter;
     private Grid<Consultation> consultationGrid;
-    private Family selectedFamily;
-    private List<Family> currentFamilies = new ArrayList<>();
+    private Member selectedMember;
+    private List<Member> currentFamilies = new ArrayList<>();
     private DatePicker fromDate;
     private DatePicker toDate;
 
@@ -80,21 +80,21 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
 
         if (familyId == null) {
             List<Delegation> delegations;
-            List<Family> families;
+            List<Member> families;
 
             if (lvl == 50) {
-                families = new ArrayList<>(familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(),
+                families = new ArrayList<>(memberService.getMembersByAssignedEmployee(currentEmployee.getLogin(),
                         currentEmployee).stream().filter(f ->
                         !f.getStatus().equals(RecordStatus.INVALID)).toList());
                 delegations = new ArrayList<>(delegationService.getDelegationsByToEmployee(currentEmployee).stream()
                         .filter(delegationService::isDelegationActive)
                         .filter(d -> d.getToEmployee().equals(currentEmployee)).toList());
                 for (Delegation dlg : delegations)
-                    if (!dlg.getFamily().getStatus().equals(RecordStatus.INVALID))
-                        families.add(dlg.getFamily());
+                    if (!dlg.getMember().getStatus().equals(RecordStatus.INVALID))
+                        families.add(dlg.getMember());
                 currentFamilies = families;
             } else {
-                families = new ArrayList<>(familyService.getFamilies().stream()
+                families = new ArrayList<>(memberService.getMembers().stream()
                         .filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList());
                 currentFamilies = families;
             }
@@ -104,7 +104,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         if (lvl == 50)
             this.currentDelegations = new ArrayList<>(delegationService.getDelegationsByToEmployee(currentEmployee).stream()
                     .filter(delegationService::isDelegationActive)
-                    .filter(d -> d.getFamily().getStatus().equals(RecordStatus.ACTIVE)).toList());
+                    .filter(d -> d.getMember().getStatus().equals(RecordStatus.ACTIVE)).toList());
         else
             this.currentDelegations = new ArrayList<>(delegationService.getDelegations());
 
@@ -113,8 +113,8 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
             List<Consultation> cList = consultationService.getAll();
             for (Consultation c : cList) {
                 if ((c.getEmployee().equals(currentEmployee) ||
-                        c.getFamily().getAssignedEmployee().equals(currentEmployee)) &&
-                        (!c.isInvalid() && !c.getFamily().getStatus().equals(RecordStatus.INVALID)))
+                        c.getMember().getAssignedEmployee().equals(currentEmployee)) &&
+                        (!c.isInvalid() && !c.getMember().getStatus().equals(RecordStatus.INVALID)))
                     this.currentConsultations.add(c);
             }
         } else this.currentConsultations = new ArrayList<>(consultationService.getAll().stream()
@@ -157,13 +157,13 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         bcrumbs.add(root, separator);
 
         if (familyId != null) {
-            RouterLink families = new RouterLink("Familien", FamiliesView.class);
+            RouterLink families = new RouterLink("Familien", MembersView.class);
 
             Span separator1 = new Span(" >> ");
             separator1.getStyle().set("font-size", "var(--lumo-font-size-s)")
                     .set("color", "var(--lumo-secondary-text-color)");
-            Family f = familyService.getFamilyById(familyId);
-            RouterLink family = new RouterLink("Familie: " + f.getFamilyName(), FamilyDetailsView.class,
+            Member f = memberService.getMemberById(familyId);
+            RouterLink family = new RouterLink("Familie: " + f.getLastName(), MemberView.class,
                     new RouteParameters("id", familyId.toString()));
 
             Span separator2 = new Span(" >> ");
@@ -194,8 +194,8 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
 
         String text = "Beratungen: ";
         if (familyId != null) {
-            Family f = familyService.getFamilyById(familyId);
-            text += f.getFamilyName();
+            Member f = memberService.getMemberById(familyId);
+            text += f.getLastName();
         } else
             text += "alle";
 
@@ -306,7 +306,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
 
             familyFilter = new ComboBox<>();
             familyFilter.setItems(currentFamilies);
-            familyFilter.setItemLabelGenerator(Family::getFamilyName);
+            familyFilter.setItemLabelGenerator(Member::getLastName);
             familyFilter.setClearButtonVisible(true);
             familyFilter.addValueChangeListener(f -> refreshGrid());
 
@@ -361,15 +361,15 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         consultationGrid.addColumn(Consultation::getId)
                 .setHeader("ID").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(Consultation::getId);
-        consultationGrid.addColumn(c -> c.getFamily().getFamilyName())
+        consultationGrid.addColumn(c -> c.getMember().getLastName())
                 .setHeader("Familie").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(c -> c.getFamily().getFamilyName());
+                .setComparator(c -> c.getMember().getLastName());
         consultationGrid.addColumn(c ->
-                        c.getFamily().getAssignedEmployee().getFirstName() + " " +
-                                c.getFamily().getAssignedEmployee().getLastName())
+                        c.getMember().getAssignedEmployee().getFirstName() + " " +
+                                c.getMember().getAssignedEmployee().getLastName())
                 .setHeader("Berater*in").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(c -> c.getFamily().getAssignedEmployee().getFirstName() + " " +
-                        c.getFamily().getAssignedEmployee().getLastName());
+                .setComparator(c -> c.getMember().getAssignedEmployee().getFirstName() + " " +
+                        c.getMember().getAssignedEmployee().getLastName());
         consultationGrid.addColumn(c -> c.getEmployee().getFirstName() + " " + c.getEmployee().getLastName())
                 .setHeader("Durchgeführt von").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(c -> c.getEmployee().getFirstName() + " " + c.getEmployee().getLastName());
@@ -379,9 +379,9 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         consultationGrid.addColumn(c -> formatDuration(c.getDurationMinutes()))
                 .setHeader("Dauer St.").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(c -> formatDuration(c.getDurationMinutes()));
-        consultationGrid.addColumn(c -> delegationService.hasActiveDelegation(c.getFamily()) ? "Ja" : "Nein")
+        consultationGrid.addColumn(c -> delegationService.hasActiveDelegation(c.getMember()) ? "Ja" : "Nein")
                 .setHeader("Delegiert").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(c -> delegationService.hasActiveDelegation(c.getFamily()) ? "Ja" : "Nein");
+                .setComparator(c -> delegationService.hasActiveDelegation(c.getMember()) ? "Ja" : "Nein");
         consultationGrid.addItemClickListener(e -> {
             Consultation c = e.getItem();
             UI.getCurrent().navigate(ConsultationDetailsView.class,
@@ -396,11 +396,11 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
 
         String query = searchField != null ? searchField.getValue() : null;
         Employee emp = employeeFilter != null ? employeeFilter.getValue() : null;
-        Family fam = familyFilter != null ? familyFilter.getValue() : null;
+        Member fam = familyFilter != null ? familyFilter.getValue() : null;
 
         for (Consultation c : currentConsultations) {
-            if (familyId != null && !c.getFamily().getId().equals(familyId)) continue;
-            if (familyId == null && fam != null && !c.getFamily().equals(fam)) continue;
+            if (familyId != null && !c.getMember().getId().equals(familyId)) continue;
+            if (familyId == null && fam != null && !c.getMember().equals(fam)) continue;
             if (emp != null && !c.getEmployee().equals(emp)) continue;
             if (!isInDateRange(c)) continue;
             if (!matchesSearch(c, query)) continue;
@@ -418,27 +418,27 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         Span title = new Span("Familie auswählen");
         title.getStyle().set("font-weight", "bold");
 
-        ComboBox<Family> familyBox = new ComboBox<>("Familie (*)");
+        ComboBox<Member> familyBox = new ComboBox<>("Familie (*)");
         familyBox.setWidthFull();
-        familyBox.setItemLabelGenerator(Family::getFamilyName);
+        familyBox.setItemLabelGenerator(Member::getLastName);
 
-        List<Family> items = new ArrayList<>();
+        List<Member> items = new ArrayList<>();
 
         if (familyId != null) {
-            Family f = familyService.getFamilyById(familyId);
+            Member f = memberService.getMemberById(familyId);
             if (f != null) {
                 items.add(f);
             }
         } else {
-            List<Family> own = new ArrayList<>();
+            List<Member> own = new ArrayList<>();
             if (lvl == 50)
-                own = familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(), currentEmployee);
+                own = memberService.getMembersByAssignedEmployee(currentEmployee.getLogin(), currentEmployee);
             else if (lvl == 80 || lvl == 100)
-                own = familyService.getFamilies();
+                own = memberService.getMembers();
             items.addAll(own);
 
             for (Delegation d : currentDelegations) {
-                Family f = d.getFamily();
+                Member f = d.getMember();
                 if (f != null && !items.contains(f) && f.getStatus().equals(RecordStatus.ACTIVE) && !d.isExpired()
                         && !d.getStartDate().isBefore(LocalDate.now()) && !d.getEndDate().isAfter(LocalDate.now())
                         && d.getAbortedAt() == null)
@@ -461,7 +461,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
                 e -> next.setEnabled(e.getValue() != null));
 
         next.addClickListener(e -> {
-            this.selectedFamily = familyBox.getValue();
+            this.selectedMember = familyBox.getValue();
             dialog.close();
             buildCreateConsultationDialog();
         });
@@ -487,7 +487,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         dialog.setCloseOnOutsideClick(false);
         dialog.setWidth("800px");
 
-        H2 title = new H2("Beratung für die Familie " + selectedFamily.getFamilyName());
+        H2 title = new H2("Beratung für die Familie " + selectedMember.getLastName());
         dialog.add(title);
 
         DateTimePicker dateTime = new DateTimePicker("Datum und Uhrzeit (*)");
@@ -581,15 +581,15 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
                 .setHeader("ID").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(Consultation::getId);
 
-        grid.addColumn(c -> c.getFamily().getFamilyName())
+        grid.addColumn(c -> c.getMember().getLastName())
                 .setHeader("Familie").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(c -> c.getFamily().getFamilyName());
+                .setComparator(c -> c.getMember().getLastName());
 
-        grid.addColumn(c -> c.getFamily().getAssignedEmployee().getFirstName() + " " +
-                        c.getFamily().getAssignedEmployee().getLastName())
+        grid.addColumn(c -> c.getMember().getAssignedEmployee().getFirstName() + " " +
+                        c.getMember().getAssignedEmployee().getLastName())
                 .setHeader("Berater*in").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(c -> c.getFamily().getAssignedEmployee().getFirstName() + " " +
-                        c.getFamily().getAssignedEmployee().getLastName());
+                .setComparator(c -> c.getMember().getAssignedEmployee().getFirstName() + " " +
+                        c.getMember().getAssignedEmployee().getLastName());
 
         grid.addColumn(c -> c.getEmployee().getFirstName() + " " + c.getEmployee().getLastName())
                 .setHeader("Dürchgeführt von").setAutoWidth(true).setFlexGrow(0)
@@ -660,7 +660,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
             Runnable restoreWithoutReason = () -> {
                 try {
                     VaadinRequest req = VaadinRequest.getCurrent();
-                    consultationService.restoreConsultation(c, c.getFamily(), currentEmployee,
+                    consultationService.restoreConsultation(c, c.getMember(), currentEmployee,
                             "Wiederherstellung über Papierkorb",
                             req != null ? req.getRemoteAddr() : "UNKNOWN",
                             req != null ? req.getHeader("User-Agent") : "UNKNOWN");
@@ -711,7 +711,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
 
                     try {
                         VaadinRequest req = VaadinRequest.getCurrent();
-                        consultationService.restoreConsultation(c, c.getFamily(), currentEmployee,
+                        consultationService.restoreConsultation(c, c.getMember(), currentEmployee,
                                 reason.getValue().trim(),
                                 req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
@@ -876,7 +876,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
             String ip = req != null ? req.getRemoteAddr() : "UNKNOWN";
             String browser = req != null ? req.getHeader("User-Agent") : "UNKNOWN";
 
-            consultationService.createConsultation(selectedFamily, currentEmployee, dateTime, duration, topic,
+            consultationService.createConsultation(selectedMember, currentEmployee, dateTime, duration, topic,
                     description, result, followUp, ip, browser);
 
             parent.close();
@@ -940,7 +940,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
             return;
         }
 
-        String state = validateConsultationDate(dateTime, selectedFamily.getCreatedAt());
+        String state = validateConsultationDate(dateTime, selectedMember.getCreatedAt());
 
         if ("FUTURE".equals(state)) {
             showOkDialog("Ungültiges Datum", "Datum darf nicht in der Zukunft liegen");
@@ -987,7 +987,7 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
             if (!c.isInvalid()) continue;
             if (c.getInvalidAt() == null) continue;
 
-            Family f = c.getFamily();
+            Member f = c.getMember();
             if (f == null) continue;
 
             if (!RecordStatus.ACTIVE.equals(f.getStatus())) continue;
@@ -1023,8 +1023,8 @@ public class ConsultationsView extends VerticalLayout implements BeforeEnterObse
         if (query == null || query.isBlank()) return true;
 
         String q = query.toLowerCase().trim();
-        if (c.getFamily() != null && c.getFamily().getFamilyName() != null
-                && c.getFamily().getFamilyName().toLowerCase().contains(q)) return true;
+        if (c.getMember() != null && c.getMember().getLastName() != null
+                && c.getMember().getLastName().toLowerCase().contains(q)) return true;
         if (c.getTopic() != null && c.getTopic().toLowerCase().contains(q)) return true;
         if (c.getDescription() != null && c.getDescription().toLowerCase().contains(q)) return true;
         return c.getResult() != null && c.getResult().toLowerCase().contains(q);

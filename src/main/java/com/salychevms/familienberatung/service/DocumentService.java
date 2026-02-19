@@ -1,13 +1,12 @@
 package com.salychevms.familienberatung.service;
 
 import com.salychevms.familienberatung.model.*;
-import com.salychevms.familienberatung.repository.FamilyDocumentRepository;
+import com.salychevms.familienberatung.repository.DocumentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,39 +16,38 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class FamilyDocumentService {
+public class DocumentService {
 
-    private final FamilyDocumentRepository familyDocumentRepository;
+    private final DocumentRepository documentRepository;
     private final EmployeeService employeeService;
     private final AccessLogService accessLog;
     private final ValidationService validator;
-    private final FamilyService familyService;
+    private final MemberService memberService;
 
     @Value("${storage.base-path}")
     private String storageBasePath;
 
-    public FamilyDocument uploadDocument(Family family, String originalName, String contentType, InputStream data,
-                                         Employee employee, String ip, String browser) {
-        if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Family {} status is not ACTIVE. Actual status: {}", family.getId(), family.getStatus());
-            throw new RuntimeException("Family " + family.getId() + " status is not ACTIVE. Actual status: " + family.getStatus());
+    public Document uploadDocument(Member member, String originalName, String contentType, InputStream data,
+                                   Employee employee, String ip, String browser) {
+        if (!member.getStatus().equals(RecordStatus.ACTIVE)) {
+            log.error("Member {} status is not ACTIVE. Actual status: {}", member.getId(), member.getStatus());
+            throw new RuntimeException("Member " + member.getId() + " status is not ACTIVE. Actual status: " + member.getStatus());
         }
         if (!employeeService.hasAccess(employee.getLogin(), 50)) {
-            log.error("Employee {} has no access to upload FamilyDocument", employee.getLogin());
-            throw new RuntimeException("Employee " + employee.getLogin() + " has no access to upload FamilyDocument");
+            log.error("Employee {} has no access to upload Document", employee.getLogin());
+            throw new RuntimeException("Employee " + employee.getLogin() + " has no access to upload Document");
         }
 
         String mime=contentType;
         String readable=toReadableType(mime);
 
         if(readable==null){
-            log.error("Family document {} has no readable content type", family.getId());
+            log.error("Member document {} has no readable content type", member.getId());
             throw new RuntimeException("Dateityp nicht erlaubt: " + mime);
         }
 
@@ -57,14 +55,14 @@ public class FamilyDocumentService {
 
         long size;
         try {
-            size=storeFile(data, family.getId(), stored);
+            size=storeFile(data, member.getId(), stored);
         } catch (Exception e) {
             log.error("Failed to store file. Error: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to store file. Error: " + e.getMessage());
         }
 
-        FamilyDocument document = new FamilyDocument();
-        document.setFamily(family);
+        Document document = new Document();
+        document.setMember(member);
         document.setUploadedByEmployee(employee);
         document.setOriginalFileName(originalName);
         document.setStoredFileName(stored);
@@ -72,29 +70,29 @@ public class FamilyDocumentService {
         document.setFileSizeBytes(size);
         document.setUploadedAt(LocalDateTime.now());
 
-        FamilyDocument saved = familyDocumentRepository.save(document);
+        Document saved = documentRepository.save(document);
 
-        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_UPLOAD", "FamilyDocument", saved.getId(),
-                "New Family Document has been uploaded: " + originalName, ip, browser);
-        log.info("Family Document has been uploaded: {}", originalName);
+        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_UPLOAD", "Document", saved.getId(),
+                "New Member Document has been uploaded: " + originalName, ip, browser);
+        log.info("Member Document has been uploaded: {}", originalName);
         return saved;
     }
 
-    public FamilyDocument updateName(FamilyDocument doc, FamilyDocument updated, Employee employee,
-                                     String ip, String browser) {
+    public Document updateName(Document doc, Document updated, Employee employee,
+                               String ip, String browser) {
         if (!employeeService.hasAccess(employee.getLogin(), 50)) {
-            log.error("Employee {} has no access to update FamilyDocument", employee.getLogin());
-            throw new RuntimeException("Employee " + employee.getLogin() + " has no access to update FamilyDocument");
+            log.error("Employee {} has no access to update Document", employee.getLogin());
+            throw new RuntimeException("Employee " + employee.getLogin() + " has no access to update Document");
         }
         if (doc.isInvalid()) {
-            log.error("Family document is invalid. Document name: {}", doc.getOriginalFileName());
-            throw new RuntimeException("Family document is invalid. Document name: " + doc.getOriginalFileName());
+            log.error("Member document is invalid. Document name: {}", doc.getOriginalFileName());
+            throw new RuntimeException("Member document is invalid. Document name: " + doc.getOriginalFileName());
         }
 
-        FamilyDocument fDoc = familyDocumentRepository.findById(doc.getId()).orElse(null);
+        Document fDoc = documentRepository.findById(doc.getId()).orElse(null);
         if (fDoc == null) {
-            log.error("Family document not found. Family document id: {}", doc.getId());
-            throw new RuntimeException("Family document not found. Family document id: " + doc.getId());
+            log.error("Member document not found. Member document id: {}", doc.getId());
+            throw new RuntimeException("Member document not found. Member document id: " + doc.getId());
         }
 
         validator.validateText(updated.getOriginalFileName(), 255);
@@ -103,29 +101,29 @@ public class FamilyDocumentService {
         fDoc.setUpdatedAt(LocalDateTime.now());
         fDoc.setUpdatedBy(employee.getLogin());
 
-        FamilyDocument result = familyDocumentRepository.save(fDoc);
+        Document result = documentRepository.save(fDoc);
 
-        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_NAME_UPDATE", "FamilyDocument",
-                updated.getId(), "FamilyDocument Name has been updated: " + result.getOriginalFileName(), ip, browser);
-        log.info("FamilyDocument {} has been updated: Name {}", result.getId(), result.getOriginalFileName());
+        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_NAME_UPDATE", "Document",
+                updated.getId(), "Document Name has been updated: " + result.getOriginalFileName(), ip, browser);
+        log.info("Document {} has been updated: Name {}", result.getId(), result.getOriginalFileName());
         return result;
     }
 
-    public FamilyDocument updateDescription(FamilyDocument doc, FamilyDocument updated, Employee employee,
-                                            String ip, String browser) {
+    public Document updateDescription(Document doc, Document updated, Employee employee,
+                                      String ip, String browser) {
         if (!employeeService.hasAccess(employee.getLogin(), 50)) {
-            log.error("Employee {} has no access to update FamilyDocument", employee.getLogin());
-            throw new RuntimeException("Employee " + employee.getLogin() + " has no access to update FamilyDocument");
+            log.error("Employee {} has no access to update Document", employee.getLogin());
+            throw new RuntimeException("Employee " + employee.getLogin() + " has no access to update Document");
         }
         if (doc.isInvalid()) {
-            log.error("Family document is invalid. Document name: {}", doc.getOriginalFileName());
-            throw new RuntimeException("Family document is invalid. Document name: " + doc.getOriginalFileName());
+            log.error("Member document is invalid. Document name: {}", doc.getOriginalFileName());
+            throw new RuntimeException("Member document is invalid. Document name: " + doc.getOriginalFileName());
         }
 
-        FamilyDocument fDoc = familyDocumentRepository.findById(doc.getId()).orElse(null);
+        Document fDoc = documentRepository.findById(doc.getId()).orElse(null);
         if (fDoc == null) {
-            log.error("Family document not found. Family document id: {}", doc.getId());
-            throw new RuntimeException("Family document not found. Family document id: " + doc.getId());
+            log.error("Member document not found. Member document id: {}", doc.getId());
+            throw new RuntimeException("Member document not found. Member document id: " + doc.getId());
         }
 
         validator.validateText(updated.getDescription(), 4000);
@@ -134,62 +132,62 @@ public class FamilyDocumentService {
         fDoc.setUpdatedAt(LocalDateTime.now());
         fDoc.setUpdatedBy(employee.getLogin());
 
-        FamilyDocument result = familyDocumentRepository.save(fDoc);
+        Document result = documentRepository.save(fDoc);
 
-        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_DESCRIPTION_UPDATE", "FamilyDocument",
-                result.getId(), "FamilyDocument description has been updated: "
+        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_DESCRIPTION_UPDATE", "Document",
+                result.getId(), "Document description has been updated: "
                         + result.getDescription(), ip, browser);
-        log.info("FamilyDocument {} has been updated: description {}", updated.getId(), result.getDescription());
+        log.info("Document {} has been updated: description {}", updated.getId(), result.getDescription());
         return result;
     }
 
-    public FamilyDocument getDocument(Employee employee, Long documentId) {
-        FamilyDocument doc = familyDocumentRepository.findById(documentId).orElseThrow(() ->
-                new RuntimeException("Family document with id: " + documentId + " not found"));
+    public Document getDocument(Employee employee, Long documentId) {
+        Document doc = documentRepository.findById(documentId).orElseThrow(() ->
+                new RuntimeException("Member document with id: " + documentId + " not found"));
 
-        Family family=familyService.getFamilyById(doc.getFamily().getId());
-        if(family == null) {
-            log.error("Family with id: " + doc.getFamily().getId() + " not found");
-            throw new RuntimeException("Family with id: " + doc.getFamily().getId() + " not found");
+        Member member = memberService.getMemberById(doc.getMember().getId());
+        if(member == null) {
+            log.error("Member with id: " + doc.getMember().getId() + " not found");
+            throw new RuntimeException("Member with id: " + doc.getMember().getId() + " not found");
         }
 
-        if (family.getStatus().equals(RecordStatus.BLOCKED) && employee.getRole().getAccessLevel() == 50) {
-            log.error("Family {} status is {}", family.getId(), family.getStatus());
-            throw new RuntimeException("Family " + family.getId() + " status is " + family.getStatus());
+        if (member.getStatus().equals(RecordStatus.BLOCKED) && employee.getRole().getAccessLevel() == 50) {
+            log.error("Member {} status is {}", member.getId(), member.getStatus());
+            throw new RuntimeException("Member " + member.getId() + " status is " + member.getStatus());
         }
         if (doc.isInvalid()) {
-            log.error("Family document is invalid. Document name: {}", doc.getOriginalFileName());
-            throw new RuntimeException("Family document is invalid. Document name: " + doc.getOriginalFileName());
+            log.error("Member document is invalid. Document name: {}", doc.getOriginalFileName());
+            throw new RuntimeException("Member document is invalid. Document name: " + doc.getOriginalFileName());
         }
         return doc;
     }
 
-    public List<FamilyDocument> getDocumentsByFamily(Family family, Employee employee) {
+    public List<Document> getDocumentsByFamily(Member member, Employee employee) {
         if (employee.getRole().getAccessLevel() == 50) {
-            if (family.getStatus().equals(RecordStatus.BLOCKED)) {
-                log.error("Family {} status is {}", family.getId(), family.getStatus());
-                throw new RuntimeException("Family " + family.getId() + " status is " + family.getStatus());
-            } else return familyDocumentRepository.findAllByFamilyIdAndIsInvalidFalse(family.getId());
-        } else return familyDocumentRepository.findByFamilyId(family.getId());
+            if (member.getStatus().equals(RecordStatus.BLOCKED)) {
+                log.error("Member {} status is {}", member.getId(), member.getStatus());
+                throw new RuntimeException("Member " + member.getId() + " status is " + member.getStatus());
+            } else return documentRepository.findAllByMemberIdAndIsInvalidFalse(member.getId());
+        } else return documentRepository.findByMemberId(member.getId());
     }
 
-    public void invalidateDocument(Family family, FamilyDocument doc, Employee employee, String ip, String browser) {
-        if (!doc.getFamily().equals(family)) {
-            log.error("Document does not belong to Family");
-            throw new RuntimeException("Document does not belong to Family");
+    public void invalidateDocument(Member member, Document doc, Employee employee, String ip, String browser) {
+        if (!doc.getMember().equals(member)) {
+            log.error("Document does not belong to Member");
+            throw new RuntimeException("Document does not belong to Member");
         }
         if (employee.getRole().getAccessLevel() <= 10) {
             log.error("Access Denied for Employee role {}", employee.getRole().getName());
             throw new RuntimeException("Access Denied for Employee role: " + employee.getRole().getName());
         }
-        if (!family.getStatus().equals(RecordStatus.ACTIVE) && employee.getRole().getAccessLevel() == 50) {
-            log.error("Family {} status is not ACTIVE. Actual status: {}", family.getId(), family.getStatus());
-            throw new RuntimeException("Family " + family.getId() +
-                    " status is not ACTIVE. Actual status: " + family.getStatus());
+        if (!member.getStatus().equals(RecordStatus.ACTIVE) && employee.getRole().getAccessLevel() == 50) {
+            log.error("Member {} status is not ACTIVE. Actual status: {}", member.getId(), member.getStatus());
+            throw new RuntimeException("Member " + member.getId() +
+                    " status is not ACTIVE. Actual status: " + member.getStatus());
         }
         if (doc.isInvalid()) {
-            log.error("Family document is already invalid. Document name: {}", doc.getOriginalFileName());
-            throw new RuntimeException("Family document is already invalid. Document name: " + doc.getOriginalFileName());
+            log.error("Member document is already invalid. Document name: {}", doc.getOriginalFileName());
+            throw new RuntimeException("Member document is already invalid. Document name: " + doc.getOriginalFileName());
         }
 
         doc.setInvalid(true);
@@ -199,30 +197,30 @@ public class FamilyDocumentService {
         doc.setRestoredBy(null);
         doc.setRestoredReason(null);
 
-        familyDocumentRepository.save(doc);
-        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_INVALIDATED_(SOFT_DELETE)", "FamilyDocument",
-                doc.getId(), "FamilyDocument has been invalidated", ip, browser);
-        log.info("FamilyDocument has been invalidated: {}", doc.getId());
+        documentRepository.save(doc);
+        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_INVALIDATED_(SOFT_DELETE)", "Document",
+                doc.getId(), "Document has been invalidated", ip, browser);
+        log.info("Document has been invalidated: {}", doc.getId());
     }
 
-    public void restoreDocument(Family family, FamilyDocument doc, String restoreReason,
+    public void restoreDocument(Member member, Document doc, String restoreReason,
                                 Employee employee, String ip, String browser) {
-        if (!doc.getFamily().equals(family)) {
-            log.error("Document does not belong to Family");
-            throw new RuntimeException("Document does not belong to Family");
+        if (!doc.getMember().equals(member)) {
+            log.error("Document does not belong to Member");
+            throw new RuntimeException("Document does not belong to Member");
         }
         if (employee.getRole().getAccessLevel() <= 10) {
             log.error("Access Denied for Employee role {}", employee.getRole().getName());
             throw new RuntimeException("Access Denied for Employee role: " + employee.getRole().getName());
         }
-        if (!family.getStatus().equals(RecordStatus.ACTIVE) && employee.getRole().getAccessLevel() == 50) {
-            log.error("Family {} status is not ACTIVE. Actual status: {}", family.getId(), family.getStatus());
-            throw new RuntimeException("Family " + family.getId() +
-                    " status is not ACTIVE. Actual status: " + family.getStatus());
+        if (!member.getStatus().equals(RecordStatus.ACTIVE) && employee.getRole().getAccessLevel() == 50) {
+            log.error("Member {} status is not ACTIVE. Actual status: {}", member.getId(), member.getStatus());
+            throw new RuntimeException("Member " + member.getId() +
+                    " status is not ACTIVE. Actual status: " + member.getStatus());
         }
         if (!doc.isInvalid()) {
-            log.error("Family document is not invalid. Document name: {}", doc.getOriginalFileName());
-            throw new RuntimeException("Family document is not invalid. Document name: " + doc.getOriginalFileName());
+            log.error("Member document is not invalid. Document name: {}", doc.getOriginalFileName());
+            throw new RuntimeException("Member document is not invalid. Document name: " + doc.getOriginalFileName());
         }
         validator.validateText(restoreReason, 255);
 
@@ -233,28 +231,28 @@ public class FamilyDocumentService {
         doc.setRestoredAt(LocalDateTime.now());
         doc.setRestoredBy(employee.getLogin());
 
-        familyDocumentRepository.save(doc);
-        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_RESTORE", "FamilyDocument", doc.getId(),
-                "FamilyDocument has been restored. Reason: " + restoreReason, ip, browser);
-        log.info("FamilyDocument {} has been restored. Reason: {}", doc.getId(), restoreReason);
+        documentRepository.save(doc);
+        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_RESTORE", "Document", doc.getId(),
+                "Document has been restored. Reason: " + restoreReason, ip, browser);
+        log.info("Document {} has been restored. Reason: {}", doc.getId(), restoreReason);
     }
 
-    /*public Path downloadDocument(Family family, FamilyDocument doc, Employee employee, String ip, String browser) {
-        if (!doc.getFamily().equals(family)) {
-            log.error("Document does not belong to Family");
-            throw new RuntimeException("Document does not belong to Family");
+    /*public Path downloadDocument(Member family, Document doc, Employee employee, String ip, String browser) {
+        if (!doc.getMember().equals(family)) {
+            log.error("Document does not belong to Member");
+            throw new RuntimeException("Document does not belong to Member");
         }
         if (family.getStatus().equals(RecordStatus.BLOCKED)) {
-            log.error("Family {} status is {}", family.getId(), family.getStatus());
-            throw new RuntimeException("Family " + family.getId() + " status is " + family.getStatus());
+            log.error("Member {} status is {}", family.getId(), family.getStatus());
+            throw new RuntimeException("Member " + family.getId() + " status is " + family.getStatus());
         }
         if (employee.getRole().getAccessLevel() <= 10) {
             log.error("Access Denied for Employee role {}", employee.getRole().getName());
             throw new RuntimeException("Access Denied for Employee role: " + employee.getRole().getName());
         }
         if (doc.isInvalid()) {
-            log.error("Family document is already invalid. Document name: {}", doc.getOriginalFileName());
-            throw new RuntimeException("Family document is already invalid. Document name: " + doc.getOriginalFileName());
+            log.error("Member document is already invalid. Document name: {}", doc.getOriginalFileName());
+            throw new RuntimeException("Member document is already invalid. Document name: " + doc.getOriginalFileName());
         }
 
         Path path = getFamilyDir(family.getId()).resolve(doc.getStoredFileName());
@@ -263,16 +261,16 @@ public class FamilyDocumentService {
             throw new RuntimeException("Stored file for doc " + doc.getId());
         }
 
-        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_DOWNLOAD", "FamilyDocument", doc.getId(),
-                "FamilyDocument has been downloaded", ip, browser);
-        log.info("FamilyDocument {} has been downloaded. Requester: {}", doc.getId(), employee.getLogin());
+        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_DOWNLOAD", "Document", doc.getId(),
+                "Document has been downloaded", ip, browser);
+        log.info("Document {} has been downloaded. Requester: {}", doc.getId(), employee.getLogin());
         return path;
     }*/
 
-    public List<FamilyDocument> getAllDocuments(Employee employee) {
+    public List<Document> getAllDocuments(Employee employee) {
         if (employee == null)
             log.error("Employee is null");
-        return familyDocumentRepository.findAll();
+        return documentRepository.findAll();
     }
 
     private long storeFile(InputStream file, Long familyId, String storedFileName) throws IOException {

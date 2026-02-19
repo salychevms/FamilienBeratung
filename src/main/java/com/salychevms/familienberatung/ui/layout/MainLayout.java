@@ -91,11 +91,11 @@ public class MainLayout extends AppLayout {
         overview.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         buttons.add(overview);
 
-        Button families = new Button("Familien",
-                event -> UI.getCurrent().navigate("families"));
-        families.setWidthFull();
-        families.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        buttons.add(families);
+        Button members = new Button("Teilnehmer*innen",
+                event -> UI.getCurrent().navigate("members"));
+        members.setWidthFull();
+        members.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        buttons.add(members);
 
         Button consultations = new Button("Beratungen",
                 event -> UI.getCurrent().navigate(ConsultationsView.class));

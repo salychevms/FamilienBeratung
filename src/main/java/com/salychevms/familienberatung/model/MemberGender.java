@@ -1,5 +1,5 @@
 package com.salychevms.familienberatung.model;
 
-public enum FamilyMemberGender {
+public enum MemberGender {
     MAENNLICH, WEIBLICH, DIVERS
 }

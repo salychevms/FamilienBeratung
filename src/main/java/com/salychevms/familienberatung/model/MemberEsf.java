@@ -9,31 +9,31 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "family_member")
+@Table(name = "member_esf")
 @Getter
 @Setter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class MemberEsfDetails {
+public class MemberEsf {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "family_id", nullable = false)
+    @OneToOne
+    @JoinColumn(name = "member_id", nullable = false, unique = true)
     private Member member;
-    @Column(nullable = false)
-    private String firstName;
-    @Column(nullable = false)
-    private String lastName;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MemberGender gender;
+    //TODO
     @Column(nullable = false)
     private LocalDate birthDate;
+    //TODO
     @Column(nullable = false)
     private String birthCity;
+    //TODO
     @Column(nullable = false)
     private String birthCountry;
     @Column
@@ -78,6 +78,6 @@ public class MemberEsfDetails {
     @Column
     private String restoredReason;
 
-    public MemberEsfDetails() {
+    public MemberEsf() {
     }
 }

@@ -5,14 +5,15 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "family")
+@Table(name = "member")
 @Getter
 @Setter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Family {
+public class Member {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,23 +21,29 @@ public class Family {
     private Long id;
 
     @Column(nullable = false)
-    private String familyName;
-    @Column
+    private LocalDate joinedAt;
+
+    @Column(nullable = false)
+    private String firstName;
+    @Column(nullable = false)
+    private String lastName;
+    @Column(nullable = false)
+    private LocalDate birthDate;
+
+    @Column(nullable = false)
     private String street;
-    @Column
+    @Column(nullable = false)
     private String houseNumber;
-    @Column
+    @Column(nullable = false)
     private String zip;
-    @Column
+    @Column(nullable = false)
     private String city;
-    @Column
+    @Column(nullable = false)
     private String phone;
-    @Column
+    @Column(nullable = false)
     private String email;
-    //TODO: delete
     @Column
     private String citizenship;
-    //TODO: delete
     @Column
     private String languages;
     @Column(length = 4000)
@@ -47,10 +54,11 @@ public class Family {
     @Column
     private String notes;
 
+    @OneToOne(mappedBy = "member", cascade = CascadeType.ALL)
+    private MemberEsf memberEsf;
     @ManyToOne
     @JoinColumn(name = "assigned_employee_id", nullable = false)
     private Employee assignedEmployee;
-
     @Column
     private String zeusId;
     @Column(nullable = false)
@@ -88,6 +96,6 @@ public class Family {
     @Column
     private LocalDateTime deletePlannedAt;
 
-    public Family() {
+    public Member() {
     }
 }

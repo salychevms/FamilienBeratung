@@ -1,10 +1,10 @@
 package com.salychevms.familienberatung.repository;
 
-import com.salychevms.familienberatung.model.MemberEsfDetails;
+import com.salychevms.familienberatung.model.MemberEsf;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface FamilyMemberRepository extends JpaRepository<MemberEsfDetails, Long> {
-    List<MemberEsfDetails> findByFamilyId(Long familyId);
+public interface MemberEsfRepository extends JpaRepository<MemberEsf, Long> {
+    List<MemberEsf> findByMemberId(Long memberId);
 }

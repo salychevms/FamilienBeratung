@@ -37,12 +37,12 @@ import java.util.Optional;
 public class ConsultationDetailsView extends VerticalLayout implements BeforeEnterObserver {
     private final AuthService authService;
     private final EmployeeService employeeService;
-    private final FamilyService familyService;
+    private final MemberService memberService;
     private final ConsultationService consultationService;
     private final DelegationService delegationService;
 
     private Employee currentEmployee;
-    private Family currentFamily;
+    private Member currentMember;
     private Consultation currentConsultation;
     private int lvl;
 
@@ -69,16 +69,16 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
             return;
         }
 
-        this.currentFamily = familyService.getFamilyById(currentConsultation.getFamily().getId());
-        if (currentFamily == null || currentFamily.getStatus().equals(RecordStatus.INVALID)) {
+        this.currentMember = memberService.getMemberById(currentConsultation.getMember().getId());
+        if (currentMember == null || currentMember.getStatus().equals(RecordStatus.INVALID)) {
             event.forwardTo("consultations");
             return;
         }
 
         if (lvl == 50) {
-            boolean isOwn = currentFamily.getAssignedEmployee().equals(currentEmployee);
+            boolean isOwn = currentMember.getAssignedEmployee().equals(currentEmployee);
             boolean isActiveDelegation = false;
-            List<Delegation> delegationList = delegationService.getDelegationsByToEmployeeAndFamily(currentEmployee, currentFamily);
+            List<Delegation> delegationList = delegationService.getDelegationsByToEmployeeAndFamily(currentEmployee, currentMember);
             for (Delegation d : delegationList) {
                 if (delegationService.isDelegationActive(d)) {
                     isActiveDelegation = true;
@@ -114,8 +114,8 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
 
         RouterLink l1 = new RouterLink("Übersicht", OverviewView.class);
         RouterLink l2 = new RouterLink("Beratungen", ConsultationsView.class);
-        RouterLink l3 = new RouterLink("Familie: " + currentFamily.getFamilyName(),
-                FamilyDetailsView.class, new RouteParameters("id", String.valueOf(currentFamily.getId())));
+        RouterLink l3 = new RouterLink("Familie: " + currentMember.getLastName(),
+                MemberView.class, new RouteParameters("id", String.valueOf(currentMember.getId())));
 
         Span sep1 = new Span(" >> ");
         sep1.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
@@ -143,21 +143,21 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
         header.setSpacing(true);
 
         H2 title = new H2("Beratung ID: " + currentConsultation.getId());
-        Span family = new Span("Familie: " + currentFamily.getFamilyName());
+        Span family = new Span("Familie: " + currentMember.getLastName());
         Span backdated = new Span("Nachträglich gespeichert: " +
                 (currentConsultation.isBackdated() ? "Ja" : "Nein"));
         header.add(title);
         box.add(header, family, backdated);
 
-        Span assignedE = new Span("Berater*in: " + currentConsultation.getFamily().getAssignedEmployee().getFirstName()
-                + " " + currentConsultation.getFamily().getAssignedEmployee().getLastName());
+        Span assignedE = new Span("Berater*in: " + currentConsultation.getMember().getAssignedEmployee().getFirstName()
+                + " " + currentConsultation.getMember().getAssignedEmployee().getLastName());
         box.add(assignedE);
         Span managed = new Span("Durchgeführt von: " + currentConsultation.getEmployee().getFirstName()
                 + " " + currentConsultation.getEmployee().getLastName());
         box.add(managed);
-        if (!currentConsultation.getFamily().getAssignedEmployee().equals(currentConsultation.getEmployee())) {
+        if (!currentConsultation.getMember().getAssignedEmployee().equals(currentConsultation.getEmployee())) {
             List<Delegation> delegationList = delegationService.getDelegationsByToEmployeeAndFamily(
-                    currentConsultation.getEmployee(), currentFamily);
+                    currentConsultation.getEmployee(), currentMember);
             Delegation d = null;
             for (Delegation delegation : delegationList) {
                 if (delegationService.isDelegationActive(d)) {
@@ -190,7 +190,7 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
     }
 
     private HorizontalLayout buildActionButtons() {
-        if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
+        if (lvl != 10 && currentMember.getStatus().equals(RecordStatus.ACTIVE) && !currentMember.isCaseClosed()) {
             HorizontalLayout buttons = new HorizontalLayout();
             buttons.setSpacing(false);
             buttons.setPadding(false);
@@ -208,7 +208,7 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
 
                 Button yes = new Button("Ja", ev -> {
                     VaadinRequest req = VaadinRequest.getCurrent();
-                    consultationService.invalidateConsultation(currentConsultation, currentFamily, currentEmployee,
+                    consultationService.invalidateConsultation(currentConsultation, currentMember, currentEmployee,
                             req != null ? req.getRemoteAddr() : "UNKNOWN",
                             req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                     dialog.close();
@@ -241,7 +241,7 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
         titleLayout.setSpacing(true);
         titleLayout.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
+        if (lvl != 10 && currentMember.getStatus().equals(RecordStatus.ACTIVE) && !currentMember.isCaseClosed()) {
             Button edit = new Button(VaadinIcon.EDIT.create());
             edit.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             edit.addClassName("edit-btn");
@@ -329,7 +329,7 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
                         updated.setDateTime(dt);
                         updated.setDurationMinutes(dur);
                         updated.setFollowUp(fUp);
-                        consultationService.updateConsultation(currentConsultation, updated, currentFamily,
+                        consultationService.updateConsultation(currentConsultation, updated, currentMember,
                                 currentEmployee, req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         dialog.close();
@@ -388,7 +388,7 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
                     String ip = req != null ? req.getRemoteAddr() : "UNKNOWN";
                     String browser = req != null ? req.getHeader("User-Agent") : "UNKNOWN";
 
-                    consultationService.deleteFollowUp(currentFamily, currentConsultation, currentEmployee,
+                    consultationService.deleteFollowUp(currentMember, currentConsultation, currentEmployee,
                             ip, browser);
                     getUI().ifPresent(ui -> ui.getPage().reload());
                 });
@@ -418,8 +418,8 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
         titleLayout.setSpacing(false);
         titleLayout.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        if (lvl != 10 && !currentFamily.getStatus().equals(RecordStatus.ARCHIVED) && !currentFamily.isCaseClosed()
-                && !currentFamily.getStatus().equals(RecordStatus.BLOCKED)) {
+        if (lvl != 10 && !currentMember.getStatus().equals(RecordStatus.ARCHIVED) && !currentMember.isCaseClosed()
+                && !currentMember.getStatus().equals(RecordStatus.BLOCKED)) {
             Button edit = new Button(VaadinIcon.EDIT.create());
             edit.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             edit.addClassName("edit-btn");
@@ -446,7 +446,7 @@ public class ConsultationDetailsView extends VerticalLayout implements BeforeEnt
                                         updated.setResult(values.get("result").toString());
 
                                     VaadinRequest req = VaadinRequest.getCurrent();
-                                    consultationService.updateConsultation(currentConsultation, updated, currentFamily,
+                                    consultationService.updateConsultation(currentConsultation, updated, currentMember,
                                             currentEmployee, req != null ? req.getRemoteAddr() : "UNKNOWN",
                                             req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                                     getUI().ifPresent(ui -> ui.getPage().reload());

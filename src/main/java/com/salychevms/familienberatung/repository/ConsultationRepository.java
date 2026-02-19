@@ -2,8 +2,7 @@ package com.salychevms.familienberatung.repository;
 
 import com.salychevms.familienberatung.model.Consultation;
 import com.salychevms.familienberatung.model.Employee;
-import com.salychevms.familienberatung.model.Family;
-import org.aspectj.apache.bcel.classfile.Module;
+import com.salychevms.familienberatung.model.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -13,9 +12,9 @@ public interface ConsultationRepository extends JpaRepository<Consultation, Long
 
     Optional<Consultation> findConsultationById(Long id);
 
-    List<Consultation> findConsultationByFamily(Family family);
+    List<Consultation> findConsultationByMember(Member member);
 
-    List<Consultation> findAllByFamily(Family family);
+    List<Consultation> findAllByMember(Member member);
 
     List<Consultation> getConsultationsByEmployee(Employee employee);
 }

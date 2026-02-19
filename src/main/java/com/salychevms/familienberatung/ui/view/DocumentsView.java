@@ -51,17 +51,17 @@ import java.util.concurrent.Semaphore;
 @PermitAll
 public class DocumentsView extends VerticalLayout implements BeforeEnterObserver {
     private final AuthService authService;
-    private final FamilyService familyService;
-    private final FamilyDocumentService familyDocumentService;
+    private final MemberService memberService;
+    private final DocumentService familyDocumentService;
     private final EmployeeService employeeService;
     private final DelegationService delegationService;
 
     private Employee currentEmployee;
     private int lvl;
-    private Family currentFamily;
+    private Member currentMember;
     private long familyId;
-    private List<FamilyDocument> currentDocuments;
-    private List<Family> currentFamilies;
+    private List<Document> currentDocuments;
+    private List<Member> currentFamilies;
     private HorizontalLayout filterLayout;
     private boolean filterVisible = false;
     private Button filterToggleButton;
@@ -69,12 +69,12 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     private TextField searchField;
     private ComboBox<String> fileTypeFilter;
     private ComboBox<Employee> uploaderEmployeeFilter;
-    private ComboBox<Family> familyFilter;
+    private ComboBox<Member> familyFilter;
     private LocalDate filterDateFrom;
     private LocalDate filterDateTo;
     private List<Employee> assignedEmployees = new ArrayList<>();
     private List<Employee> createdByEmployees = new ArrayList<>();
-    private Grid<FamilyDocument> documentsGrid;
+    private Grid<Document> documentsGrid;
     private DatePicker dateFromFilter;
     private DatePicker dateToFilter;
     private static final Semaphore UPLOAD_LOCK = new Semaphore(1);
@@ -94,23 +94,23 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
         List<Delegation> delegations = new ArrayList<>(delegationService.getDelegations().stream().filter(d ->
                 delegationService.isDelegationActive(d) && d.getToEmployee().equals(currentEmployee)
-                        && (d.getFamily().getStatus().equals(RecordStatus.ACTIVE)
-                        || d.getFamily().getStatus().equals(RecordStatus.ARCHIVED))).toList());
+                        && (d.getMember().getStatus().equals(RecordStatus.ACTIVE)
+                        || d.getMember().getStatus().equals(RecordStatus.ARCHIVED))).toList());
 
         Optional<Long> optFamilyId = event.getRouteParameters().getLong("familyId");
         if (optFamilyId.isPresent()) {
-            this.currentFamily = null;
+            this.currentMember = null;
             this.familyId = 0;
             try {
-                Family f = familyService.getFamilyById(optFamilyId.get());
+                Member f = memberService.getMemberById(optFamilyId.get());
                 if (f.getStatus().equals(RecordStatus.ACTIVE) || f.getStatus().equals(RecordStatus.ARCHIVED))
                     if (lvl == 50 && f.getAssignedEmployee().equals(currentEmployee) || lvl == 80 || lvl == 100 || lvl == 10) {
-                        this.currentFamily = f;
+                        this.currentMember = f;
                         familyId = f.getId();
                     } else {
                         for (Delegation dlg : delegations) {
-                            if (dlg.getFamily().equals(f)) {
-                                this.currentFamily = f;
+                            if (dlg.getMember().equals(f)) {
+                                this.currentMember = f;
                                 familyId = f.getId();
                                 break;
                             }
@@ -122,31 +122,31 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             }
         } else {
             familyId = 0;
-            currentFamily = null;
+            currentMember = null;
         }
 
         currentDocuments = new ArrayList<>();
         currentFamilies = new ArrayList<>();
-        if (familyId == 0 || currentFamily == null) {
+        if (familyId == 0 || currentMember == null) {
             if (lvl == 50) {
-                currentFamilies = new ArrayList<>(familyService.getFamiliesByAssignedEmployee(currentEmployee.getLogin(),
+                currentFamilies = new ArrayList<>(memberService.getMembersByAssignedEmployee(currentEmployee.getLogin(),
                         currentEmployee).stream().filter(f -> (f.getStatus().equals(RecordStatus.ARCHIVED)
                         || f.getStatus().equals(RecordStatus.ACTIVE))).toList());
-                for (Family f : currentFamilies)
+                for (Member f : currentFamilies)
                     currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(f, currentEmployee)
                             .stream().filter(this::isVisibleDoc).toList());
                 for (Delegation dlg : delegations)
                     if (dlg.getToEmployee().equals(currentEmployee))
-                        currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(dlg.getFamily(), currentEmployee)
+                        currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(dlg.getMember(), currentEmployee)
                                 .stream().filter(this::isVisibleDoc).toList());
             } else if (lvl == 80 || lvl == 100) {
-                currentFamilies = new ArrayList<>(familyService.getFamilies().stream()
+                currentFamilies = new ArrayList<>(memberService.getMembers().stream()
                         .filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList());
                 currentDocuments = new ArrayList<>(familyDocumentService.getAllDocuments(currentEmployee)
                         .stream().filter(this::isVisibleDoc).toList());
             }
         } else
-            currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(currentFamily, currentEmployee)
+            currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(currentMember, currentEmployee)
                     .stream().filter(this::isVisibleDoc).toList());
 
         assignedEmployees.clear();
@@ -154,9 +154,9 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         Set<Employee> owners = new LinkedHashSet<>();
         Set<Employee> uploaders = new LinkedHashSet<>();
 
-        for (FamilyDocument d : currentDocuments) {
-            if (d.getFamily() != null && d.getFamily().getAssignedEmployee() != null)
-                owners.add(d.getFamily().getAssignedEmployee());
+        for (Document d : currentDocuments) {
+            if (d.getMember() != null && d.getMember().getAssignedEmployee() != null)
+                owners.add(d.getMember().getAssignedEmployee());
             if (d.getUploadedByEmployee() != null)
                 uploaders.add(d.getUploadedByEmployee());
         }
@@ -190,15 +190,15 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         RouterLink overview = new RouterLink("Übersicht", OverviewView.class);
         bcrumbs.add(overview);
 
-        if (currentFamily != null && familyId != 0) {
+        if (currentMember != null && familyId != 0) {
             Span s1 = new Span(" >> ");
             s1.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
             Span s2 = new Span(" >> ");
             s2.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
 
-            RouterLink familiesLink = new RouterLink("Familien", FamiliesView.class);
-            RouterLink familyLink = new RouterLink("Familie: " + currentFamily.getFamilyName(),
-                    FamilyDetailsView.class, new RouteParameters("id", currentFamily.getId().toString()));
+            RouterLink familiesLink = new RouterLink("Familien", MembersView.class);
+            RouterLink familyLink = new RouterLink("Familie: " + currentMember.getLastName(),
+                    MemberView.class, new RouteParameters("id", currentMember.getId().toString()));
             bcrumbs.add(s1, familiesLink, s2, familyLink);
         }
 
@@ -221,7 +221,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         HorizontalLayout titleLayout = new HorizontalLayout();
         H2 title = new H2();
         if (familyId != 0)
-            title.setText("Dokumente: " + currentFamily.getFamilyName());
+            title.setText("Dokumente: " + currentMember.getLastName());
         else
             title.setText("Dokumente: alle");
         title.getStyle().set("margin-bottom", "0");
@@ -290,7 +290,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
             familyFilter = new ComboBox<>();
             familyFilter.setItems(currentFamilies);
-            familyFilter.setItemLabelGenerator(Family::getFamilyName);
+            familyFilter.setItemLabelGenerator(Member::getLastName);
             familyFilter.setClearButtonVisible(true);
             familyFilter.addValueChangeListener(e -> refreshGrid());
 
@@ -370,15 +370,15 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
         uploadButton = new Button("Hochladen", VaadinIcon.UPLOAD.create());
         uploadButton.addClickListener(e -> {
-            if (currentFamily == null && familyId == 0) {
+            if (currentMember == null && familyId == 0) {
                 Dialog pick = new Dialog();
                 pick.setModal(true);
                 pick.setWidth("400px");
 
-                ComboBox<Family> familyComboBox = new ComboBox<>("Familie");
+                ComboBox<Member> familyComboBox = new ComboBox<>("Familie");
                 familyComboBox.setItems(currentFamilies.stream().filter(
                         f -> f.getStatus().equals(RecordStatus.ACTIVE)).toList());
-                familyComboBox.setItemLabelGenerator(Family::getFamilyName);
+                familyComboBox.setItemLabelGenerator(Member::getLastName);
                 familyComboBox.setWidthFull();
 
                 Button next = new Button("Weiter");
@@ -386,8 +386,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                 familyComboBox.addValueChangeListener(
                         ev -> next.setEnabled(ev.getValue() != null));
                 next.addClickListener(ev -> {
-                    currentFamily = familyComboBox.getValue();
-                    familyId = currentFamily.getId();
+                    currentMember = familyComboBox.getValue();
+                    familyId = currentMember.getId();
                     pick.close();
                     uploadButton.click();
                 });
@@ -407,7 +407,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             dlg.setModal(true);
             dlg.setWidth("450px");
 
-            Span info = new Span("Hochladen für Familie: " + currentFamily.getFamilyName());
+            Span info = new Span("Hochladen für Familie: " + currentMember.getLastName());
             Span info2 = new Span("Max bis 5 MB/File");
             info2.getStyle().set("font-size", "11px").set("padding", "2px 6px").set("margin-bottom", "1px");
             Span info3 = new Span("Erlaubt: \".pdf\",\".doc\", \".docx\", \".xls\", \".xlsx\", \".jpg\", \".jpeg\", \".png\"");
@@ -420,7 +420,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                     acquired = true;
                     VaadinRequest req = VaadinRequest.getCurrent();
 
-                    FamilyDocument saved = familyDocumentService.uploadDocument(currentFamily, event.getFileName(),
+                    Document saved = familyDocumentService.uploadDocument(currentMember, event.getFileName(),
                             event.getContentType(), in, currentEmployee, req != null ? req.getRemoteAddr() : "UNKNOWN",
                             req != null ? req.getHeader("User-Agent") : "UNKNOW");
                     currentDocuments.add(saved);
@@ -464,19 +464,19 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     }
 
     private void buildGrid() {
-        documentsGrid = new Grid<>(FamilyDocument.class, false);
+        documentsGrid = new Grid<>(Document.class, false);
         documentsGrid.setSizeFull();
         documentsGrid.setSelectionMode(Grid.SelectionMode.SINGLE);
 
-        documentsGrid.addColumn(FamilyDocument::getId)
+        documentsGrid.addColumn(Document::getId)
                 .setHeader("ID").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(FamilyDocument::getId);
-        documentsGrid.addColumn(FamilyDocument::getOriginalFileName)
+                .setComparator(Document::getId);
+        documentsGrid.addColumn(Document::getOriginalFileName)
                 .setHeader("Dateiname").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(FamilyDocument::getOriginalFileName);
-        documentsGrid.addColumn(d -> d.getFamily() != null ? d.getFamily().getFamilyName() : "")
+                .setComparator(Document::getOriginalFileName);
+        documentsGrid.addColumn(d -> d.getMember() != null ? d.getMember().getLastName() : "")
                 .setHeader("Familie").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(d -> d.getFamily() != null ? d.getFamily().getFamilyName() : "");
+                .setComparator(d -> d.getMember() != null ? d.getMember().getLastName() : "");
         documentsGrid.addColumn(d -> String.format("%.2f", (double) d.getFileSizeBytes() / 1024 / 1024))
                 .setHeader("Größer (Mb)").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(d -> String.valueOf(d.getFileSizeBytes()));
@@ -497,7 +497,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                     dEv.getResponse().setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
                             + URLEncoder.encode(d.getOriginalFileName(), StandardCharsets.UTF_8));
                     try (InputStream in = Files.newInputStream(Paths.get(storageBasePath,
-                            String.valueOf(d.getFamily().getId()), d.getStoredFileName()));
+                            String.valueOf(d.getMember().getId()), d.getStoredFileName()));
                          var out = dEv.getOutputStream()) {
                         in.transferTo(out);
                     }
@@ -533,7 +533,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             if (lvl == 10) {
                 return;
             }
-            FamilyDocument d = e.getItem();
+            Document d = e.getItem();
             if (d == null) {
                 return;
             }
@@ -544,16 +544,16 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     }
 
     private void refreshGrid() {
-        List<FamilyDocument> result = new ArrayList<>();
+        List<Document> result = new ArrayList<>();
 
         String q = searchField != null ? searchField.getValue() : null;
-        Family fam = familyFilter != null ? familyFilter.getValue() : null;
+        Member fam = familyFilter != null ? familyFilter.getValue() : null;
         String fileType = fileTypeFilter != null ? fileTypeFilter.getValue() : null;
         Employee uploader = uploaderEmployeeFilter != null ? uploaderEmployeeFilter.getValue() : null;
 
-        for (FamilyDocument d : currentDocuments) {
+        for (Document d : currentDocuments) {
             if (d == null) continue;
-            Family f = d.getFamily();
+            Member f = d.getMember();
             if (f == null) continue;
             if (familyId != 0 && f.getId() != familyId) continue;
             if (familyId == 0 && fam != null && !f.equals(fam)) continue;
@@ -572,7 +572,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         documentsGrid.setItems(result);
     }
 
-    private void buildDocumentDialog(FamilyDocument d) {
+    private void buildDocumentDialog(Document d) {
         if (d == null) return;
 
         Dialog dialog = new Dialog();
@@ -589,15 +589,15 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
         H2 title = new H2("Dokument ID: " + d.getId());
         root.add(title);
-        Span famName = new Span("Familie: " + d.getFamily().getFamilyName());
+        Span famName = new Span("Familie: " + d.getMember().getLastName());
         root.add(famName);
 
         HorizontalLayout nameLayout = new HorizontalLayout();
         nameLayout.setSpacing(false);
         nameLayout.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        if (lvl != 10 && !d.getFamily().getStatus().equals(RecordStatus.ARCHIVED) && !d.getFamily().isCaseClosed()
-                && !d.getFamily().getStatus().equals(RecordStatus.BLOCKED)) {
+        if (lvl != 10 && !d.getMember().getStatus().equals(RecordStatus.ARCHIVED) && !d.getMember().isCaseClosed()
+                && !d.getMember().getStatus().equals(RecordStatus.BLOCKED)) {
             Button nameEdit = new Button(VaadinIcon.EDIT.create());
             nameEdit.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             nameEdit.addClassName("edit-btn");
@@ -609,10 +609,10 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                             try {
                                 String newName = values.get("name") != null ? values.get("name").toString().trim() : null;
                                 if (newName == null || newName.isBlank()) return;
-                                FamilyDocument doc = familyDocumentService.getDocument(currentEmployee, d.getId());
+                                Document doc = familyDocumentService.getDocument(currentEmployee, d.getId());
                                 doc.setOriginalFileName(newName);
                                 VaadinRequest req = VaadinRequest.getCurrent();
-                                FamilyDocument document = familyDocumentService.updateName(d, doc, currentEmployee,
+                                Document document = familyDocumentService.updateName(d, doc, currentEmployee,
                                         req != null ? req.getRemoteAddr() : "UNKNOWN",
                                         req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                                 buildDocumentDialog(document);
@@ -644,8 +644,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         descHLayout.setSpacing(false);
         descHLayout.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        if (lvl != 10 && !d.getFamily().getStatus().equals(RecordStatus.ARCHIVED) && !d.getFamily().isCaseClosed()
-                && !d.getFamily().getStatus().equals(RecordStatus.BLOCKED)) {
+        if (lvl != 10 && !d.getMember().getStatus().equals(RecordStatus.ARCHIVED) && !d.getMember().isCaseClosed()
+                && !d.getMember().getStatus().equals(RecordStatus.BLOCKED)) {
             Button descEdit = new Button(VaadinIcon.EDIT.create());
             descEdit.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             descEdit.addClassName("edit-btn");
@@ -655,10 +655,10 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                         4000, null, null, null)), values -> {
                     try {
                         String text = values.get("desc") != null ? values.get("desc").toString().trim() : null;
-                        FamilyDocument updated = new FamilyDocument();
+                        Document updated = new Document();
                         updated.setDescription(text);
                         VaadinRequest req = VaadinRequest.getCurrent();
-                        FamilyDocument document = familyDocumentService.updateDescription(d, updated, currentEmployee,
+                        Document document = familyDocumentService.updateDescription(d, updated, currentEmployee,
                                 req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         buildDocumentDialog(document);
@@ -688,7 +688,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
         root.add(buildAuditBlock(d));
 
-        if (lvl != 10 || d.getFamily().getStatus().equals(RecordStatus.ACTIVE) || !d.getFamily().isCaseClosed()) {
+        if (lvl != 10 || d.getMember().getStatus().equals(RecordStatus.ACTIVE) || !d.getMember().isCaseClosed()) {
             HorizontalLayout block = new HorizontalLayout();
             block.setSpacing(false);
             block.setPadding(false);
@@ -698,7 +698,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                 showConfirmDialog("Datei löschen", "Wollen Sie die Datei löschen?", () -> {
                     try {
                         VaadinRequest req = VaadinRequest.getCurrent();
-                        familyDocumentService.invalidateDocument(d.getFamily(), d, currentEmployee,
+                        familyDocumentService.invalidateDocument(d.getMember(), d, currentEmployee,
                                 req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         dialog.close();
@@ -727,7 +727,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         dialog.open();
     }
 
-    private VerticalLayout buildAuditBlock(FamilyDocument d) {
+    private VerticalLayout buildAuditBlock(Document d) {
         VerticalLayout block = new VerticalLayout();
         block.setSpacing(false);
         block.setPadding(false);
@@ -772,25 +772,25 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         Span title = new Span("Papierkorb: Dokumente");
         title.getStyle().set("font-weight", "bold");
 
-        Grid<FamilyDocument> grid = new Grid<>();
+        Grid<Document> grid = new Grid<>();
         grid.setSizeFull();
         grid.setSelectionMode(Grid.SelectionMode.SINGLE);
 
-        grid.addColumn(FamilyDocument::getId)
+        grid.addColumn(Document::getId)
                 .setHeader("ID").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(FamilyDocument::getId);
+                .setComparator(Document::getId);
 
         grid.addColumn(d -> d != null ? d.getOriginalFileName() : "")
                 .setHeader("Dateiname").setAutoWidth(true).setFlexGrow(0)
                 .setComparator(d -> d != null ? d.getOriginalFileName() : "");
 
-        grid.addColumn(d -> d != null ? d.getFamily().getFamilyName() : "")
+        grid.addColumn(d -> d != null ? d.getMember().getLastName() : "")
                 .setHeader("Familie").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(d -> d != null ? d.getFamily().getFamilyName() : "");
+                .setComparator(d -> d != null ? d.getMember().getLastName() : "");
 
         grid.addColumn(d -> String.format("%.2f", (double) d.getFileSizeBytes() / 1024 / 1024))
                 .setHeader("Größe (Mb)").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(FamilyDocument::getFileSizeBytes);
+                .setComparator(Document::getFileSizeBytes);
 
         grid.addColumn(d -> {
                     Employee emp = employeeService.findByLogin(d.getInvalidBy());
@@ -804,7 +804,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
         grid.addColumn(d -> formatDate(d.getInvalidAt()) + " um " + formatTime(d.getInvalidAt()) + " Uhr")
                 .setHeader("Gelöscht am").setAutoWidth(true).setFlexGrow(0)
-                .setComparator(FamilyDocument::getInvalidBy);
+                .setComparator(Document::getInvalidBy);
 
         if (currentEmployee.getRole().getAccessLevel() == 50) {
             grid.addColumn(new ComponentRenderer<>(d -> {
@@ -841,13 +841,13 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                 e -> restore.setEnabled(e.getFirstSelectedItem().isPresent()));
 
         restore.addClickListener(e -> {
-            FamilyDocument d = grid.asSingleSelect().getValue();
+            Document d = grid.asSingleSelect().getValue();
             if (d == null) return;
 
             Runnable restoreWithoutReason = () -> {
                 try {
                     VaadinRequest req = VaadinRequest.getCurrent();
-                    familyDocumentService.restoreDocument(d.getFamily(), d,
+                    familyDocumentService.restoreDocument(d.getMember(), d,
                             "Wiederherstellung über Papierkorb", currentEmployee,
                             req != null ? req.getRemoteAddr() : "UNKNOWN",
                             req != null ? req.getHeader("User-Agent") : "UNKNOWN");
@@ -898,7 +898,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
                     try {
                         VaadinRequest req = VaadinRequest.getCurrent();
-                        familyDocumentService.restoreDocument(d.getFamily(), d, reason.getValue().trim(),
+                        familyDocumentService.restoreDocument(d.getMember(), d, reason.getValue().trim(),
                                 currentEmployee, req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         reasonDialog.close();
@@ -936,15 +936,15 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         dialog.open();
     }
 
-    private List<FamilyDocument> loadTrashDocs() {
-        List<FamilyDocument> result = new ArrayList<>();
+    private List<Document> loadTrashDocs() {
+        List<Document> result = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
 
-        for (FamilyDocument d : familyDocumentService.getAllDocuments(currentEmployee)) {
+        for (Document d : familyDocumentService.getAllDocuments(currentEmployee)) {
             if (!d.isInvalid()) continue;
             if (d.getInvalidAt() == null) continue;
 
-            Family f = d.getFamily();
+            Member f = d.getMember();
             if (f == null) continue;
 
             if (!RecordStatus.ACTIVE.equals(f.getStatus())) continue;
@@ -952,8 +952,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             long days = Duration.between(d.getInvalidAt(), now).toDays();
 
             if (lvl == 50) {
-                boolean isOwn = d.getFamily().getAssignedEmployee().equals(currentEmployee);
-                boolean isDelegated = delegationService.hasActiveDelegationTo(d.getFamily(), currentEmployee);
+                boolean isOwn = d.getMember().getAssignedEmployee().equals(currentEmployee);
+                boolean isDelegated = delegationService.hasActiveDelegationTo(d.getMember(), currentEmployee);
                 if (!isOwn && !isDelegated) continue;
                 if (days > 14) continue;
             }
@@ -1004,7 +1004,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         dialog.open();
     }
 
-    private boolean isInDateRange(FamilyDocument d) {
+    private boolean isInDateRange(Document d) {
         LocalDateTime base = d.getUpdatedAt() != null ? d.getUpdatedAt() : d.getUploadedAt();
         if (base == null) return false;
         LocalDate date = base.toLocalDate();
@@ -1014,13 +1014,13 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         return true;
     }
 
-    private boolean matchesSearch(FamilyDocument d, String q) {
+    private boolean matchesSearch(Document d, String q) {
         if (q == null || q.isBlank()) return true;
         String qq = q.toLowerCase().trim();
         if (d.getOriginalFileName() != null && d.getOriginalFileName().toLowerCase().contains(qq)) return true;
         if (d.getDescription() != null && d.getDescription().toLowerCase().contains(qq)) return true;
-        Family f = d.getFamily();
-        if (f != null && f.getFamilyName() != null && f.getFamilyName().toLowerCase().contains(qq)) return true;
+        Member f = d.getMember();
+        if (f != null && f.getLastName() != null && f.getLastName().toLowerCase().contains(qq)) return true;
         return false;
     }
 
@@ -1053,7 +1053,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     }
 
     private List<String> collectFileTypes() {
-        return currentDocuments.stream().map(FamilyDocument::getFileType).filter(Objects::nonNull)
+        return currentDocuments.stream().map(Document::getFileType).filter(Objects::nonNull)
                 .map(this::toReadableType).filter(Objects::nonNull).distinct().sorted().toList();
     }
 
@@ -1068,12 +1068,12 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         return null;
     }
 
-    private boolean isVisibleDoc(FamilyDocument d) {
-        return !d.isInvalid() && d.getFamily() != null && (d.getFamily().getStatus().equals(RecordStatus.ACTIVE)
-                || d.getFamily().getStatus().equals(RecordStatus.ARCHIVED));
+    private boolean isVisibleDoc(Document d) {
+        return !d.isInvalid() && d.getMember() != null && (d.getMember().getStatus().equals(RecordStatus.ACTIVE)
+                || d.getMember().getStatus().equals(RecordStatus.ARCHIVED));
     }
 
-    private boolean isPreviewable(FamilyDocument d) {
+    private boolean isPreviewable(Document d) {
         String t = d.getFileType();
         if (t == null) return false;
         return t.contains("pdf") || t.contains("jpg") || t.contains("jpeg") || t.contains("png");

@@ -24,8 +24,8 @@ public class Consultation {
     private Employee employee;
 
     @ManyToOne
-    @JoinColumn(name = "family_id", nullable = false)
-    private Family family;
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
 
     @Column(nullable = false)
     private LocalDateTime dateTime;

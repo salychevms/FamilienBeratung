@@ -2,11 +2,11 @@ package com.salychevms.familienberatung.ui.view;
 
 import com.salychevms.familienberatung.model.Consultation;
 import com.salychevms.familienberatung.model.Employee;
-import com.salychevms.familienberatung.model.Family;
+import com.salychevms.familienberatung.model.Member;
 import com.salychevms.familienberatung.model.RecordStatus;
 import com.salychevms.familienberatung.service.AuthService;
 import com.salychevms.familienberatung.service.ConsultationService;
-import com.salychevms.familienberatung.service.FamilyService;
+import com.salychevms.familienberatung.service.MemberService;
 import com.salychevms.familienberatung.ui.layout.MainLayout;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
@@ -32,7 +32,7 @@ import java.util.List;
 public class OverviewView extends VerticalLayout implements BeforeEnterObserver {
 
     private final AuthService authService;
-    private final FamilyService familyService;
+    private final MemberService memberService;
     private final ConsultationService consultationService;
 
     @Override
@@ -63,11 +63,11 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
 
         H2 title = new H2(buildTitle(e, lvl));
 
-        int famCount = getFamiliesCount(e, lvl);
+        int memberCount = getMembersCount(e, lvl);
         int conCount = getConsultationsCount(e, lvl);
         int hours = getConsultationsHours(e, lvl);
 
-        Paragraph p1 = new Paragraph("Familien: " + famCount);
+        Paragraph p1 = new Paragraph("Teilnehmerzahl: " + memberCount);
         Paragraph p2 = new Paragraph("Beratungen: " + conCount);
         Paragraph p3 = new Paragraph("Beratungsstundenanzahl: " + (hours / 60) + ":" + String.format("%02d", hours % 60) + " St.");
 
@@ -77,7 +77,7 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
 
         HorizontalLayout nav = new HorizontalLayout();
         nav.setSpacing(true);
-        nav.add(makeNavButton("Familien", FamiliesView.class));
+        nav.add(makeNavButton("Teilnehmer*innen", MembersView.class));
         /*nav.add(new Button("Beratungen", ev ->
                 getUI().ifPresent(ui -> ui.navigate(ConsultationsView.class))));
         nav.add(new Button("Dokumente", ev ->
@@ -110,26 +110,26 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
         };
     }
 
-    private int getFamiliesCount(Employee e, int lvl) {
+    private int getMembersCount(Employee e, int lvl) {
         if (lvl == 50) {
-            return familyService.getFamiliesByAssignedEmployee(e.getLogin(), e)
+            return memberService.getMembersByAssignedEmployee(e.getLogin(), e)
                     .stream().filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList().size();
         }
-        return familyService.getFamilies()
+        return memberService.getMembers()
                 .stream().filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList().size();
     }
 
     private int getConsultationsCount(Employee e, int lvl) {
-        List<Family> families;
+        List<Member> members;
         List<Consultation> consultations = new ArrayList<>();
         if (lvl == 50) {
-            families = familyService.getFamiliesByAssignedEmployee(e.getLogin(), e);
-            for (Family f : families)
+            members = memberService.getMembersByAssignedEmployee(e.getLogin(), e);
+            for (Member f : members)
                 if (!f.getStatus().equals(RecordStatus.INVALID))
                     consultations.addAll(consultationService.getConsultationsByFamily(f));
         } else {
-            families = familyService.getFamilies();
-            for (Family f : families)
+            members = memberService.getMembers();
+            for (Member f : members)
                 if (!f.getStatus().equals(RecordStatus.INVALID))
                     consultations.addAll(consultationService.getConsultationsByFamily(f));
         }
@@ -137,16 +137,16 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
     }
 
     private int getConsultationsHours(Employee e, int lvl) {
-        List<Family> families;
+        List<Member> members;
         List<Consultation> consultations = new ArrayList<>();
         if (lvl == 50) {
-            families = familyService.getFamiliesByAssignedEmployee(e.getLogin(), e);
-            for (Family f : families)
+            members = memberService.getMembersByAssignedEmployee(e.getLogin(), e);
+            for (Member f : members)
                 if (!f.getStatus().equals(RecordStatus.INVALID))
                     consultations.addAll(consultationService.getConsultationsByFamily(f));
         } else {
-            families = familyService.getFamilies();
-            for (Family f : families)
+            members = memberService.getMembers();
+            for (Member f : members)
                 if (!f.getStatus().equals(RecordStatus.INVALID))
                     consultations.addAll(consultationService.getConsultationsByFamily(f));
         }

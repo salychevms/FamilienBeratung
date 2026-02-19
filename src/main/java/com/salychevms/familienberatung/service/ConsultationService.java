@@ -22,16 +22,16 @@ public class ConsultationService {
     private final AccessLogService accessLog;
     private final ValidationService validator;
 
-    public void createConsultation(Family family, Employee employee, LocalDateTime dateTime,
+    public void createConsultation(Member member, Employee employee, LocalDateTime dateTime,
                                    int durationMinutes, String topic, String description, String result,
                                    LocalDateTime followUp, String ip, String browser) {
-        if (family == null) {
-            log.error("Family is null");
-            throw new RuntimeException("Family is null");
+        if (member == null) {
+            log.error("Member is null");
+            throw new RuntimeException("Member is null");
         }
-        if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Family status is not ACTIVE");
-            throw new RuntimeException("Family status is not ACTIVE");
+        if (!member.getStatus().equals(RecordStatus.ACTIVE)) {
+            log.error("Member status is not ACTIVE");
+            throw new RuntimeException("Member status is not ACTIVE");
         }
         if (employee == null) {
             log.error("Employee is null");
@@ -49,9 +49,9 @@ public class ConsultationService {
             log.error("dateTime is after now");
             throw new RuntimeException("dateTime is after now");
         }
-        if (dateTime.isBefore(family.getCreatedAt())) {
-            log.error("Consultation date is before family created");
-            throw new RuntimeException("Consultation date is before family created");
+        if (dateTime.toLocalDate().isBefore(member.getJoinedAt())) {
+            log.error("Consultation date is before member joined");
+            throw new RuntimeException("Consultation date is before member joined");
         }
         if (durationMinutes <= 0) {
             log.error("Duration time can't be 0 or negative");
@@ -67,7 +67,7 @@ public class ConsultationService {
         validator.validateText(result, 4000);
 
         Consultation consultation = new Consultation();
-        consultation.setFamily(family);
+        consultation.setMember(member);
         consultation.setEmployee(employee);
         consultation.setDateTime(dateTime);
         consultation.setBackdated(dateTime.toLocalDate().isBefore(LocalDate.now()));
@@ -86,11 +86,11 @@ public class ConsultationService {
         log.info("Consultation has been created by {}. Backdated: {}", employee.getLogin(), saved.isBackdated());
     }
 
-    public void updateConsultation(Consultation consultation, Consultation updated, Family family, Employee employee,
+    public void updateConsultation(Consultation consultation, Consultation updated, Member member, Employee employee,
                                    String ip, String browser) {
-        if (family == null) {
-            log.error("Family is null");
-            throw new RuntimeException("Family is null");
+        if (member == null) {
+            log.error("Member is null");
+            throw new RuntimeException("Member is null");
         }
         if (consultation == null) {
             log.error("Consultation is null");
@@ -100,13 +100,13 @@ public class ConsultationService {
             log.error("Employee is null");
             throw new RuntimeException("Employee is null");
         }
-        if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Family status is not ACTIVE");
-            throw new RuntimeException("Family status is not ACTIVE");
+        if (!member.getStatus().equals(RecordStatus.ACTIVE)) {
+            log.error("Member status is not ACTIVE");
+            throw new RuntimeException("Member status is not ACTIVE");
         }
-        if (!consultation.getFamily().equals(family)) {
-            log.error("Consultation does not match family");
-            throw new RuntimeException("Consultation does not match family");
+        if (!consultation.getMember().equals(member)) {
+            log.error("Consultation does not match member");
+            throw new RuntimeException("Consultation does not match member");
         }
         if (consultation.isInvalid()) {
             log.error("Consultation is not invalid");
@@ -124,9 +124,9 @@ public class ConsultationService {
             log.error("dateTime is after now");
             throw new RuntimeException("dateTime is after now");
         }
-        if (updated.getDateTime().isBefore(family.getCreatedAt())) {
-            log.error("Consultation date is before family created");
-            throw new RuntimeException("Consultation date is before family created");
+        if (updated.getDateTime().isBefore(member.getCreatedAt())) {
+            log.error("Consultation date is before member created");
+            throw new RuntimeException("Consultation date is before member created");
         }
         if (updated.getDurationMinutes() <= 0) {
             log.error("Duration time can't be 0 or negative");
@@ -157,10 +157,10 @@ public class ConsultationService {
         log.info("Consultation {} has been updated by {}", result.getId(), employee.getLogin());
     }
 
-    public void invalidateConsultation(Consultation consultation, Family family, Employee employee, String ip, String browser) {
-        if (family == null) {
-            log.error("Family is null");
-            throw new RuntimeException("Family is null");
+    public void invalidateConsultation(Consultation consultation, Member member, Employee employee, String ip, String browser) {
+        if (member == null) {
+            log.error("Member is null");
+            throw new RuntimeException("Member is null");
         }
         if (consultation == null) {
             log.error("Consultation is null");
@@ -170,13 +170,13 @@ public class ConsultationService {
             log.error("Employee is null");
             throw new RuntimeException("Employee is null");
         }
-        if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Family status is not ACTIVE");
-            throw new RuntimeException("Family status is not ACTIVE");
+        if (!member.getStatus().equals(RecordStatus.ACTIVE)) {
+            log.error("Member status is not ACTIVE");
+            throw new RuntimeException("Member status is not ACTIVE");
         }
-        if (!consultation.getFamily().equals(family)) {
-            log.error("Consultation does not match family");
-            throw new RuntimeException("Consultation does not match family");
+        if (!consultation.getMember().equals(member)) {
+            log.error("Consultation does not match member");
+            throw new RuntimeException("Consultation does not match member");
         }
         if (consultation.isInvalid()) {
             log.error("Consultation is already invalid (soft delete)");
@@ -198,11 +198,11 @@ public class ConsultationService {
         log.info("Consultation {} has been invalidated (soft delete) by {}", consultation.getId(), employee.getLogin());
     }
 
-    public void restoreConsultation(Consultation consultation, Family family, Employee employee,
+    public void restoreConsultation(Consultation consultation, Member member, Employee employee,
                                     String restoreReason, String ip, String browser) {
-        if (family == null) {
-            log.error("Family is null");
-            throw new RuntimeException("Family is null");
+        if (member == null) {
+            log.error("Member is null");
+            throw new RuntimeException("Member is null");
         }
         if (consultation == null) {
             log.error("Consultation is null");
@@ -212,13 +212,13 @@ public class ConsultationService {
             log.error("Employee is null");
             throw new RuntimeException("Employee is null");
         }
-        if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Family status is not ACTIVE");
-            throw new RuntimeException("Family status is not ACTIVE");
+        if (!member.getStatus().equals(RecordStatus.ACTIVE)) {
+            log.error("Member status is not ACTIVE");
+            throw new RuntimeException("Member status is not ACTIVE");
         }
-        if (!consultation.getFamily().equals(family)) {
-            log.error("Consultation does not match family");
-            throw new RuntimeException("Consultation does not match family");
+        if (!consultation.getMember().equals(member)) {
+            log.error("Consultation does not match member");
+            throw new RuntimeException("Consultation does not match member");
         }
         if (!consultation.isInvalid()) {
             log.error("Consultation is not invalid");
@@ -277,12 +277,12 @@ public class ConsultationService {
         return consultation;
     }
 
-    public List<Consultation> getConsultationsByFamily(Family family) {
-        if (family == null) {
-            log.error("Family is null");
+    public List<Consultation> getConsultationsByFamily(Member member) {
+        if (member == null) {
+            log.error("Member is null");
         }
 
-        List<Consultation> consultations = consultationRepository.findAllByFamily(family);
+        List<Consultation> consultations = consultationRepository.findAllByMember(member);
         List<Consultation> results = new ArrayList<>(consultations);
         for (Consultation c : consultations) {
             if (!c.isInvalid()) continue;
@@ -293,9 +293,9 @@ public class ConsultationService {
         return results;
     }
 
-    public void deleteFollowUp(Family family, Consultation consultation, Employee employee, String ip, String browser) {
-        if (family == null) {
-            log.error("Family is null");
+    public void deleteFollowUp(Member member, Consultation consultation, Employee employee, String ip, String browser) {
+        if (member == null) {
+            log.error("Member is null");
         }
         if (consultation == null) {
             log.error("Consultation is null");
@@ -303,13 +303,13 @@ public class ConsultationService {
         if (employee == null) {
             log.error("Employee is null");
         }
-        if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Family status is not ACTIVE");
-            throw new RuntimeException("Family status is not ACTIVE");
+        if (!member.getStatus().equals(RecordStatus.ACTIVE)) {
+            log.error("Member status is not ACTIVE");
+            throw new RuntimeException("Member status is not ACTIVE");
         }
-        if (!consultation.getFamily().equals(family)) {
-            log.error("Consultation does not match family");
-            throw new RuntimeException("Consultation does not match family");
+        if (!consultation.getMember().equals(member)) {
+            log.error("Consultation does not match member");
+            throw new RuntimeException("Consultation does not match member");
         }
         if (consultation.isInvalid()) {
             log.error("Consultation is already invalid (soft delete)");
@@ -332,22 +332,22 @@ public class ConsultationService {
         return consultationRepository.findAll();
     }
 
-    public int getFamilyConsultationsCount(Family family) {
-        if (family == null) {
-            log.error("Family is null");
-            throw new RuntimeException("Family is null");
+    public int getFamilyConsultationsCount(Member member) {
+        if (member == null) {
+            log.error("Member is null");
+            throw new RuntimeException("Member is null");
         }
 
-        return consultationRepository.findAllByFamily(family).size();
+        return consultationRepository.findAllByMember(member).size();
     }
 
-    public int getDurationTimeMinutesForFamilyCount(Family family) {
-        if (family == null) {
-            log.error("Family is null");
-            throw new RuntimeException("Family is null");
+    public int getDurationTimeMinutesForFamilyCount(Member member) {
+        if (member == null) {
+            log.error("Member is null");
+            throw new RuntimeException("Member is null");
         }
 
-        List<Consultation> consultations = consultationRepository.findAllByFamily(family);
+        List<Consultation> consultations = consultationRepository.findAllByMember(member);
 
         int minutes = 0;
         for (Consultation c : consultations) {

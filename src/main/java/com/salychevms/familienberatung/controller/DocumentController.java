@@ -16,7 +16,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/documents")
 @RequiredArgsConstructor
-public class FamilyDocumentController {
+public class DocumentController {
     private final DocumentService familyDocumentService;
     private final MemberService memberService;
     private final EmployeeService employeeService;
@@ -52,7 +52,7 @@ public class FamilyDocumentController {
             return;
         }
 
-        Member member = memberService.getFamilyById(doc.getMember().getId());
+        Member member = memberService.getMemberById(doc.getMember().getId());
         if (member == null || member.getStatus().equals(RecordStatus.INVALID)) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
