@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class FamilyMember {
+public class MemberEsfDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,14 +22,14 @@ public class FamilyMember {
 
     @ManyToOne
     @JoinColumn(name = "family_id", nullable = false)
-    private Family family;
+    private Member member;
     @Column(nullable = false)
     private String firstName;
     @Column(nullable = false)
     private String lastName;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private FamilyMemberGender gender;
+    private MemberGender gender;
     @Column(nullable = false)
     private LocalDate birthDate;
     @Column(nullable = false)
@@ -78,6 +78,6 @@ public class FamilyMember {
     @Column
     private String restoredReason;
 
-    public  FamilyMember() {
+    public MemberEsfDetails() {
     }
 }

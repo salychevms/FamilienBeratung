@@ -45,19 +45,19 @@ import java.util.*;
 @PageTitle("Familie")
 @RequiredArgsConstructor
 @PermitAll
-public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObserver {
+public class MemberMainInfoView extends VerticalLayout implements BeforeEnterObserver {
     private final AuthService authService;
-    private final FamilyService familyService;
+    private final MemberService memberService;
     private final DelegationService delegationService;
     private final ConsultationService consultationService;
     private final EmployeeService employeeService;
-    private final FamilyMemberService familyMemberService;
+    private final MemberDetailsService memberDetailsService;
 
     private Employee currentEmployee;
     private int lvl;
     private Long familyId;
-    private Family currentFamily;
-    private List<FamilyMember> members;
+    private Member currentMember;
+    private List<MemberDetails> members;
     private List<Consultation> consultations;
     private Delegation activeDelegation;
 
@@ -81,27 +81,27 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         }
 
         try {
-            this.currentFamily = familyService.getFamilyById(optId.get());
-            this.familyId = currentFamily.getId();
+            this.currentMember = memberService.getFamilyById(optId.get());
+            this.familyId = currentMember.getId();
         } catch (Exception ex) {
             event.forwardTo("families");
             return;
         }
 
         consultations = new ArrayList<>();
-        List<Consultation> consultationList = consultationService.getConsultationsByFamily(currentFamily);
+        List<Consultation> consultationList = consultationService.getConsultationsByFamily(currentMember);
         for (Consultation c : consultationList) {
             if (!c.isInvalid()) this.consultations.add(c);
         }
 
-        this.activeDelegation = delegationService.getActiveDelegationForFamily(this.currentFamily);
+        this.activeDelegation = delegationService.getActiveDelegationForFamily(this.currentMember);
 
         members = new ArrayList<>();
-        members = familyMemberService.getMembers(currentFamily, currentEmployee.getLogin()).stream().filter(
+        members = memberDetailsService.getMembers(currentMember, currentEmployee.getLogin()).stream().filter(
                 fm -> !fm.isInvalid()).toList();
 
         if (lvl == 50) {
-            boolean holder = currentFamily.getAssignedEmployee().equals(currentEmployee);
+            boolean holder = currentMember.getAssignedEmployee().equals(currentEmployee);
             boolean delegated = activeDelegation != null && activeDelegation.getToEmployee().equals(currentEmployee)
                     && delegationService.isDelegationActive(activeDelegation);
             if (!holder && !(delegated)) {
@@ -136,7 +136,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         bcrumbs.setAlignItems(FlexComponent.Alignment.CENTER);
 
         RouterLink l1 = new RouterLink("Übersicht", OverviewView.class);
-        RouterLink l2 = new RouterLink("Familien", FamiliesView.class);
+        RouterLink l2 = new RouterLink("Familien", MembersView.class);
 
         Span sep1 = new Span(" >> ");
         sep1.getStyle().set("font-size", "var(--lumo-font-size-s)")
@@ -144,7 +144,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         Span sep2 = new Span(" >> ");
         sep2.getStyle().set("font-size", "var(--lumo-font-size-s)")
                 .set("color", "var(--lumo-secondary-text-color)");
-        Span l3 = new Span("Familie: " + currentFamily.getFamilyName());
+        Span l3 = new Span("Familie: " + currentMember.getFamilyName());
         l3.getStyle().set("font-size", "var(--lumo-font-size-s)")
                 .set("font-weight", "bold")
                 .set("color", "var(--lumo-body-text-color)");
@@ -170,14 +170,14 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         h2Title.setAlignItems(FlexComponent.Alignment.CENTER);
         h2Title.setSpacing(false);
 
-        if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
+        if (lvl != 10 && currentMember.getStatus().equals(RecordStatus.ACTIVE) && !currentMember.isCaseClosed()) {
             Button h2EditBtn = new Button(VaadinIcon.EDIT.create());
             h2EditBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             h2EditBtn.setClassName("edit-btn");
 
             h2EditBtn.addClickListener(e -> {
                 EditDialogFactory.openEditDialog("Familienname ändern", List.of(new EditField("familyName",
-                        "Familienname", EditField.Type.TEXT, currentFamily.getFamilyName(), true,
+                        "Familienname", EditField.Type.TEXT, currentMember.getFamilyName(), true,
                         255, null, null, null)), values -> {
                     String newName = (String) values.get("familyName");
                     if (!EditDialogFactory.isValidText(newName, 255)) {
@@ -186,11 +186,11 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                     }
 
                     showConfirmDialog("Speichern", "Änderunge speichern?", () -> {
-                        Family f = familyService.getFamilyById(currentFamily.getId());
+                        Member f = memberService.getFamilyById(currentMember.getId());
                         f.setFamilyName(newName);
 
                         VaadinRequest req = VaadinRequest.getCurrent();
-                        familyService.updateFamily(f, currentEmployee.getLogin(), req != null ? req.getRemoteAddr() : "UNKNOWN",
+                        memberService.updateFamily(f, currentEmployee.getLogin(), req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         getUI().ifPresent(ui -> ui.getPage().reload());
                     }, () -> {
@@ -200,25 +200,25 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             h2Title.add(h2EditBtn);
         }
 
-        H2 title = new H2("Familie: " + currentFamily.getFamilyName());
+        H2 title = new H2("Familie: " + currentMember.getFamilyName());
         h2Title.add(title);
 
         familyHeader.add(h2Title);
 
         Span fIdTitle = new Span("ID: ");
-        Span fId = new Span(currentFamily.getId().toString());
+        Span fId = new Span(currentMember.getId().toString());
         fId.getStyle().set("font-weight", "bold");
         Span fStatusTitle = new Span("Status: ");
-        Span fStatus = new Span(currentFamily.getStatus().toString());
+        Span fStatus = new Span(currentMember.getStatus().toString());
         fStatus.getStyle().set("font-weight", "bold");
         Span caseTitle = new Span("Ablauf: ");
-        Span caseState = new Span(currentFamily.isCaseClosed() ? "geschlossen" : "offen");
+        Span caseState = new Span(currentMember.isCaseClosed() ? "geschlossen" : "offen");
         caseState.getStyle().set("font-weight", "bold");
-        if (currentFamily.isCaseClosed()) caseState.getStyle().set("color", "red");
+        if (currentMember.isCaseClosed()) caseState.getStyle().set("color", "red");
         else caseState.getStyle().set("color", "green");
-        if (currentFamily.getStatus().equals(RecordStatus.ARCHIVED)) fStatus.getStyle().set("color", "#b58900");
-        else if (currentFamily.getStatus().equals(RecordStatus.BLOCKED)) fStatus.getStyle().set("color", "red");
-        else if (currentFamily.getStatus().equals(RecordStatus.ACTIVE)) fStatus.getStyle().set("color", "green");
+        if (currentMember.getStatus().equals(RecordStatus.ARCHIVED)) fStatus.getStyle().set("color", "#b58900");
+        else if (currentMember.getStatus().equals(RecordStatus.BLOCKED)) fStatus.getStyle().set("color", "red");
+        else if (currentMember.getStatus().equals(RecordStatus.ACTIVE)) fStatus.getStyle().set("color", "green");
 
         HorizontalLayout infoAndDelegation = new HorizontalLayout();
         infoAndDelegation.setSpacing(true);
@@ -237,12 +237,12 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         empLayout.setPadding(false);
 
         empLayout.setAlignItems(FlexComponent.Alignment.CENTER);
-        Span emp = new Span(currentFamily.getAssignedEmployee().getFirstName() +
-                " " + currentFamily.getAssignedEmployee().getLastName());
+        Span emp = new Span(currentMember.getAssignedEmployee().getFirstName() +
+                " " + currentMember.getAssignedEmployee().getLastName());
         emp.getStyle().set("font-weight", "bold");
         Span employeeTitle = new Span("Berater*in: ");
-        if (lvl == 80 || lvl == 100 && currentFamily.getStatus().equals(RecordStatus.ACTIVE)
-                && !currentFamily.isCaseClosed()) {
+        if (lvl == 80 || lvl == 100 && currentMember.getStatus().equals(RecordStatus.ACTIVE)
+                && !currentMember.isCaseClosed()) {
             employeeTitle.getStyle().set("color", "var(--lumo-primary-text-color)").set("cursor", "pointer")
                     .set("text-decoration", "underline");
             employeeTitle.addClickListener(e -> openChangeAssigneeDialog());
@@ -254,12 +254,12 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         zeusLayout.setSpacing(true);
         zeusLayout.setPadding(false);
         zeusLayout.setAlignItems(FlexComponent.Alignment.CENTER);
-        String zsId = empty(currentFamily.getZeusId());
+        String zsId = empty(currentMember.getZeusId());
         Span zeusId = new Span(zsId);
         zeusId.getStyle().set("font-weight", "bold");
         Span zeusTitle = new Span("Zeus ID: ");
-        if (lvl == 80 || lvl == 100 && currentFamily.getStatus().equals(RecordStatus.ACTIVE)
-                && !currentFamily.isCaseClosed()) {
+        if (lvl == 80 || lvl == 100 && currentMember.getStatus().equals(RecordStatus.ACTIVE)
+                && !currentMember.isCaseClosed()) {
             zeusTitle.getStyle().set("color", "var(--lumo-primary-text-color)").set("cursor", "pointer")
                     .set("text-decoration", "underline");
             zeusTitle.addClickListener(e -> EditDialogFactory.openEditDialog(
@@ -273,9 +273,9 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                         }
                         showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
                             VaadinRequest req = VaadinRequest.getCurrent();
-                            Family f = familyService.getFamilyById(currentFamily.getId());
+                            Member f = memberService.getFamilyById(currentMember.getId());
                             f.setZeusId(zeusID);
-                            familyService.updateFamily(f, currentEmployee.getLogin(),
+                            memberService.updateFamily(f, currentEmployee.getLogin(),
                                     req != null ? req.getRemoteAddr() : "UNKNOWN",
                                     req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                             getUI().ifPresent(ui -> ui.getPage().reload());
@@ -285,7 +285,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         }
         zeusLayout.add(zeusTitle, zeusId);
 
-        List<Consultation> consultations = consultationService.getConsultationsByFamily(currentFamily);
+        List<Consultation> consultations = consultationService.getConsultationsByFamily(currentMember);
         int mnts = 0;
         for (Consultation c : consultations) {
             mnts += c.getDurationMinutes();
@@ -365,7 +365,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.setSpacing(true);
 
-        if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
+        if (lvl != 10 && currentMember.getStatus().equals(RecordStatus.ACTIVE) && !currentMember.isCaseClosed()) {
             Button member = new Button(VaadinIcon.PLUS.create(), e -> buildCreateMemberDialog());
             member.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             member.addClassName("plus-btn");
@@ -376,8 +376,8 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         title.getStyle().set("font-weight", "bold");
         header.add(title);
 
-        if (lvl == 100 || lvl == 80 || (lvl == 50 && (!currentFamily.getStatus().equals(RecordStatus.BLOCKED)
-                && !currentFamily.isCaseClosed()))) {
+        if (lvl == 100 || lvl == 80 || (lvl == 50 && (!currentMember.getStatus().equals(RecordStatus.BLOCKED)
+                && !currentMember.isCaseClosed()))) {
             Button memberTrash = new Button("Papierkorb", VaadinIcon.TRASH.create());
             memberTrash.setWidth("90px");
             memberTrash.setHeight("26px");
@@ -394,7 +394,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             none.getStyle().set("color", "#666");
             block.add(none);
         } else {
-            for (FamilyMember m : members) {
+            for (MemberDetails m : members) {
                 Div row = new Div();
                 row.setWidthFull();
                 row.getStyle().set("padding", "6px 10px").set("border-bottom", "1px solid #e0e0e0").set("cursor", "pointer");
@@ -406,11 +406,11 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                 int age = (m.getBirthDate() != null) ? Period.between(m.getBirthDate(), LocalDate.now()).getYears() : -1;
 
                 String gender = "kA";
-                if (m.getGender().equals(FamilyMemberGender.DIVERS)) {
+                if (m.getGender().equals(MemberGender.DIVERS)) {
                     gender = "divers";
-                } else if (m.getGender().equals(FamilyMemberGender.MAENNLICH)) {
+                } else if (m.getGender().equals(MemberGender.MAENNLICH)) {
                     gender = "männlich";
-                } else if (m.getGender().equals(FamilyMemberGender.WEIBLICH)) {
+                } else if (m.getGender().equals(MemberGender.WEIBLICH)) {
                     gender = "weiblich";
                 }
 
@@ -424,9 +424,9 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                 row.addClickListener(ev ->
                 {
                     getUI().ifPresent(ui ->
-                            ui.navigate(MemberDetailsView.class,
+                            ui.navigate(MemberDetailsInfoView.class,
                                     new RouteParameters(Map.of("id", String.valueOf(m.getId()),
-                                            "familyId", String.valueOf(currentFamily.getId())))));
+                                            "familyId", String.valueOf(currentMember.getId())))));
                 });
                 block.add(row);
             }
@@ -445,24 +445,24 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         titleLayout.setAlignItems(FlexComponent.Alignment.CENTER);
         titleLayout.setSpacing(false);
         titleLayout.setPadding(false);
-        if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
+        if (lvl != 10 && currentMember.getStatus().equals(RecordStatus.ACTIVE) && !currentMember.isCaseClosed()) {
             Button contactEditBtn = new Button(VaadinIcon.EDIT.create());
             contactEditBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             contactEditBtn.addClassName("edit-btn");
             contactEditBtn.addClickListener(ev -> EditDialogFactory.openEditDialog(
                     "Hauptkontaktdaten ändern", List.of(new EditField("phone", "Telefon", EditField.Type.TEXT,
-                                    currentFamily.getPhone(), false, 255, null,
+                                    currentMember.getPhone(), false, 255, null,
                                     null, null),
-                            new EditField("email", "E-Mail", EditField.Type.TEXT, currentFamily.getEmail(),
+                            new EditField("email", "E-Mail", EditField.Type.TEXT, currentMember.getEmail(),
                                     false, 255, null, null, null),
-                            new EditField("street", "Straße", EditField.Type.TEXT, currentFamily.getStreet(),
+                            new EditField("street", "Straße", EditField.Type.TEXT, currentMember.getStreet(),
                                     false, 255, null, null, null),
                             new EditField("houseNumber", "Hausnummer", EditField.Type.TEXT,
-                                    currentFamily.getHouseNumber(), false, 255, null,
+                                    currentMember.getHouseNumber(), false, 255, null,
                                     null, null),
-                            new EditField("zip", "PLZ", EditField.Type.TEXT, currentFamily.getZip(),
+                            new EditField("zip", "PLZ", EditField.Type.TEXT, currentMember.getZip(),
                                     false, 255, null, null, null),
-                            new EditField("city", "Stadt", EditField.Type.TEXT, currentFamily.getCity(),
+                            new EditField("city", "Stadt", EditField.Type.TEXT, currentMember.getCity(),
                                     false, 255, null, null, null)),
                     values -> {
                         String phone = (String) values.get("phone");
@@ -489,7 +489,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                         }
 
                         showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
-                            Family f = familyService.getFamilyById(currentFamily.getId());
+                            Member f = memberService.getFamilyById(currentMember.getId());
                             f.setPhone((String) values.get("phone"));
                             f.setEmail((String) values.get("email"));
                             f.setStreet(street);
@@ -498,7 +498,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                             f.setCity(city);
 
                             VaadinRequest req = VaadinRequest.getCurrent();
-                            familyService.updateFamily(f, currentEmployee.getLogin(), req != null ? req.getRemoteAddr() : "UNKNOWN",
+                            memberService.updateFamily(f, currentEmployee.getLogin(), req != null ? req.getRemoteAddr() : "UNKNOWN",
                                     req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                             getUI().ifPresent(ui -> ui.getPage().reload());
                         }, () -> {
@@ -513,16 +513,16 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         titleLayout.add(title);
         block.add(titleLayout);
 
-        String phone = (currentFamily.getPhone() == null ||
-                currentFamily.getPhone().isBlank() ? "nicht angegeben" : currentFamily.getPhone());
+        String phone = (currentMember.getPhone() == null ||
+                currentMember.getPhone().isBlank() ? "nicht angegeben" : currentMember.getPhone());
 
-        String email = (currentFamily.getEmail() == null ||
-                currentFamily.getEmail().isBlank() ? "nicht angegeben" : currentFamily.getEmail());
+        String email = (currentMember.getEmail() == null ||
+                currentMember.getEmail().isBlank() ? "nicht angegeben" : currentMember.getEmail());
 
-        String street = currentFamily.getStreet();
-        String houseNumber = currentFamily.getHouseNumber();
-        String zip = currentFamily.getZip();
-        String city = currentFamily.getCity();
+        String street = currentMember.getStreet();
+        String houseNumber = currentMember.getHouseNumber();
+        String zip = currentMember.getZip();
+        String city = currentMember.getCity();
         String line1;
         if (street == null || street.isBlank() && (houseNumber == null || houseNumber.isBlank())) {
             line1 = "nicht angegeben";
@@ -557,14 +557,14 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         reasonLayout.setAlignItems(FlexComponent.Alignment.CENTER);
         reasonLayout.setSpacing(true);
 
-        if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
+        if (lvl != 10 && currentMember.getStatus().equals(RecordStatus.ACTIVE) && !currentMember.isCaseClosed()) {
             Button additionalEditBtn = new Button(VaadinIcon.EDIT.create());
             additionalEditBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             additionalEditBtn.addClassName("edit-btn");
             additionalEditBtn.addClickListener(e -> EditDialogFactory.
                     openEditDialog("Grund der Beratung ändern", List.of(
                             new EditField("reason", "Grund der Beratung", EditField.Type.TEXTAREA,
-                                    currentFamily.getReasonDescription(), false, 4000, null,
+                                    currentMember.getReasonDescription(), false, 4000, null,
                                     null, null)
                     ), values -> {
                         String reason = (String) values.get("reason");
@@ -573,10 +573,10 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                             return;
                         }
                         showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
-                            Family f = familyService.getFamilyById(currentFamily.getId());
+                            Member f = memberService.getFamilyById(currentMember.getId());
                             f.setReasonDescription(reason);
                             VaadinRequest req = VaadinRequest.getCurrent();
-                            familyService.updateFamily(f, currentEmployee.getLogin(),
+                            memberService.updateFamily(f, currentEmployee.getLogin(),
                                     req != null ? req.getRemoteAddr() : "UNKNOWN",
                                     req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                             getUI().ifPresent(ui -> ui.getPage().reload());
@@ -592,7 +592,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         TextArea reasonArea = new TextArea();
         reasonArea.setWidthFull();
         reasonArea.setReadOnly(true);
-        reasonArea.setValue(empty(currentFamily.getReasonDescription()));
+        reasonArea.setValue(empty(currentMember.getReasonDescription()));
         reasonArea.setMaxLength(4000);
         reasonArea.setHeight("200px");
         reasonArea.getStyle().set("white-space", "pre-wrap");
@@ -608,13 +608,13 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         HorizontalLayout noteLayout = new HorizontalLayout();
         noteLayout.setAlignItems(FlexComponent.Alignment.CENTER);
         noteLayout.setSpacing(true);
-        if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
+        if (lvl != 10 && currentMember.getStatus().equals(RecordStatus.ACTIVE) && !currentMember.isCaseClosed()) {
             Button additionalEditBtn = new Button(VaadinIcon.EDIT.create());
             additionalEditBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             additionalEditBtn.addClassName("edit-btn");
             additionalEditBtn.addClickListener(e -> EditDialogFactory.
                     openEditDialog("Notizen ändern", List.of(new EditField("notes", "Notizen",
-                                    EditField.Type.TEXTAREA, currentFamily.getNotes(), false,
+                                    EditField.Type.TEXTAREA, currentMember.getNotes(), false,
                                     255, null, null, null)),
                             values -> {
                                 String notes = (String) values.get("notes");
@@ -623,10 +623,10 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                                     return;
                                 }
                                 showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
-                                    Family f = familyService.getFamilyById(currentFamily.getId());
+                                    Member f = memberService.getFamilyById(currentMember.getId());
                                     f.setNotes(notes);
                                     VaadinRequest req = VaadinRequest.getCurrent();
-                                    familyService.updateFamily(f, currentEmployee.getLogin(),
+                                    memberService.updateFamily(f, currentEmployee.getLogin(),
                                             req != null ? req.getRemoteAddr() : "UNKNOWN",
                                             req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                                     getUI().ifPresent(ui -> ui.getPage().reload());
@@ -642,7 +642,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         TextArea noteArea = new TextArea();
         noteArea.setWidthFull();
         noteArea.setReadOnly(true);
-        noteArea.setValue(empty(currentFamily.getNotes()));
+        noteArea.setValue(empty(currentMember.getNotes()));
         noteArea.setMaxLength(255);
         noteArea.setHeight("200px");
         noteArea.getStyle().set("white-space", "pre-wrap");
@@ -663,33 +663,33 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         title.getStyle().set("font-weight", "bold");
         block.add(title);
 
-        Family family = currentFamily;
+        Member member = currentMember;
 
-        if (family.getCreatedAt() != null) block.add(makeAuditLine("Erstellt am " + formatDate(family.getCreatedAt()) +
-                " um " + formatTime(family.getCreatedAt()) + " von " + empty(family.getCreatedBy())));
+        if (member.getCreatedAt() != null) block.add(makeAuditLine("Erstellt am " + formatDate(member.getCreatedAt()) +
+                " um " + formatTime(member.getCreatedAt()) + " von " + empty(member.getCreatedBy())));
 
-        if (family.getUpdatedAt() != null) block.add(makeAuditLine("Geändert am " + formatDate(family.getUpdatedAt()) +
-                " um " + formatTime(family.getUpdatedAt()) + " von " + empty(family.getUpdatedBy())));
+        if (member.getUpdatedAt() != null) block.add(makeAuditLine("Geändert am " + formatDate(member.getUpdatedAt()) +
+                " um " + formatTime(member.getUpdatedAt()) + " von " + empty(member.getUpdatedBy())));
 
-        if (family.getInvalidAt() != null && family.getStatus().equals(RecordStatus.INVALID))
-            block.add(makeAuditLine("Gelöscht am " + formatDate(family.getInvalidAt()) +
-                    " um " + formatTime(family.getInvalidAt()) + " von " + empty(family.getInvalidBy())));
+        if (member.getInvalidAt() != null && member.getStatus().equals(RecordStatus.INVALID))
+            block.add(makeAuditLine("Gelöscht am " + formatDate(member.getInvalidAt()) +
+                    " um " + formatTime(member.getInvalidAt()) + " von " + empty(member.getInvalidBy())));
 
-        if (family.getRestoredAt() != null && family.getStatus().equals(RecordStatus.ACTIVE)) {
-            block.add(makeAuditLine("Wiederherstellt am " + formatDate(family.getRestoredAt()) +
-                    " um " + formatTime(family.getRestoredAt()) + " von " + empty(family.getRestoredBy())));
-            block.add(makeAuditReason("Grund: " + empty(family.getRestoredReason())));
+        if (member.getRestoredAt() != null && member.getStatus().equals(RecordStatus.ACTIVE)) {
+            block.add(makeAuditLine("Wiederherstellt am " + formatDate(member.getRestoredAt()) +
+                    " um " + formatTime(member.getRestoredAt()) + " von " + empty(member.getRestoredBy())));
+            block.add(makeAuditReason("Grund: " + empty(member.getRestoredReason())));
         }
 
-        if (family.getBlockedAt() != null && family.getStatus().equals(RecordStatus.BLOCKED)) {
-            block.add(makeAuditLine("Blockiert am " + formatDate(family.getBlockedAt()) +
-                    " um " + formatTime(family.getBlockedAt()) + " von " + empty(family.getBlockedBy())));
-            block.add(makeAuditReason("Grund: " + empty(family.getBlockedReason())));
+        if (member.getBlockedAt() != null && member.getStatus().equals(RecordStatus.BLOCKED)) {
+            block.add(makeAuditLine("Blockiert am " + formatDate(member.getBlockedAt()) +
+                    " um " + formatTime(member.getBlockedAt()) + " von " + empty(member.getBlockedBy())));
+            block.add(makeAuditReason("Grund: " + empty(member.getBlockedReason())));
         }
 
-        if (family.getArchivedAt() != null && family.getStatus().equals(RecordStatus.ARCHIVED))
-            block.add(makeAuditLine("Archiviert am " + formatDate(family.getArchivedAt()) +
-                    " um " + formatTime(family.getArchivedAt()) + " von " + empty(family.getArchivedBy())));
+        if (member.getArchivedAt() != null && member.getStatus().equals(RecordStatus.ARCHIVED))
+            block.add(makeAuditLine("Archiviert am " + formatDate(member.getArchivedAt()) +
+                    " um " + formatTime(member.getArchivedAt()) + " von " + empty(member.getArchivedBy())));
 
         add(block);
     }
@@ -703,22 +703,22 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         familyActionsBar.setAlignItems(Alignment.CENTER);
 
         Button viewBtn = new Button("Beratungen", e -> getUI().ifPresent(ui -> ui.navigate(
-                ConsultationsView.class, new RouteParameters("familyId", currentFamily.getId().toString()))));
+                ConsultationsView.class, new RouteParameters("familyId", currentMember.getId().toString()))));
         familyActionsBar.add(viewBtn);
 
-        if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE) && !currentFamily.isCaseClosed()) {
+        if (lvl != 10 && currentMember.getStatus().equals(RecordStatus.ACTIVE) && !currentMember.isCaseClosed()) {
             Button newBtn = new Button("Beratung", VaadinIcon.PLUS.create(),
                     e -> buildCreateConsultationDialog());
             familyActionsBar.add(newBtn);
         }
 
         Button docsBtn = new Button("Dokumente", e -> getUI().ifPresent(ui -> ui.navigate(
-                DocumentsView.class, new RouteParameters("familyId", currentFamily.getId().toString()))));
+                DocumentsView.class, new RouteParameters("familyId", currentMember.getId().toString()))));
         familyActionsBar.add(docsBtn);
 
         Button delegationsButton = new Button("Delegationen", ev -> getUI().ifPresent(
                 ui -> ui.navigate(DelegationsView.class, new RouteParameters(
-                        "familyId", currentFamily.getId().toString()))
+                        "familyId", currentMember.getId().toString()))
         ));
         familyActionsBar.add(delegationsButton);
 
@@ -733,7 +733,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         familyStatusBar.setSpacing(true);
 
 
-        if (lvl == 80 || lvl == 100 || (lvl == 50 && !currentFamily.getStatus().equals(RecordStatus.BLOCKED))) {
+        if (lvl == 80 || lvl == 100 || (lvl == 50 && !currentMember.getStatus().equals(RecordStatus.BLOCKED))) {
             Button statusBtn = new Button("Status");
 
             statusBtn.addClickListener(e -> openFamilyStatusDialog());
@@ -741,8 +741,8 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             familyStatusBar.add(statusBtn);
         }
 
-        if (lvl != 10 && currentFamily.getStatus().equals(RecordStatus.ACTIVE)) {
-            boolean caseClosed = currentFamily.isCaseClosed();
+        if (lvl != 10 && currentMember.getStatus().equals(RecordStatus.ACTIVE)) {
+            boolean caseClosed = currentMember.isCaseClosed();
             Button caseClosedBtn;
             if (caseClosed) {
                 caseClosedBtn = new Button("Ablauf wiederherstellen", VaadinIcon.UNLOCK.create());
@@ -754,11 +754,11 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             caseClosedBtn.addClickListener(e -> {
                 if (!caseClosed) {
                     showConfirmDialog("Schluss des Ablaufs der Familie",
-                            "Ist die Arbeit mit der Familie \"" + currentFamily.getFamilyName() + "\" beendet?" +
+                            "Ist die Arbeit mit der Familie \"" + currentMember.getFamilyName() + "\" beendet?" +
                                     " Wollen Sie die Dateien sperren?",
                             () -> {
                                 VaadinRequest req = VaadinRequest.getCurrent();
-                                familyService.closeCase(currentFamily.getId(), currentEmployee.getLogin(),
+                                memberService.closeCase(currentMember.getId(), currentEmployee.getLogin(),
                                         req != null ? req.getRemoteAddr() : "UNKNOWN",
                                         req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                                 getUI().ifPresent(ui -> ui.getPage().reload());
@@ -766,11 +766,11 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                             });
                 } else {
                     showConfirmDialog("Wiederaufnahmeverfahren", "Wollen Sie die Familie \"" +
-                                    currentFamily.getFamilyName() +
+                                    currentMember.getFamilyName() +
                                     "\" entsperren und die Dateien bearbeiten?",
                             () -> {
                                 VaadinRequest req = VaadinRequest.getCurrent();
-                                familyService.openCaseBack(currentFamily.getId(), currentEmployee.getLogin(),
+                                memberService.openCaseBack(currentMember.getId(), currentEmployee.getLogin(),
                                         req != null ? req.getRemoteAddr() : "UNKNOWN",
                                         req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                                 getUI().ifPresent(ui -> ui.getPage().reload());
@@ -789,7 +789,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         dialog.setCloseOnOutsideClick(false);
         dialog.setWidth("600px");
 
-        RecordStatus status = currentFamily.getStatus();
+        RecordStatus status = currentMember.getStatus();
 
         VerticalLayout content = new VerticalLayout();
         content.setSpacing(true);
@@ -800,10 +800,10 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         if (status.equals(RecordStatus.ACTIVE)) {
         }
         if (lvl == 80 || lvl == 100)
-            if (!currentFamily.isCaseClosed()) action.setItems("BLOCKIEREN", "ARCHIVIEREN", "LÖSCHEN");
+            if (!currentMember.isCaseClosed()) action.setItems("BLOCKIEREN", "ARCHIVIEREN", "LÖSCHEN");
             else action.setItems("BLOCKIEREN", "ARCHIVIEREN");
         else if (lvl == 50)
-            if (!currentFamily.isCaseClosed()) action.setItems("ARCHIVIEREN", "LÖSCHEN");
+            if (!currentMember.isCaseClosed()) action.setItems("ARCHIVIEREN", "LÖSCHEN");
             else action.setItems("ARCHIVIEREN");
 
         if (status.equals(RecordStatus.ARCHIVED) && (lvl == 80 || lvl == 100 || lvl == 50))
@@ -834,24 +834,24 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                             "Geben Sie bitte eine Begründung an. Mind. 5 Zeichen.");
                 }
                 case "LÖSCHEN" -> hint.setText(lvl == 50
-                        ? "Die Familie " + currentFamily.getFamilyName() + " wird gelöscht. " +
+                        ? "Die Familie " + currentMember.getFamilyName() + " wird gelöscht. " +
                         "14 Tage Wiederherstellung möglich."
-                        : "Die Familie " + currentFamily.getFamilyName() + " wird gelöscht.");
+                        : "Die Familie " + currentMember.getFamilyName() + " wird gelöscht.");
                 case "ARCHIVIEREN" -> {
-                    if (!currentFamily.isCaseClosed())
+                    if (!currentMember.isCaseClosed())
                         hint.setText("Archivierung nur möglich, wenn Ablauf geschlossen ist.");
-                    else hint.setText("Die Familie " + currentFamily.getFamilyName() + " wird archiviert.");
+                    else hint.setText("Die Familie " + currentMember.getFamilyName() + " wird archiviert.");
                 }
                 case "WIEDERHERSTELLEN" -> {
                     reason.setVisible(true);
                     reason.setLabel("Begründung der Wiederherstellung");
-                    hint.setText("Die Familie " + currentFamily.getFamilyName() + " wird wiederherstellt. " +
+                    hint.setText("Die Familie " + currentMember.getFamilyName() + " wird wiederherstellt. " +
                             "Geben Sie bitte eine Begründung an. Mind. 5 Zeichen.");
                 }
                 case "ENTSPERREN" -> {
                     reason.setVisible(true);
                     reason.setLabel("Begründung der Entsperrung.");
-                    hint.setText("Die Familie " + currentFamily.getFamilyName() + " wird entsperrt. " +
+                    hint.setText("Die Familie " + currentMember.getFamilyName() + " wird entsperrt. " +
                             "Geben Sie bitte eine Begründung an. Mind. 5 Zeichen.");
                 }
             }
@@ -868,7 +868,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                 return;
             }
 
-            if ("ARCHIVIEREN".equals(v) && !currentFamily.isCaseClosed()) {
+            if ("ARCHIVIEREN".equals(v) && !currentMember.isCaseClosed()) {
                 showOkDialog("Achtung!",
                         "Archivierung nich möglich! Die Famile kann archiviert werden, wenn der Ablauf " +
                                 "geschlossen ist. Schließen Sie bitte den Dialogfenster und schließen bitte den Ablauf.");
@@ -882,24 +882,24 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
 
                 switch (v) {
                     case "BLOCKIEREN" -> {
-                        familyService.blockFamily(familyId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
+                        memberService.blockFamily(familyId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
                         getUI().ifPresent(ui -> ui.getPage().reload());
                     }
                     case "ENTSPERREN" -> {
-                        familyService.unblockFamily(familyId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
+                        memberService.unblockFamily(familyId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
                         getUI().ifPresent(ui -> ui.getPage().reload());
                     }
                     case "ARCHIVIEREN" -> {
-                        familyService.archiveFamily(familyId, currentEmployee.getLogin(), ip, browser);
+                        memberService.archiveFamily(familyId, currentEmployee.getLogin(), ip, browser);
                         getUI().ifPresent(ui -> ui.getPage().reload());
                     }
                     case "WIEDERHERSTELLEN" -> {
-                        familyService.unarchiveFamily(familyId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
+                        memberService.unarchiveFamily(familyId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
                         getUI().ifPresent(ui -> ui.getPage().reload());
                     }
                     case "LÖSCHEN" -> {
-                        familyService.invalidateFamily(familyId, currentEmployee.getLogin(), ip, browser);
-                        getUI().ifPresent(ui -> ui.navigate(FamiliesView.class));
+                        memberService.invalidateFamily(familyId, currentEmployee.getLogin(), ip, browser);
+                        getUI().ifPresent(ui -> ui.navigate(MembersView.class));
                     }
                 }
                 dialog.close();
@@ -948,7 +948,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             return row;
         }));
 
-        combo.setValue(currentFamily.getAssignedEmployee());
+        combo.setValue(currentMember.getAssignedEmployee());
 
         Icon icon = VaadinIcon.LOCK.create();
         Span error = new Span();
@@ -974,7 +974,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                 save.setEnabled(false);
                 return;
             }
-            if (selected.equals(currentFamily.getAssignedEmployee())) {
+            if (selected.equals(currentMember.getAssignedEmployee())) {
                 error.setVisible(false);
                 save.setEnabled(false);
                 return;
@@ -989,14 +989,14 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             if (selected == null) {
                 return;
             }
-            if (selected.equals(currentFamily.getAssignedEmployee())) {
+            if (selected.equals(currentMember.getAssignedEmployee())) {
                 dialog.close();
                 return;
             }
             showConfirmDialog("Berater*in wechseln", "Möchten Soe den Fall wirklich übertragen?",
                     () -> {
                         VaadinRequest req = VaadinRequest.getCurrent();
-                        familyService.updateAssignedEmployee(currentFamily.getId(), selected.getId(), currentEmployee.getLogin(),
+                        memberService.updateAssignedEmployee(currentMember.getId(), selected.getId(), currentEmployee.getLogin(),
                                 req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         getUI().ifPresent(ui -> ui.getPage().reload());
@@ -1027,7 +1027,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         dialog.setCloseOnOutsideClick(false);
         dialog.setWidth("800px");
 
-        H2 title = new H2("Beratung für die Familie " + currentFamily.getFamilyName());
+        H2 title = new H2("Beratung für die Familie " + currentMember.getFamilyName());
         dialog.add(title);
 
         DateTimePicker dateTime = new DateTimePicker("Datum und Uhrzeit (*)");
@@ -1111,13 +1111,13 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         dialog.setCloseOnOutsideClick(false);
         dialog.setWidth("800px");
 
-        H2 title = new H2("Neues Mitglied der Familie " + currentFamily.getFamilyName());
+        H2 title = new H2("Neues Mitglied der Familie " + currentMember.getFamilyName());
         dialog.add(title);
 
         TextField firstName = new TextField("Vorname (*)");
         TextField lastName = new TextField("Nachname (*)");
-        ComboBox<FamilyMemberGender> gender = new ComboBox<>("Gender (*)");
-        gender.setItems(FamilyMemberGender.values());
+        ComboBox<MemberGender> gender = new ComboBox<>("Gender (*)");
+        gender.setItems(MemberGender.values());
         gender.setPlaceholder("Bitte wählen...");
 
         DatePicker birthDate = new DatePicker("Geburtsdatum (*)");
@@ -1229,26 +1229,26 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Papierkorb: Familienmitglieder");
 
-        List<FamilyMember> trashMembers = new ArrayList<>();
+        List<MemberDetails> trashMembers = new ArrayList<>();
         if (lvl == 50)
-            trashMembers = familyMemberService.getMembers(currentFamily, currentEmployee.getLogin()).stream()
+            trashMembers = memberDetailsService.getMembers(currentMember, currentEmployee.getLogin()).stream()
                     .filter(member -> member.isInvalid() &&
                             Duration.between(member.getInvalidAt(), LocalDateTime.now()).toDays() <= 14).toList();
         else if (lvl == 80 || lvl == 100)
-            trashMembers = familyMemberService.getMembers(currentFamily, currentEmployee.getLogin()).stream()
-                    .filter(FamilyMember::isInvalid).toList();
+            trashMembers = memberDetailsService.getMembers(currentMember, currentEmployee.getLogin()).stream()
+                    .filter(MemberDetails::isInvalid).toList();
 
-        Grid<FamilyMember> grid = new Grid<>(FamilyMember.class, false);
+        Grid<MemberDetails> grid = new Grid<>(MemberDetails.class, false);
         grid.setWidthFull();
         grid.setHeight("400px");
 
-        grid.addColumn(FamilyMember::getId).setHeader("ID").setAutoWidth(true).setFlexGrow(0);
+        grid.addColumn(MemberDetails::getId).setHeader("ID").setAutoWidth(true).setFlexGrow(0);
         grid.addColumn(fm -> fm.getFirstName() + " " + fm.getLastName())
                 .setHeader("Vor- und Nachname").setAutoWidth(true).setFlexGrow(0);
         grid.addColumn(fm -> {
-            if (fm.getGender() == FamilyMemberGender.DIVERS) return "DIVERS";
-            if (fm.getGender().equals(FamilyMemberGender.MAENNLICH)) return "MÄNNLICH";
-            if (fm.getGender().equals(FamilyMemberGender.WEIBLICH)) return "WEIBLICH";
+            if (fm.getGender() == MemberGender.DIVERS) return "DIVERS";
+            if (fm.getGender().equals(MemberGender.MAENNLICH)) return "MÄNNLICH";
+            if (fm.getGender().equals(MemberGender.WEIBLICH)) return "WEIBLICH";
             return "kA";
         }).setHeader("Gender").setAutoWidth(true).setFlexGrow(0);
         grid.addColumn(fm -> {
@@ -1280,7 +1280,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
                 e -> restore.setEnabled(e.getValue() != null));
 
         restore.addClickListener(e -> {
-            FamilyMember fm = grid.asSingleSelect().getValue();
+            MemberDetails fm = grid.asSingleSelect().getValue();
             if (fm == null) return;
             long days = Duration.between(fm.getInvalidAt(), LocalDateTime.now()).toDays();
 
@@ -1315,7 +1315,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
 
                 VaadinRequest req = VaadinRequest.getCurrent();
 
-                familyMemberService.restoreMember(currentFamily, fm, currentEmployee.getLogin(), r,
+                memberDetailsService.restoreMember(currentMember, fm, currentEmployee.getLogin(), r,
                         req != null ? req.getRemoteAddr() : "UNKNOWN",
                         req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                 confirm.close();
@@ -1347,7 +1347,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
     }
 
     private void handleMemberSave(Dialog dialog, TextField firstName, TextField lastName,
-                                  ComboBox<FamilyMemberGender> gender, DatePicker birthDate, TextField birthCity,
+                                  ComboBox<MemberGender> gender, DatePicker birthDate, TextField birthCity,
                                   TextField birthCountry, TextField nationality, TextField languages,
                                   Checkbox livesWithFamily, TextField income, TextArea workInfo, TextField education,
                                   TextArea educationInfo, TextArea notes, TextField phone, TextField email) {
@@ -1379,7 +1379,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             String ip = req != null ? req.getRemoteAddr() : "UNKNOWN";
             String browser = req != null ? req.getHeader("User-Agent") : "UNKNOWN";
 
-            familyMemberService.createMember(currentFamily, firstName.getValue(), lastName.getValue(), gender.getValue(),
+            memberDetailsService.createMember(currentMember, firstName.getValue(), lastName.getValue(), gender.getValue(),
                     birthDate.getValue(), birthCity.getValue(), birthCountry.getValue(), nationality.getValue(),
                     languages.getValue(), livesWithFamily.getValue(), income.getValue(), workInfo.getValue(),
                     education.getValue(), educationInfo.getValue(), notes.getValue(), phone.getValue(), email.getValue(),
@@ -1393,7 +1393,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
     }
 
     private boolean isMemberFormDirty(String currentFirstName, String currentLastName,
-                                      FamilyMemberGender currentGender, LocalDate currentBirthDate,
+                                      MemberGender currentGender, LocalDate currentBirthDate,
                                       String currentBirthCity, String currentBirthCountry, String currentNationality,
                                       String currentLanguages, String currentIncome, String currentWorkInfo,
                                       String currentEducationDegree, String currentEducationInfo, String currentNotes,
@@ -1416,7 +1416,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
         return false;
     }
 
-    private List<String> validateMemberForm(String firstName, String lastName, FamilyMemberGender gender,
+    private List<String> validateMemberForm(String firstName, String lastName, MemberGender gender,
                                             LocalDate birthDate, String birthCity, String birthCountry) {
         List<String> errors = new ArrayList<>();
         if (firstName == null || firstName.isEmpty()) errors.add("Vorname ist erforderlich");
@@ -1458,7 +1458,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             return;
         }
 
-        String state = validateConsultationDate(dateTime, currentFamily.getCreatedAt());
+        String state = validateConsultationDate(dateTime, currentMember.getCreatedAt());
 
         if ("FUTURE".equals(state)) {
             showOkDialog("Ungültiges Datum", "Datum darf nicht in der Zukunft liegen");
@@ -1652,7 +1652,7 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
             String ip = req != null ? req.getRemoteAddr() : "UNKNOWN";
             String browser = req != null ? req.getHeader("User-Agent") : "UNKNOWN";
 
-            consultationService.createConsultation(currentFamily, currentEmployee, dateTime, duration, topic,
+            consultationService.createConsultation(currentMember, currentEmployee, dateTime, duration, topic,
                     description, result, followUp, ip, browser);
 
             parent.close();
@@ -1689,8 +1689,8 @@ public class FamilyDetailsView extends VerticalLayout implements BeforeEnterObse
 
     private int getConsultationsCount() {
         List<Consultation> consultations = new ArrayList<>();
-        if (!currentFamily.getStatus().equals(RecordStatus.INVALID))
-            consultations.addAll(consultationService.getConsultationsByFamily(currentFamily));
+        if (!currentMember.getStatus().equals(RecordStatus.INVALID))
+            consultations.addAll(consultationService.getConsultationsByFamily(currentMember));
         return consultations.size();
     }
 

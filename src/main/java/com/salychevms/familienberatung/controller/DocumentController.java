@@ -2,7 +2,6 @@ package com.salychevms.familienberatung.controller;
 
 import com.salychevms.familienberatung.model.*;
 import com.salychevms.familienberatung.service.*;
-import com.vaadin.flow.server.VaadinSession;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +17,8 @@ import java.util.List;
 @RequestMapping("/documents")
 @RequiredArgsConstructor
 public class FamilyDocumentController {
-    private final FamilyDocumentService familyDocumentService;
-    private final FamilyService familyService;
+    private final DocumentService familyDocumentService;
+    private final MemberService memberService;
     private final EmployeeService employeeService;
     private final DelegationService delegationService;
 
@@ -40,7 +39,7 @@ public class FamilyDocumentController {
             return;
         }
 
-        FamilyDocument doc;
+        Document doc;
         try {
             doc = familyDocumentService.getDocument(employee, documentId);
         } catch (Exception e) {
@@ -53,15 +52,15 @@ public class FamilyDocumentController {
             return;
         }
 
-        Family family = familyService.getFamilyById(doc.getFamily().getId());
-        if (family == null || family.getStatus().equals(RecordStatus.INVALID)) {
+        Member member = memberService.getFamilyById(doc.getMember().getId());
+        if (member == null || member.getStatus().equals(RecordStatus.INVALID)) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
 
-        if (employee.getRole().getAccessLevel() == 50 && !family.getAssignedEmployee().equals(employee)) {
+        if (employee.getRole().getAccessLevel() == 50 && !member.getAssignedEmployee().equals(employee)) {
             Delegation delegation = null;
-            List<Delegation> delegationList=delegationService.getDelegationsByToEmployeeAndFamily(employee, family);
+            List<Delegation> delegationList=delegationService.getDelegationsByToEmployeeAndFamily(employee, member);
             for(Delegation d:delegationList){
                 if(delegationService.isDelegationActive(d)){
                     delegation=d;
@@ -82,7 +81,7 @@ public class FamilyDocumentController {
             return;
         }
 
-        Path filePath = Path.of(storageBasePath, family.getId().toString(), doc.getStoredFileName());
+        Path filePath = Path.of(storageBasePath, member.getId().toString(), doc.getStoredFileName());
 
         if(!Files.exists(filePath)) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);

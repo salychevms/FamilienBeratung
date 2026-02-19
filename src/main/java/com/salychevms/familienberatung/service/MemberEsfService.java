@@ -16,22 +16,22 @@ import java.util.List;
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class FamilyMemberService {
+public class MemberEsfDetailsService {
     private final FamilyMemberRepository familyMemberRepository;
     private final EmployeeService employeeService;
     private final ValidationService validator;
     private final AccessLogService accessLog;
 
-    public FamilyMember createMember(Family family, String firstName, String lastName, FamilyMemberGender gender,
-                                     LocalDate birthDate, String birthCity, String birthCountry, String nationality,
-                                     String languages, boolean livesWithFamily, String income, String workInfo,
-                                     String educationDegree, String educationInfo, String notes, String phone,
-                                     String email, String createdBy, String ip, String userBrowser) {
+    public MemberEsfDetails createMember(Member family, String firstName, String lastName, MemberGender gender,
+                                         LocalDate birthDate, String birthCity, String birthCountry, String nationality,
+                                         String languages, boolean livesWithFamily, String income, String workInfo,
+                                         String educationDegree, String educationInfo, String notes, String phone,
+                                         String email, String createdBy, String ip, String userBrowser) {
         if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Failed to update FamilyMember: {}, because Family hasn't status ACTIVE. Family status: {}",
+            log.error("Failed to update MemberEsfDetails: {}, because Member hasn't status ACTIVE. Member status: {}",
                     family.getId(), family.getStatus());
-            throw new RuntimeException("Failed to update FamilyMember: " + family.getId() +
-                    " Family status: " + family.getStatus());
+            throw new RuntimeException("Failed to update MemberEsfDetails: " + family.getId() +
+                    " Member status: " + family.getStatus());
         }
         if (!employeeService.hasAccess(createdBy, 50)) {
             log.error("Access Denied for {}", createdBy);
@@ -52,8 +52,8 @@ public class FamilyMemberService {
         validator.validateText(notes, 1000);
         validator.validateEmail(email);
 
-        FamilyMember member = new FamilyMember();
-        member.setFamily(family);
+        MemberEsfDetails member = new MemberEsfDetails();
+        member.setMember(family);
         member.setFirstName(firstName);
         member.setLastName(lastName);
         member.setGender(gender);
@@ -73,20 +73,20 @@ public class FamilyMemberService {
         member.setCreatedBy(createdBy);
         member.setCreatedAt(LocalDateTime.now());
 
-        FamilyMember saved = familyMemberRepository.save(member);
+        MemberEsfDetails saved = familyMemberRepository.save(member);
 
-        accessLog.log(createdBy, "FAMILY_MEMBER_CREATE", "FamilyMember", saved.getId(),
-                "New FamilyMember created", ip, userBrowser);
-        log.info("FamilyMember Id: {} created by {}", saved.getId(), createdBy);
+        accessLog.log(createdBy, "FAMILY_MEMBER_CREATE", "MemberEsfDetails", saved.getId(),
+                "New MemberEsfDetails created", ip, userBrowser);
+        log.info("MemberEsfDetails Id: {} created by {}", saved.getId(), createdBy);
         return saved;
     }
 
-    public void updateMember(Family family, FamilyMember currentMember, FamilyMember updated, String updatedBy, String ip, String userBrowser) {
-        if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Failed to update FamilyMember: {}, because Family hasn't status ACTIVE. Family status: {}",
-                    family.getId(), family.getStatus());
-            throw new RuntimeException("Failed to update FamilyMember: " + family.getId() +
-                    " Family status: " + family.getStatus());
+    public void updateMember(Member member, MemberEsfDetails currentMember, MemberEsfDetails updated, String updatedBy, String ip, String userBrowser) {
+        if (!member.getStatus().equals(RecordStatus.ACTIVE)) {
+            log.error("Failed to update MemberEsfDetails: {}, because Member hasn't status ACTIVE. Member status: {}",
+                    member.getId(), member.getStatus());
+            throw new RuntimeException("Failed to update MemberEsfDetails: " + member.getId() +
+                    " Member status: " + member.getStatus());
         }
 
         if (!employeeService.hasAccess(updatedBy, 50)) {
@@ -94,15 +94,15 @@ public class FamilyMemberService {
             throw new RuntimeException("Access Denied for " + updatedBy);
         }
 
-        if (!currentMember.getFamily().equals(family)) {
-            log.error("FamilyMember {} does not match Family {}", currentMember, family.getId());
-            throw new RuntimeException("FamilyMember " + currentMember.getId() +
-                    " does not match FamilyMember " + family.getId());
+        if (!currentMember.getMember().equals(member)) {
+            log.error("MemberEsfDetails {} does not match Member {}", currentMember, member.getId());
+            throw new RuntimeException("MemberEsfDetails " + currentMember.getId() +
+                    " does not match MemberEsfDetails " + member.getId());
         }
 
         if (currentMember.isInvalid()) {
-            log.error("FamilyMember {} is invalid", currentMember.getId());
-            throw new RuntimeException("FamilyMember is invalid");
+            log.error("MemberEsfDetails {} is invalid", currentMember.getId());
+            throw new RuntimeException("MemberEsfDetails is invalid");
         }
 
         validator.validateText(updated.getFirstName(), 255);
@@ -138,19 +138,19 @@ public class FamilyMemberService {
         currentMember.setUpdatedBy(updatedBy);
         currentMember.setUpdatedAt(LocalDateTime.now());
 
-        FamilyMember saved = familyMemberRepository.save(currentMember);
+        MemberEsfDetails saved = familyMemberRepository.save(currentMember);
 
-        accessLog.log(updatedBy, "FAMILY_MEMBER_UPDATE", "FamilyMember", currentMember.getId(),
-                "FamilyMember updated", ip, userBrowser);
-        log.info("FamilyMember Id: {} updated by {}", saved.getId(), updatedBy);
+        accessLog.log(updatedBy, "FAMILY_MEMBER_UPDATE", "MemberEsfDetails", currentMember.getId(),
+                "MemberEsfDetails updated", ip, userBrowser);
+        log.info("MemberEsfDetails Id: {} updated by {}", saved.getId(), updatedBy);
     }
 
-    public void invalidateMember(Family family, FamilyMember member, String invalidatedBy, String ip, String userBrowser) {
+    public void invalidateMember(Member family, MemberEsfDetails member, String invalidatedBy, String ip, String userBrowser) {
         if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Failed to update FamilyMember: {}, because Family hasn't status ACTIVE. Family status: {}",
+            log.error("Failed to update MemberEsfDetails: {}, because Member hasn't status ACTIVE. Member status: {}",
                     family.getId(), family.getStatus());
-            throw new RuntimeException("Failed to update FamilyMember: " + family.getId() +
-                    " Family status: " + family.getStatus());
+            throw new RuntimeException("Failed to update MemberEsfDetails: " + family.getId() +
+                    " Member status: " + family.getStatus());
         }
 
         if (!employeeService.hasAccess(invalidatedBy, 50)) {
@@ -158,14 +158,14 @@ public class FamilyMemberService {
             throw new RuntimeException("Access Denied for " + invalidatedBy);
         }
 
-        if (!member.getFamily().equals(family)) {
-            log.error("FamilyMember {} does not match FamilyMember {}", member, family.getId());
-            throw new RuntimeException("FamilyMember " + member.getId() + " does not match FamilyMember " + family.getId());
+        if (!member.getMember().equals(family)) {
+            log.error("MemberEsfDetails {} does not match MemberEsfDetails {}", member, family.getId());
+            throw new RuntimeException("MemberEsfDetails " + member.getId() + " does not match MemberEsfDetails " + family.getId());
         }
 
         if (member.isInvalid()) {
-            log.error("FamilyMember {} is invalid", member.getId());
-            throw new RuntimeException("FamilyMember is invalid");
+            log.error("MemberEsfDetails {} is invalid", member.getId());
+            throw new RuntimeException("MemberEsfDetails is invalid");
         }
 
         member.setInvalid(true);
@@ -176,18 +176,18 @@ public class FamilyMemberService {
         member.setRestoredReason(null);
 
         familyMemberRepository.save(member);
-        accessLog.log(invalidatedBy, "FAMILY_MEMBER_INVALIDATE", "FamilyMember", member.getId(),
-                "FamilyMember has been invalidated", ip, userBrowser);
-        log.info("FamilyMember Id: {} invalidated by {}", member.getId(), invalidatedBy);
+        accessLog.log(invalidatedBy, "FAMILY_MEMBER_INVALIDATE", "MemberEsfDetails", member.getId(),
+                "MemberEsfDetails has been invalidated", ip, userBrowser);
+        log.info("MemberEsfDetails Id: {} invalidated by {}", member.getId(), invalidatedBy);
     }
 
-    public void restoreMember(Family family, FamilyMember member, String restoredBy,
+    public void restoreMember(Member family, MemberEsfDetails member, String restoredBy,
                               String restoreReason, String ip, String userBrowser) {
         if (!family.getStatus().equals(RecordStatus.ACTIVE)) {
-            log.error("Failed to update FamilyMember: {}, because Family hasn't status ACTIVE. Family status: {}",
+            log.error("Failed to update MemberEsfDetails: {}, because Member hasn't status ACTIVE. Member status: {}",
                     family.getId(), family.getStatus());
-            throw new RuntimeException("Failed to update FamilyMember: " + family.getId() +
-                    " Family status: " + family.getStatus());
+            throw new RuntimeException("Failed to update MemberEsfDetails: " + family.getId() +
+                    " Member status: " + family.getStatus());
         }
 
         Employee employee = employeeService.findByLogin(restoredBy);
@@ -197,14 +197,14 @@ public class FamilyMemberService {
             throw new RuntimeException("Access Denied for " + restoredBy);
         }
 
-        if (!member.getFamily().equals(family)) {
-            log.error("FamilyMember {} does not match FamilyMember {}", member, family.getId());
-            throw new RuntimeException("FamilyMember " + member.getId() + " does not match FamilyMember " + family.getId());
+        if (!member.getMember().equals(family)) {
+            log.error("MemberEsfDetails {} does not match MemberEsfDetails {}", member, family.getId());
+            throw new RuntimeException("MemberEsfDetails " + member.getId() + " does not match MemberEsfDetails " + family.getId());
         }
 
         if (!member.isInvalid()) {
-            log.error("FamilyMember {} is still not invalid ", member.getId());
-            throw new RuntimeException("FamilyMember is still not invalid ");
+            log.error("MemberEsfDetails {} is still not invalid ", member.getId());
+            throw new RuntimeException("MemberEsfDetails is still not invalid ");
         }
 
         long days = java.time.Duration.between(member.getInvalidAt(), LocalDateTime.now()).toDays();
@@ -216,13 +216,13 @@ public class FamilyMemberService {
             } else if (employee.getRole().getAccessLevel() >= 80) {
                 validator.validateText(restoreReason, 255);
                 member.setRestoredReason(restoreReason);
-                accessLog.log(restoredBy, "FAMILY_RESTORE_AFTER_14_DAYS", "FamilyMember", member.getId(),
-                        "FamilyMember has been restored after 14 days. Reason: " + restoreReason, ip, userBrowser);
-                log.info("FamilyMember Id: {} restored by {} after 14 days. Reason: {}", member.getId(), restoredBy, restoreReason);
+                accessLog.log(restoredBy, "FAMILY_RESTORE_AFTER_14_DAYS", "MemberEsfDetails", member.getId(),
+                        "MemberEsfDetails has been restored after 14 days. Reason: " + restoreReason, ip, userBrowser);
+                log.info("MemberEsfDetails Id: {} restored by {} after 14 days. Reason: {}", member.getId(), restoredBy, restoreReason);
             }
         } else {
             member.setRestoredReason("Permitted before 14 days");
-            log.info("FamilyMember {} has been restored by Employee {} before 14 days.", member.getId(), employee.getLogin());
+            log.info("MemberEsfDetails {} has been restored by Employee {} before 14 days.", member.getId(), employee.getLogin());
         }
 
         member.setInvalid(false);
@@ -232,17 +232,17 @@ public class FamilyMemberService {
         member.setRestoredAt(LocalDateTime.now());
 
         familyMemberRepository.save(member);
-        accessLog.log(restoredBy, "FAMILY_MEMBER_RESTORE", "FamilyMember", member.getId(),
-                "FamilyMember restored. Reason: " + restoreReason, ip, userBrowser);
-        log.info("FamilyMember Id: {} restored by {}. Reason: {}", member.getId(), restoredBy, restoreReason);
+        accessLog.log(restoredBy, "FAMILY_MEMBER_RESTORE", "MemberEsfDetails", member.getId(),
+                "MemberEsfDetails restored. Reason: " + restoreReason, ip, userBrowser);
+        log.info("MemberEsfDetails Id: {} restored by {}. Reason: {}", member.getId(), restoredBy, restoreReason);
     }
 
-    public FamilyMember getMember(Family family, Long memberId, String login) {
-        FamilyMember member = familyMemberRepository.findById(memberId).orElseThrow(() ->
-                new RuntimeException("FamilyMember with id: " + memberId + " not found"));
-        if (!member.getFamily().equals(family)) {
-            log.error("FamilyMember {} does not match FamilyMember {}", member, family.getId());
-            throw new RuntimeException("FamilyMember" + member.getId() + " does not match FamilyMember" + family.getId());
+    public MemberEsfDetails getMember(Member family, Long memberId, String login) {
+        MemberEsfDetails member = familyMemberRepository.findById(memberId).orElseThrow(() ->
+                new RuntimeException("MemberEsfDetails with id: " + memberId + " not found"));
+        if (!member.getMember().equals(family)) {
+            log.error("MemberEsfDetails {} does not match MemberEsfDetails {}", member, family.getId());
+            throw new RuntimeException("MemberEsfDetails" + member.getId() + " does not match MemberEsfDetails" + family.getId());
         }
         if (member.isInvalid()) {
             long days = java.time.Duration.between(member.getInvalidAt(), LocalDateTime.now()).toDays();
@@ -254,15 +254,15 @@ public class FamilyMemberService {
         return member;
     }
 
-    public List<FamilyMember> getMembers(Family family, String login) {
-        List<FamilyMember> members = familyMemberRepository.findByFamilyId(family.getId());
+    public List<MemberEsfDetails> getMembers(Member family, String login) {
+        List<MemberEsfDetails> members = familyMemberRepository.findByFamilyId(family.getId());
         if (members.isEmpty()) {
             //log.warn("FamilyMembers with family id: {} not found", family.getId());
             return members;
         }
 
-        List<FamilyMember> result = new ArrayList<>(members);
-        for (FamilyMember member : members) {
+        List<MemberEsfDetails> result = new ArrayList<>(members);
+        for (MemberEsfDetails member : members) {
             if (member.isInvalid()) {
                 long days = java.time.Duration.between(member.getInvalidAt(), LocalDateTime.now()).toDays();
                 if (employeeService.hasAccess(login, 50) && days > 14) {
