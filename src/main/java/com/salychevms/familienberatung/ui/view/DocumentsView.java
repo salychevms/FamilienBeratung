@@ -52,7 +52,7 @@ import java.util.concurrent.Semaphore;
 public class DocumentsView extends VerticalLayout implements BeforeEnterObserver {
     private final AuthService authService;
     private final MemberService memberService;
-    private final DocumentService familyDocumentService;
+    private final DocumentService documentService;
     private final EmployeeService employeeService;
     private final DelegationService delegationService;
 
@@ -133,20 +133,20 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                         currentEmployee).stream().filter(f -> (f.getStatus().equals(RecordStatus.ARCHIVED)
                         || f.getStatus().equals(RecordStatus.ACTIVE))).toList());
                 for (Member f : currentFamilies)
-                    currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(f, currentEmployee)
+                    currentDocuments.addAll(documentService.getDocumentsByFamily(f, currentEmployee)
                             .stream().filter(this::isVisibleDoc).toList());
                 for (Delegation dlg : delegations)
                     if (dlg.getToEmployee().equals(currentEmployee))
-                        currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(dlg.getMember(), currentEmployee)
+                        currentDocuments.addAll(documentService.getDocumentsByFamily(dlg.getMember(), currentEmployee)
                                 .stream().filter(this::isVisibleDoc).toList());
             } else if (lvl == 80 || lvl == 100) {
                 currentFamilies = new ArrayList<>(memberService.getMembers().stream()
                         .filter(f -> !f.getStatus().equals(RecordStatus.INVALID)).toList());
-                currentDocuments = new ArrayList<>(familyDocumentService.getAllDocuments(currentEmployee)
+                currentDocuments = new ArrayList<>(documentService.getAllDocuments(currentEmployee)
                         .stream().filter(this::isVisibleDoc).toList());
             }
         } else
-            currentDocuments.addAll(familyDocumentService.getDocumentsByFamily(currentMember, currentEmployee)
+            currentDocuments.addAll(documentService.getDocumentsByFamily(currentMember, currentEmployee)
                     .stream().filter(this::isVisibleDoc).toList());
 
         assignedEmployees.clear();
@@ -227,10 +227,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         title.getStyle().set("margin-bottom", "0");
         titleLayout.add(title);
 
-        String role = currentEmployee.getRole().getLabel();
-        String name = currentEmployee.getFirstName() + " " + currentEmployee.getLastName();
-        Span employeeInfo = new Span(role + ": " + name);
-        header.add(titleLayout, employeeInfo);
+        header.add(titleLayout, getHLWithSpans(currentEmployee.getRole().getLabel() + ": ",
+                currentEmployee.getFirstName() + " " + currentEmployee.getLastName()));
         add(header);
     }
 
@@ -254,7 +252,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             dateFromFilter.clear();
             dateToFilter.clear();
             uploaderEmployeeFilter.clear();
-            filterVisible=false;
+            filterVisible = false;
             filterLayout.setVisible(false);
             filterToggleButton.setText("Filter öffnen");
             refreshGrid();
@@ -420,7 +418,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                     acquired = true;
                     VaadinRequest req = VaadinRequest.getCurrent();
 
-                    Document saved = familyDocumentService.uploadDocument(currentMember, event.getFileName(),
+                    Document saved = documentService.uploadDocument(currentMember, event.getFileName(),
                             event.getContentType(), in, currentEmployee, req != null ? req.getRemoteAddr() : "UNKNOWN",
                             req != null ? req.getHeader("User-Agent") : "UNKNOW");
                     currentDocuments.add(saved);
@@ -558,8 +556,8 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             if (familyId != 0 && f.getId() != familyId) continue;
             if (familyId == 0 && fam != null && !f.equals(fam)) continue;
             if (fileType != null) {
-                if (d.getFileType() == null) continue;
-                if (!Objects.equals(toReadableType(d.getFileType()), fileType)) continue;
+                if (d.getOriginalFileName() == null) continue;
+                if (!Objects.equals(toReadableType(d.getOriginalFileName()), fileType)) continue;
             }
             if (uploader != null) {
                 if (d.getUploadedByEmployee() == null) continue;
@@ -609,10 +607,10 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                             try {
                                 String newName = values.get("name") != null ? values.get("name").toString().trim() : null;
                                 if (newName == null || newName.isBlank()) return;
-                                Document doc = familyDocumentService.getDocument(currentEmployee, d.getId());
+                                Document doc = documentService.getDocument(currentEmployee, d.getId());
                                 doc.setOriginalFileName(newName);
                                 VaadinRequest req = VaadinRequest.getCurrent();
-                                Document document = familyDocumentService.updateName(d, doc, currentEmployee,
+                                Document document = documentService.updateName(d, doc, currentEmployee,
                                         req != null ? req.getRemoteAddr() : "UNKNOWN",
                                         req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                                 buildDocumentDialog(document);
@@ -658,7 +656,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                         Document updated = new Document();
                         updated.setDescription(text);
                         VaadinRequest req = VaadinRequest.getCurrent();
-                        Document document = familyDocumentService.updateDescription(d, updated, currentEmployee,
+                        Document document = documentService.updateDescription(d, updated, currentEmployee,
                                 req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         buildDocumentDialog(document);
@@ -698,7 +696,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
                 showConfirmDialog("Datei löschen", "Wollen Sie die Datei löschen?", () -> {
                     try {
                         VaadinRequest req = VaadinRequest.getCurrent();
-                        familyDocumentService.invalidateDocument(d.getMember(), d, currentEmployee,
+                        documentService.invalidateDocument(d.getMember(), d, currentEmployee,
                                 req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         dialog.close();
@@ -847,7 +845,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
             Runnable restoreWithoutReason = () -> {
                 try {
                     VaadinRequest req = VaadinRequest.getCurrent();
-                    familyDocumentService.restoreDocument(d.getMember(), d,
+                    documentService.restoreDocument(d.getMember(), d,
                             "Wiederherstellung über Papierkorb", currentEmployee,
                             req != null ? req.getRemoteAddr() : "UNKNOWN",
                             req != null ? req.getHeader("User-Agent") : "UNKNOWN");
@@ -898,7 +896,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
 
                     try {
                         VaadinRequest req = VaadinRequest.getCurrent();
-                        familyDocumentService.restoreDocument(d.getMember(), d, reason.getValue().trim(),
+                        documentService.restoreDocument(d.getMember(), d, reason.getValue().trim(),
                                 currentEmployee, req != null ? req.getRemoteAddr() : "UNKNOWN",
                                 req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                         reasonDialog.close();
@@ -940,7 +938,7 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
         List<Document> result = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
 
-        for (Document d : familyDocumentService.getAllDocuments(currentEmployee)) {
+        for (Document d : documentService.getAllDocuments(currentEmployee)) {
             if (!d.isInvalid()) continue;
             if (d.getInvalidAt() == null) continue;
 
@@ -1053,18 +1051,20 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     }
 
     private List<String> collectFileTypes() {
-        return currentDocuments.stream().map(Document::getFileType).filter(Objects::nonNull)
+        return currentDocuments.stream().map(Document::getOriginalFileName).filter(Objects::nonNull)
                 .map(this::toReadableType).filter(Objects::nonNull).distinct().sorted().toList();
     }
 
-    private String toReadableType(String mime) {
-        if (mime == null) return null;
-        if (mime.contains("pdf")) return "PDF";
-        if (mime.contains("doc") || mime.contains("docx") || mime.contains("word")) return "DOC/DOCX";
-        if (mime.contains("xls") || mime.contains("xlsx") || mime.contains("excel") || mime.contains("sheet"))
-            return "XLS/XLSX";
-        if (mime.contains("jpeg") || mime.contains("jpg")) return "JPEG";
-        if (mime.contains("png")) return "PNG";
+    private String toReadableType(String name) {
+        if (name == null) return null;
+
+        String n = name.toLowerCase(Locale.ROOT);
+
+        if (n.endsWith("pdf")) return "PDF";
+        if (n.endsWith("doc") || n.endsWith("docx") || n.endsWith("word")) return "DOC/DOCX";
+        if (n.endsWith("xls") || n.endsWith("xlsx") || n.endsWith("excel") || n.endsWith("sheet")) return "XLS/XLSX";
+        if (n.endsWith("jpeg") || n.endsWith("jpg")) return "JPEG";
+        if (n.endsWith("png")) return "PNG";
         return null;
     }
 
@@ -1074,8 +1074,31 @@ public class DocumentsView extends VerticalLayout implements BeforeEnterObserver
     }
 
     private boolean isPreviewable(Document d) {
-        String t = d.getFileType();
-        if (t == null) return false;
-        return t.contains("pdf") || t.contains("jpg") || t.contains("jpeg") || t.contains("png");
+        if (d == null || d.getOriginalFileName() == null) return false;
+        String t = d.getOriginalFileName().toLowerCase(Locale.ROOT);
+        return t.endsWith("pdf") || t.endsWith("jpg") || t.endsWith("jpeg") || t.endsWith("png");
+    }
+
+    private HorizontalLayout getHLWithSpans(String title, String data) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+
+        Span titleSpan = new Span(title);
+        Span dataSpan = new Span(data);
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
+    }
+
+    private HorizontalLayout getHL(Span titleSpan, Span dataSpan) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
     }
 }

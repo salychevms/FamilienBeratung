@@ -11,6 +11,7 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
@@ -56,12 +57,15 @@ public class MainLayout extends AppLayout {
     }
 
     private void buildHeader() {
+        Image logo = new Image("/images/logo.png", "Logo");
+        logo.setHeight("40px");
+
         H1 title = new H1("Familienberatung");
         title.getStyle().set("margin", "0")
                 .set("font-size", "24px")
                 .set("color", "#0067A0");
 
-        FlexLayout header = new FlexLayout(title);
+        FlexLayout header = new FlexLayout(logo, title);
         header.setWidthFull();
         header.getStyle().set("padding", "10px")
                 .set("background", "white")
@@ -193,14 +197,14 @@ public class MainLayout extends AppLayout {
             long sec = remaining / 1000;
             timeSpan.setText(String.format("%02d:%02d", sec / 60, sec % 60));
 
-            if (remaining <= 5 * 60 * 1000)
+            if (remaining <= 10 * 60 * 1000)
                 timeSpan.getStyle().set("color", "red");
             else
                 timeSpan.getStyle().set("color", "black");
 
             if ((remaining <= 5 * 60 * 1000) && !warningShown) {
                 warningShown = true;
-                showSessionWarning(String.format("%02d", remaining / 1000 / 60));
+                showSessionWarning();
             }
         });
     }
@@ -216,15 +220,27 @@ public class MainLayout extends AppLayout {
                 );""");
     }
 
-    private void showSessionWarning(String time) {
+    private void showSessionWarning() {
         Dialog dialog = new Dialog("Sitzung läuft bald ab!!!");
-        Span text = new Span("Ihre Sitzung endet in weniger als " + time + " Minuten.");
+        Span text = new Span("Ihre Sitzung endet in 5 Minuten.");
         Span text2 = new Span("Sind Sie hier? Kliecken Sie bitte \"Ja\"");
         dialog.add(text, text2);
+
+        UI ui = UI.getCurrent();
+        ui.getPage().executeJs("""
+                    window.logoutTimeout = setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 300000);
+                """);
 
         Button okButton = new Button("Ja", ev -> {
             markActivity();
             warningShown = false;
+            ui.getPage().executeJs("""
+                        if (window.logoutTimeout) {
+                            clearTimeout(window.logoutTimeout);
+                        }
+                    """);
             dialog.close();
         });
 

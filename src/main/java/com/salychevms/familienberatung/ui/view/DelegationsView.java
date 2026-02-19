@@ -213,12 +213,9 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         if (lvl == 50)
             title.setText("Delegationen: " + currentEmployee.getFirstName() + " " + currentEmployee.getLastName());
         else title.setText("Delegationen: alle");
-
         titleLayout.add(title);
-
-        Span emp = new Span(currentEmployee.getRole().getLabel() + ": " + currentEmployee.getFirstName() +
-                " " + currentEmployee.getLastName());
-        header.add(titleLayout, emp);
+        header.add(titleLayout, getHLWithSpans(currentEmployee.getRole().getLabel() + ": ",
+                currentEmployee.getFirstName() + " " + currentEmployee.getLastName()));
         add(header);
     }
 
@@ -243,7 +240,7 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
                     isActiveFilter.clear();
                     fromDate.clear();
                     toDate.clear();
-                    filterVisible=false;
+                    filterVisible = false;
                     filterLayout.setVisible(false);
                     filterToggleButton.setText("Filter öffnen");
                     refreshGrid();
@@ -782,5 +779,28 @@ public class DelegationsView extends VerticalLayout implements BeforeEnterObserv
         Span s = new Span(text);
         s.getStyle().set("font-size", "12px").set("color", "#777").set("margin-top", "12px");
         return s;
+    }
+
+    private HorizontalLayout getHLWithSpans(String title, String data) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+
+        Span titleSpan = new Span(title);
+        Span dataSpan = new Span(data);
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
+    }
+
+    private HorizontalLayout getHL(Span titleSpan, Span dataSpan) {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setSpacing(true);
+        header.setPadding(false);
+        header.setWidthFull();
+        dataSpan.getStyle().set("font-weight", "bold");
+        header.add(titleSpan, dataSpan);
+        return header;
     }
 }

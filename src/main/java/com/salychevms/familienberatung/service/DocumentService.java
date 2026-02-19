@@ -16,6 +16,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -43,12 +44,15 @@ public class DocumentService {
             throw new RuntimeException("Employee " + employee.getLogin() + " has no access to upload Document");
         }
 
-        String mime=contentType;
-        String readable=toReadableType(mime);
+        String nameLower = originalName == null ? "" : originalName.toLowerCase(Locale.ROOT);
 
-        if(readable==null){
-            log.error("Member document {} has no readable content type", member.getId());
-            throw new RuntimeException("Dateityp nicht erlaubt: " + mime);
+        if (!(nameLower.endsWith(".pdf") || nameLower.endsWith(".jpg") || nameLower.endsWith(".jpeg")
+                || nameLower.endsWith(".doc") || nameLower.endsWith(".docx") || nameLower.endsWith("word")
+                || nameLower.endsWith("sheet") || nameLower.endsWith(".xls") || nameLower.endsWith(".xlsx")
+                || nameLower.endsWith("excel") || nameLower.endsWith(".png")
+        )) {
+            log.error("member document upload failed. Original name: {}", originalName);
+            throw new RuntimeException("Member document upload failed. Original name: " + originalName);
         }
 
         String stored = System.currentTimeMillis() + "_" + originalName;
@@ -66,7 +70,7 @@ public class DocumentService {
         document.setUploadedByEmployee(employee);
         document.setOriginalFileName(originalName);
         document.setStoredFileName(stored);
-        document.setFileType(contentType!=null?contentType:"application/octet-stream");
+        document.setFileType(contentType != null ? contentType : "application/octet-stream");
         document.setFileSizeBytes(size);
         document.setUploadedAt(LocalDateTime.now());
 
@@ -237,36 +241,6 @@ public class DocumentService {
         log.info("Document {} has been restored. Reason: {}", doc.getId(), restoreReason);
     }
 
-    /*public Path downloadDocument(Member family, Document doc, Employee employee, String ip, String browser) {
-        if (!doc.getMember().equals(family)) {
-            log.error("Document does not belong to Member");
-            throw new RuntimeException("Document does not belong to Member");
-        }
-        if (family.getStatus().equals(RecordStatus.BLOCKED)) {
-            log.error("Member {} status is {}", family.getId(), family.getStatus());
-            throw new RuntimeException("Member " + family.getId() + " status is " + family.getStatus());
-        }
-        if (employee.getRole().getAccessLevel() <= 10) {
-            log.error("Access Denied for Employee role {}", employee.getRole().getName());
-            throw new RuntimeException("Access Denied for Employee role: " + employee.getRole().getName());
-        }
-        if (doc.isInvalid()) {
-            log.error("Member document is already invalid. Document name: {}", doc.getOriginalFileName());
-            throw new RuntimeException("Member document is already invalid. Document name: " + doc.getOriginalFileName());
-        }
-
-        Path path = getFamilyDir(family.getId()).resolve(doc.getStoredFileName());
-        if (!Files.exists(path)) {
-            log.error("Stored file for doc {} missing", doc.getId());
-            throw new RuntimeException("Stored file for doc " + doc.getId());
-        }
-
-        accessLog.log(employee.getLogin(), "FAMILY_DOCUMENT_DOWNLOAD", "Document", doc.getId(),
-                "Document has been downloaded", ip, browser);
-        log.info("Document {} has been downloaded. Requester: {}", doc.getId(), employee.getLogin());
-        return path;
-    }*/
-
     public List<Document> getAllDocuments(Employee employee) {
         if (employee == null)
             log.error("Employee is null");
@@ -282,24 +256,13 @@ public class DocumentService {
 
         Path target = dir.resolve(storedFileName);
         long size;
-        try (InputStream in=file){
-            size=Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+        try (InputStream in = file) {
+            size = Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
         }
         return size;
     }
 
     private Path getFamilyDir(Long familyId) {
         return Paths.get(storageBasePath, familyId.toString());
-    }
-
-    private String toReadableType(String mime) {
-        if(mime == null) return null;
-        if (mime.contains("pdf")) return "PDF";
-        if (mime.contains("doc") || mime.contains("docx") || mime.contains("word")) return "DOC/DOCX";
-        if (mime.contains("xls") || mime.contains("xlsx") || mime.contains("excel") || mime.contains("sheet"))
-            return "XLS/XLSX";
-        if (mime.contains("jpeg") || mime.contains("jpg")) return "JPEG";
-        if (mime.contains("png")) return "PNG";
-        return null;
     }
 }

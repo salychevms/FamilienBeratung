@@ -1,0 +1,21 @@
+services:
+  familienberatung:
+    container_name: familienberatung
+    image: familienberatung:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      - ./data:/app/data
+
+    environment:
+      - TZ=Europe/Berlin
+      - LANG=de_DE.UTF-8
+      - LC_ALL=de_DE.UTF-8
+      - SPRING_PROFILES_ACTIVE=prod
+
+    restart: unless-stopped
