@@ -1,5 +1,7 @@
 package com.salychevms.familienberatung.ui.view;
 
+import com.salychevms.familienberatung.enums.MemberGender;
+import com.salychevms.familienberatung.enums.RecordStatus;
 import com.salychevms.familienberatung.model.*;
 import com.salychevms.familienberatung.service.*;
 import com.salychevms.familienberatung.ui.dialog.EditDialogFactory;
@@ -41,7 +43,7 @@ public class MemberEsfView extends VerticalLayout implements BeforeEnterObserver
 
     Employee currentEmployee;
     int lvl;
-    Long familyId;
+    Long memberId;
     Long memberEsfId;
     Member currentMember;
     MemberEsf currentMemberEsf;
@@ -59,32 +61,32 @@ public class MemberEsfView extends VerticalLayout implements BeforeEnterObserver
         this.lvl = currentEmployee.getRole().getAccessLevel();
 
         Optional<Long> optMemberEsfId = event.getRouteParameters().getLong("id");
-        Optional<Long> optFamilyId = event.getRouteParameters().getLong("familyId");
+        Optional<Long> optFamilyId = event.getRouteParameters().getLong("memberId");
 
         if (optMemberEsfId.isEmpty() || optFamilyId.isEmpty()) {
-            event.forwardTo("families");
+            event.forwardTo("members");
             return;
         }
 
         this.memberEsfId = optMemberEsfId.get();
-        this.familyId = optFamilyId.get();
+        this.memberId = optFamilyId.get();
 
         try {
-            this.currentMember = memberService.getMemberById(familyId);
+            this.currentMember = memberService.getMemberById(memberId);
         } catch (Exception ex) {
-            event.forwardTo("family/" + familyId);
+            event.forwardTo("member/" + memberId);
             return;
         }
 
         if (currentMember.getStatus().equals(RecordStatus.INVALID)) {
-            event.forwardTo("families");
+            event.forwardTo("members");
             return;
         }
 
         try {
             this.currentMemberEsf = memberEsfService.getMember(currentMember, memberEsfId, currentEmployee.getLogin());
         } catch (Exception e) {
-            event.forwardTo("family/" + familyId);
+            event.forwardTo("member/" + memberId);
             return;
         }
 

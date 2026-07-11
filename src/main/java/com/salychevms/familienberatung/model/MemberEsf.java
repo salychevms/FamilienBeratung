@@ -1,5 +1,6 @@
 package com.salychevms.familienberatung.model;
 
+import com.salychevms.familienberatung.enums.MemberGender;
 import jakarta.persistence.*;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;

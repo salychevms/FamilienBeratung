@@ -1,5 +1,7 @@
 package com.salychevms.familienberatung.ui.view;
 
+import com.salychevms.familienberatung.enums.MemberGender;
+import com.salychevms.familienberatung.enums.RecordStatus;
 import com.salychevms.familienberatung.model.*;
 import com.salychevms.familienberatung.service.*;
 import com.salychevms.familienberatung.ui.dialog.EditDialogFactory;
@@ -7,7 +9,6 @@ import com.salychevms.familienberatung.ui.dialog.EditField;
 import com.salychevms.familienberatung.ui.layout.MainLayout;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.datetimepicker.DateTimePicker;
@@ -41,8 +42,8 @@ import java.util.*;
 
 
 @Slf4j
-@Route(value = "family/:id", layout = MainLayout.class)
-@PageTitle("Familie")
+@Route(value = "member/:id", layout = MainLayout.class)
+@PageTitle("Teilnehmer*in")
 @RequiredArgsConstructor
 @PermitAll
 public class MemberView extends VerticalLayout implements BeforeEnterObserver {
@@ -55,7 +56,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
 
     private Employee currentEmployee;
     private int lvl;
-    private Long familyId;
+    private Long memberId;
     private Member currentMember;
     private List<MemberEsf> members;
     private List<Consultation> consultations;
@@ -76,15 +77,15 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
 
         Optional<Long> optId = event.getRouteParameters().getLong("id");
         if (optId.isEmpty()) {
-            event.forwardTo("families");
+            event.forwardTo("members");
             return;
         }
 
         try {
             this.currentMember = memberService.getMemberById(optId.get());
-            this.familyId = currentMember.getId();
+            this.memberId = currentMember.getId();
         } catch (Exception ex) {
-            event.forwardTo("families");
+            event.forwardTo("members");
             return;
         }
 
@@ -98,14 +99,14 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
 
         members = new ArrayList<>();
         members = memberEsfService.getMembers(currentMember, currentEmployee.getLogin()).stream().filter(
-                fm -> !fm.isInvalid()).toList();
+                m -> !m.isInvalid()).toList();
 
         if (lvl == 50) {
             boolean holder = currentMember.getAssignedEmployee().equals(currentEmployee);
             boolean delegated = activeDelegation != null && activeDelegation.getToEmployee().equals(currentEmployee)
                     && delegationService.isDelegationActive(activeDelegation);
             if (!holder && !(delegated)) {
-                event.forwardTo("families");
+                event.forwardTo("members");
                 return;
             }
         }
@@ -125,7 +126,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
         buildHeader();
         buildContact();
         buildAdditionalInfo();
-        buildFamilyStatusButtons();
+        buildMemberStatusButtons();
         buildAudit();
     }
 
@@ -136,7 +137,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
         bcrumbs.setAlignItems(FlexComponent.Alignment.CENTER);
 
         RouterLink l1 = new RouterLink("Übersicht", OverviewView.class);
-        RouterLink l2 = new RouterLink("Familien", MembersView.class);
+        RouterLink l2 = new RouterLink("Teilnehmer*innen", MembersView.class);
 
         Span sep1 = new Span(" >> ");
         sep1.getStyle().set("font-size", "var(--lumo-font-size-s)")
@@ -144,7 +145,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
         Span sep2 = new Span(" >> ");
         sep2.getStyle().set("font-size", "var(--lumo-font-size-s)")
                 .set("color", "var(--lumo-secondary-text-color)");
-        Span l3 = new Span("Familie: " + currentMember.getLastName());
+        Span l3 = new Span("Teilnehmer*in: " + currentMember + " " + currentMember.getLastName());
         l3.getStyle().set("font-size", "var(--lumo-font-size-s)")
                 .set("font-weight", "bold")
                 .set("color", "var(--lumo-body-text-color)");
@@ -160,11 +161,11 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
         box.setPadding(false);
         box.setWidthFull();
 
-        HorizontalLayout familyHeader = new HorizontalLayout();
-        familyHeader.setWidthFull();
-        familyHeader.setAlignItems(FlexComponent.Alignment.CENTER);
-        familyHeader.setJustifyContentMode(JustifyContentMode.BETWEEN);
-        familyHeader.setSpacing(false);
+        HorizontalLayout memberHeader = new HorizontalLayout();
+        memberHeader.setWidthFull();
+        memberHeader.setAlignItems(FlexComponent.Alignment.CENTER);
+        memberHeader.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        memberHeader.setSpacing(false);
 
         HorizontalLayout h2Title = new HorizontalLayout();
         h2Title.setAlignItems(FlexComponent.Alignment.CENTER);
@@ -176,34 +177,46 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
             h2EditBtn.setClassName("edit-btn");
 
             h2EditBtn.addClickListener(e -> {
-                EditDialogFactory.openEditDialog("Familienname ändern", List.of(new EditField("familyName",
-                        "Familienname", EditField.Type.TEXT, currentMember.getLastName(), true,
-                        255, null, null, null)), values -> {
-                    String newName = (String) values.get("familyName");
-                    if (!EditDialogFactory.isValidText(newName, 255)) {
-                        showOkDialog("Fehler", "Familienname ist leer oder zu lang");
-                        return;
-                    }
+                EditDialogFactory.openEditDialog("Vor- und Nachname ändern", List.of(
+                                new EditField("firstName", "Vorname",
+                                        EditField.Type.TEXT, currentMember.getFirstName(),
+                                        true, 255, null, null, null),
+                                new EditField("lastName", "Nachname",
+                                        EditField.Type.TEXT, currentMember.getLastName(),
+                                        true, 255, null, null, null)),
+                        values -> {
+                            String newFirstName = (String) values.get("firstName");
+                            String newLastName = (String) values.get("lastName");
+                            if (!EditDialogFactory.isValidText(newFirstName, 255)) {
+                                showOkDialog("Fehler", "Vorname ist leer oder zu lang");
+                                return;
+                            }
+                            if (!EditDialogFactory.isValidText(newLastName, 255)) {
+                                showOkDialog("Fehler", "Nachname ist leer oder zu lang");
+                                return;
+                            }
 
-                    showConfirmDialog("Speichern", "Änderunge speichern?", () -> {
-                        Member f = memberService.getMemberById(currentMember.getId());
-                        f.setLastName(newName);
+                            showConfirmDialog("Speichern", "Änderunge speichern?", () -> {
+                                Member m = memberService.getMemberById(currentMember.getId());
+                                m.setLastName(newLastName);
+                                m.setFirstName(newFirstName);
 
-                        VaadinRequest req = VaadinRequest.getCurrent();
-                        memberService.updateMember(f, currentEmployee.getLogin(), req != null ? req.getRemoteAddr() : "UNKNOWN",
-                                req != null ? req.getHeader("User-Agent") : "UNKNOWN");
-                        getUI().ifPresent(ui -> ui.getPage().reload());
-                    }, () -> {
-                    });
-                });
+                                VaadinRequest req = VaadinRequest.getCurrent();
+                                memberService.updateMember(m, currentEmployee.getLogin(),
+                                        req != null ? req.getRemoteAddr() : "UNKNOWN",
+                                        req != null ? req.getHeader("User-Agent") : "UNKNOWN");
+                                getUI().ifPresent(ui -> ui.getPage().reload());
+                            }, () -> {
+                            });
+                        });
             });
             h2Title.add(h2EditBtn);
         }
 
-        H2 title = new H2("Familie: " + currentMember.getLastName());
+        H2 title = new H2("Teilnehmer*in: " + currentMember.getFirstName() + " " + currentMember.getLastName());
         h2Title.add(title);
 
-        familyHeader.add(h2Title);
+        memberHeader.add(h2Title);
 
         Span fIdTitle = new Span("ID: ");
         Span fId = new Span(currentMember.getId().toString());
@@ -273,9 +286,9 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
                         }
                         showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
                             VaadinRequest req = VaadinRequest.getCurrent();
-                            Member f = memberService.getMemberById(currentMember.getId());
-                            f.setZeusId(zeusID);
-                            memberService.updateMember(f, currentEmployee.getLogin(),
+                            Member m = memberService.getMemberById(currentMember.getId());
+                            m.setZeusId(zeusID);
+                            memberService.updateMember(m, currentEmployee.getLogin(),
                                     req != null ? req.getRemoteAddr() : "UNKNOWN",
                                     req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                             getUI().ifPresent(ui -> ui.getPage().reload());
@@ -297,7 +310,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
         infoAndDelegation.add(content);
         if (activeDelegation != null)
             infoAndDelegation.add(buildDelegation());
-        box.add(familyHeader, getHL(fIdTitle, fId), getHL(fStatusTitle, fStatus), getHL(caseTitle, caseState),
+        box.add(memberHeader, getHL(fIdTitle, fId), getHL(fStatusTitle, fStatus), getHL(caseTitle, caseState),
                 infoAndDelegation, buildButtonsBlock(), buildMembers());
 
         add(box);
@@ -372,7 +385,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
             header.add(member);
         }
 
-        Span title = new Span("Familienmitglieder");
+        Span title = new Span("ESF-Mitgliedschaft");
         title.getStyle().set("font-weight", "bold");
         header.add(title);
 
@@ -414,9 +427,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
                     gender = "weiblich";
                 }
 
-                String text = "ID: " + m.getId() + "  |  " + m.getId() + "  |  "
-                        + gender + "  |  " + "Alter: " + age + "  |  " +
-                        "Lebt mit der Familie: " + (m.isLivesWithFamily() ? "Ja" : "Nein");
+                String text = "ID: " + m.getId() + "  |  " + m.getId() + "  |  " + gender + "  |  " + "Alter: " + age;
 
                 Span s = new Span(text);
                 row.add(s);
@@ -426,7 +437,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
                     getUI().ifPresent(ui ->
                             ui.navigate(MemberEsfView.class,
                                     new RouteParameters(Map.of("id", String.valueOf(m.getId()),
-                                            "familyId", String.valueOf(currentMember.getId())))));
+                                            "memberId", String.valueOf(currentMember.getId())))));
                 });
                 block.add(row);
             }
@@ -489,16 +500,16 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
                         }
 
                         showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
-                            Member f = memberService.getMemberById(currentMember.getId());
-                            f.setPhone((String) values.get("phone"));
-                            f.setEmail((String) values.get("email"));
-                            f.setStreet(street);
-                            f.setHouseNumber(houseNumber);
-                            f.setZip(zip);
-                            f.setCity(city);
+                            Member m = memberService.getMemberById(currentMember.getId());
+                            m.setPhone((String) values.get("phone"));
+                            m.setEmail((String) values.get("email"));
+                            m.setStreet(street);
+                            m.setHouseNumber(houseNumber);
+                            m.setZip(zip);
+                            m.setCity(city);
 
                             VaadinRequest req = VaadinRequest.getCurrent();
-                            memberService.updateMember(f, currentEmployee.getLogin(), req != null ? req.getRemoteAddr() : "UNKNOWN",
+                            memberService.updateMember(m, currentEmployee.getLogin(), req != null ? req.getRemoteAddr() : "UNKNOWN",
                                     req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                             getUI().ifPresent(ui -> ui.getPage().reload());
                         }, () -> {
@@ -573,10 +584,10 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
                             return;
                         }
                         showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
-                            Member f = memberService.getMemberById(currentMember.getId());
-                            f.setReasonDescription(reason);
+                            Member m = memberService.getMemberById(currentMember.getId());
+                            m.setReasonDescription(reason);
                             VaadinRequest req = VaadinRequest.getCurrent();
-                            memberService.updateMember(f, currentEmployee.getLogin(),
+                            memberService.updateMember(m, currentEmployee.getLogin(),
                                     req != null ? req.getRemoteAddr() : "UNKNOWN",
                                     req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                             getUI().ifPresent(ui -> ui.getPage().reload());
@@ -623,10 +634,10 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
                                     return;
                                 }
                                 showConfirmDialog("Speichern", "Änderungen speichern?", () -> {
-                                    Member f = memberService.getMemberById(currentMember.getId());
-                                    f.setNotes(notes);
+                                    Member m = memberService.getMemberById(currentMember.getId());
+                                    m.setNotes(notes);
                                     VaadinRequest req = VaadinRequest.getCurrent();
-                                    memberService.updateMember(f, currentEmployee.getLogin(),
+                                    memberService.updateMember(m, currentEmployee.getLogin(),
                                             req != null ? req.getRemoteAddr() : "UNKNOWN",
                                             req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                                     getUI().ifPresent(ui -> ui.getPage().reload());
@@ -696,49 +707,49 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
 
     private HorizontalLayout buildButtonsBlock() {
 
-        HorizontalLayout familyActionsBar = new HorizontalLayout();
-        familyActionsBar.setWidthFull();
-        familyActionsBar.setSpacing(true);
-        familyActionsBar.setPadding(false);
-        familyActionsBar.setAlignItems(Alignment.CENTER);
+        HorizontalLayout memberActionsBar = new HorizontalLayout();
+        memberActionsBar.setWidthFull();
+        memberActionsBar.setSpacing(true);
+        memberActionsBar.setPadding(false);
+        memberActionsBar.setAlignItems(Alignment.CENTER);
 
         Button viewBtn = new Button("Beratungen", e -> getUI().ifPresent(ui -> ui.navigate(
-                ConsultationsView.class, new RouteParameters("familyId", currentMember.getId().toString()))));
-        familyActionsBar.add(viewBtn);
+                ConsultationsView.class, new RouteParameters("memberId", currentMember.getId().toString()))));
+        memberActionsBar.add(viewBtn);
 
         if (lvl != 10 && currentMember.getStatus().equals(RecordStatus.ACTIVE) && !currentMember.isCaseClosed()) {
             Button newBtn = new Button("Beratung", VaadinIcon.PLUS.create(),
                     e -> buildCreateConsultationDialog());
-            familyActionsBar.add(newBtn);
+            memberActionsBar.add(newBtn);
         }
 
         Button docsBtn = new Button("Dokumente", e -> getUI().ifPresent(ui -> ui.navigate(
-                DocumentsView.class, new RouteParameters("familyId", currentMember.getId().toString()))));
-        familyActionsBar.add(docsBtn);
+                DocumentsView.class, new RouteParameters("memberId", currentMember.getId().toString()))));
+        memberActionsBar.add(docsBtn);
 
         Button delegationsButton = new Button("Delegationen", ev -> getUI().ifPresent(
                 ui -> ui.navigate(DelegationsView.class, new RouteParameters(
-                        "familyId", currentMember.getId().toString()))
+                        "memberId", currentMember.getId().toString()))
         ));
-        familyActionsBar.add(delegationsButton);
+        memberActionsBar.add(delegationsButton);
 
-        return familyActionsBar;
+        return memberActionsBar;
     }
 
-    private void buildFamilyStatusButtons() {
-        HorizontalLayout familyStatusBar = new HorizontalLayout();
-        familyStatusBar.setWidthFull();
-        familyStatusBar.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
-        familyStatusBar.setAlignItems(FlexComponent.Alignment.CENTER);
-        familyStatusBar.setSpacing(true);
+    private void buildMemberStatusButtons() {
+        HorizontalLayout memberStatusBar = new HorizontalLayout();
+        memberStatusBar.setWidthFull();
+        memberStatusBar.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
+        memberStatusBar.setAlignItems(FlexComponent.Alignment.CENTER);
+        memberStatusBar.setSpacing(true);
 
 
         if (lvl == 80 || lvl == 100 || (lvl == 50 && !currentMember.getStatus().equals(RecordStatus.BLOCKED))) {
             Button statusBtn = new Button("Status");
 
-            statusBtn.addClickListener(e -> openFamilyStatusDialog());
+            statusBtn.addClickListener(e -> openMemberStatusDialog());
 
-            familyStatusBar.add(statusBtn);
+            memberStatusBar.add(statusBtn);
         }
 
         if (lvl != 10 && currentMember.getStatus().equals(RecordStatus.ACTIVE)) {
@@ -753,8 +764,9 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
             }
             caseClosedBtn.addClickListener(e -> {
                 if (!caseClosed) {
-                    showConfirmDialog("Schluss des Ablaufs der Familie",
-                            "Ist die Arbeit mit der Familie \"" + currentMember.getLastName() + "\" beendet?" +
+                    showConfirmDialog("Austritt",
+                            "Wollen Sie TN-Austritt \"" + currentMember.getFirstName() + " " +
+                                    currentMember.getLastName() + "\" abschließen?" +
                                     " Wollen Sie die Dateien sperren?",
                             () -> {
                                 VaadinRequest req = VaadinRequest.getCurrent();
@@ -765,8 +777,8 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
                             }, () -> {
                             });
                 } else {
-                    showConfirmDialog("Wiederaufnahmeverfahren", "Wollen Sie die Familie \"" +
-                                    currentMember.getLastName() +
+                    showConfirmDialog("Wiederaufnahmeverfahren", "Wollen Sie den*die Teilnehmer*in \"" +
+                                    currentMember.getFirstName() + " " + currentMember.getLastName() +
                                     "\" entsperren und die Dateien bearbeiten?",
                             () -> {
                                 VaadinRequest req = VaadinRequest.getCurrent();
@@ -778,12 +790,12 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
                             });
                 }
             });
-            familyStatusBar.add(caseClosedBtn);
+            memberStatusBar.add(caseClosedBtn);
         }
-        add(familyStatusBar);
+        add(memberStatusBar);
     }
 
-    private void openFamilyStatusDialog() {
+    private void openMemberStatusDialog() {
         Dialog dialog = new Dialog();
         dialog.setModal(true);
         dialog.setCloseOnOutsideClick(false);
@@ -830,29 +842,32 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
                 case "BLOCKIEREN" -> {
                     reason.setVisible(true);
                     reason.setLabel("Begründung der Blockierung");
-                    hint.setText("Familie wird gesperrt und ist nicht mehr editierbar. " +
+                    hint.setText("Teilnehmer*in wird gesperrt und ist nicht mehr editierbar. " +
                             "Geben Sie bitte eine Begründung an. Mind. 5 Zeichen.");
                 }
                 case "LÖSCHEN" -> hint.setText(lvl == 50
-                        ? "Die Familie " + currentMember.getLastName() + " wird gelöscht. " +
-                        "14 Tage Wiederherstellung möglich."
-                        : "Die Familie " + currentMember.getLastName() + " wird gelöscht.");
+                        ? "Teilnehmer*in " + currentMember.getFirstName() + " " + currentMember.getLastName()
+                        + " wird gelöscht. " + "14 Tage Wiederherstellung möglich."
+                        : "Teilnehmer*in " + currentMember.getFirstName() + " " + currentMember.getLastName()
+                        + " wird gelöscht.");
                 case "ARCHIVIEREN" -> {
                     if (!currentMember.isCaseClosed())
                         hint.setText("Archivierung nur möglich, wenn Ablauf geschlossen ist.");
-                    else hint.setText("Die Familie " + currentMember.getLastName() + " wird archiviert.");
+                    else
+                        hint.setText("Teilnehmer*in " + currentMember.getFirstName() + " " + currentMember.getLastName()
+                                + " wird archiviert.");
                 }
                 case "WIEDERHERSTELLEN" -> {
                     reason.setVisible(true);
                     reason.setLabel("Begründung der Wiederherstellung");
-                    hint.setText("Die Familie " + currentMember.getLastName() + " wird wiederherstellt. " +
-                            "Geben Sie bitte eine Begründung an. Mind. 5 Zeichen.");
+                    hint.setText("Teilnehmer*in " + currentMember.getFirstName() + " " + currentMember.getLastName()
+                            + " wird wiederherstellt. Geben Sie bitte eine Begründung an. Mind. 5 Zeichen.");
                 }
                 case "ENTSPERREN" -> {
                     reason.setVisible(true);
                     reason.setLabel("Begründung der Entsperrung.");
-                    hint.setText("Die Familie " + currentMember.getLastName() + " wird entsperrt. " +
-                            "Geben Sie bitte eine Begründung an. Mind. 5 Zeichen.");
+                    hint.setText("Teilnehmer*in " + currentMember.getFirstName() + " " + currentMember.getLastName()
+                            + " wird entsperrt. Geben Sie bitte eine Begründung an. Mind. 5 Zeichen.");
                 }
             }
         });
@@ -870,7 +885,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
 
             if ("ARCHIVIEREN".equals(v) && !currentMember.isCaseClosed()) {
                 showOkDialog("Achtung!",
-                        "Archivierung nich möglich! Die Famile kann archiviert werden, wenn der Ablauf " +
+                        "Archivierung nich möglich! Teilnehmer*in kann archiviert werden, wenn der Ablauf " +
                                 "geschlossen ist. Schließen Sie bitte den Dialogfenster und schließen bitte den Ablauf.");
                 return;
             }
@@ -882,23 +897,23 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
 
                 switch (v) {
                     case "BLOCKIEREN" -> {
-                        memberService.blockMember(familyId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
+                        memberService.blockMember(memberId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
                         getUI().ifPresent(ui -> ui.getPage().reload());
                     }
                     case "ENTSPERREN" -> {
-                        memberService.unblockMember(familyId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
+                        memberService.unblockMember(memberId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
                         getUI().ifPresent(ui -> ui.getPage().reload());
                     }
                     case "ARCHIVIEREN" -> {
-                        memberService.archiveMember(familyId, currentEmployee.getLogin(), ip, browser);
+                        memberService.archiveMember(memberId, currentEmployee.getLogin(), ip, browser);
                         getUI().ifPresent(ui -> ui.getPage().reload());
                     }
                     case "WIEDERHERSTELLEN" -> {
-                        memberService.unarchiveMember(familyId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
+                        memberService.unarchiveMember(memberId, reason.getValue(), currentEmployee.getLogin(), ip, browser);
                         getUI().ifPresent(ui -> ui.getPage().reload());
                     }
                     case "LÖSCHEN" -> {
-                        memberService.invalidateMember(familyId, currentEmployee.getLogin(), ip, browser);
+                        memberService.invalidateMember(memberId, currentEmployee.getLogin(), ip, browser);
                         getUI().ifPresent(ui -> ui.navigate(MembersView.class));
                     }
                 }
@@ -1027,7 +1042,8 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
         dialog.setCloseOnOutsideClick(false);
         dialog.setWidth("800px");
 
-        H2 title = new H2("Beratung für die Familie " + currentMember.getLastName());
+        H2 title = new H2("Beratung für Teilnehmer*in " + currentMember.getFirstName() + " " +
+                currentMember.getLastName());
         dialog.add(title);
 
         DateTimePicker dateTime = new DateTimePicker("Datum und Uhrzeit (*)");
@@ -1111,7 +1127,8 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
         dialog.setCloseOnOutsideClick(false);
         dialog.setWidth("800px");
 
-        H2 title = new H2("Neues Mitglied der Familie " + currentMember.getLastName());
+        H2 title = new H2("ESF-Mitgliedschaft " + currentMember.getFirstName() + " " +
+                currentMember.getLastName());
         dialog.add(title);
 
         TextField firstName = new TextField("Vorname (*)");
@@ -1125,9 +1142,6 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
         birthDate.setMax(LocalDate.now());
         TextField birthCity = new TextField("Geburtsstadt (*)");
         TextField birthCountry = new TextField("Geburtsland (*)");
-
-        Checkbox livesWithFamily = new Checkbox("Lebt mit der Familie");
-        livesWithFamily.setValue(true);
 
         firstName.setWidthFull();
         lastName.setWidthFull();
@@ -1144,7 +1158,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
         mainBlock.setPadding(true);
         mainBlock.getStyle().set("border", "1px solid #ddd").set("padding", "10px").set("border-radius", "6px");
 
-        mainBlock.add(mainTitle, firstName, lastName, gender, birthDate, birthCity, birthCountry, livesWithFamily);
+        mainBlock.add(mainTitle, firstName, lastName, gender, birthDate, birthCity, birthCountry);
 
         TextField nationality = new TextField("Staatsangehörigkeit");
         TextField languages = new TextField("Sprachen");
@@ -1214,7 +1228,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
         });
 
         save.addClickListener(event -> handleMemberSave(dialog, firstName, lastName,
-                gender, birthDate, birthCity, birthCountry, nationality, languages, livesWithFamily, income, workInfo,
+                gender, birthDate, birthCity, birthCountry, nationality, languages, income, workInfo,
                 educationDegree, educationInfo, notes, phone, email));
 
         HorizontalLayout buttons = new HorizontalLayout(save, cancel);
@@ -1227,7 +1241,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
 
     private void openTrashDialog() {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Papierkorb: Familienmitglieder");
+        dialog.setHeaderTitle("Papierkorb: ESF-Mitgliedschaft");
 
         List<MemberEsf> trashMembers = new ArrayList<>();
         if (lvl == 50)
@@ -1243,32 +1257,32 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
         grid.setHeight("400px");
 
         grid.addColumn(MemberEsf::getId).setHeader("ID").setAutoWidth(true).setFlexGrow(0);
-        grid.addColumn(fm -> fm.getId())
+        grid.addColumn(m -> m.getId())
                 .setHeader("Vor- und Nachname").setAutoWidth(true).setFlexGrow(0);
-        grid.addColumn(fm -> {
-            if (fm.getGender() == MemberGender.DIVERS) return "DIVERS";
-            if (fm.getGender().equals(MemberGender.MAENNLICH)) return "MÄNNLICH";
-            if (fm.getGender().equals(MemberGender.WEIBLICH)) return "WEIBLICH";
+        grid.addColumn(m -> {
+            if (m.getGender() == MemberGender.DIVERS) return "DIVERS";
+            if (m.getGender().equals(MemberGender.MAENNLICH)) return "MÄNNLICH";
+            if (m.getGender().equals(MemberGender.WEIBLICH)) return "WEIBLICH";
             return "kA";
         }).setHeader("Gender").setAutoWidth(true).setFlexGrow(0);
-        grid.addColumn(fm -> {
-            if (fm.getBirthDate() == null) return "kA";
-            return Period.between(fm.getBirthDate(), LocalDate.now()).getYears();
+        grid.addColumn(m -> {
+            if (m.getBirthDate() == null) return "kA";
+            return Period.between(m.getBirthDate(), LocalDate.now()).getYears();
         }).setHeader("Alter").setAutoWidth(true).setFlexGrow(0);
-        grid.addColumn(fm -> {
-            if (fm.getInvalidBy() == null) return "kA";
-            Employee emp = employeeService.findByLogin(fm.getInvalidBy());
+        grid.addColumn(m -> {
+            if (m.getInvalidBy() == null) return "kA";
+            Employee emp = employeeService.findByLogin(m.getInvalidBy());
             return emp.getFirstName() + " " + emp.getLastName();
         }).setHeader("Gelöscht von").setAutoWidth(true).setFlexGrow(0);
-        grid.addColumn(fm -> {
-            if (fm.getInvalidAt() == null) return "-";
-            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
-            return fm.getInvalidAt().format(fmt);
+        grid.addColumn(m -> {
+            if (m.getInvalidAt() == null) return "-";
+            DateTimeFormatter mt = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+            return m.getInvalidAt().format(mt);
         }).setHeader("Gelöscht am").setAutoWidth(true).setFlexGrow(0);
         if (lvl == 50)
-            grid.addColumn(fm -> {
-                if (fm.getInvalidAt() == null) return "-";
-                long days = Duration.between(fm.getInvalidAt(), LocalDateTime.now()).toDays();
+            grid.addColumn(m -> {
+                if (m.getInvalidAt() == null) return "-";
+                long days = Duration.between(m.getInvalidAt(), LocalDateTime.now()).toDays();
                 return (14 - days);
             }).setHeader("Noch verfügbar").setAutoWidth(true).setFlexGrow(0);
         grid.setItems(trashMembers);
@@ -1280,16 +1294,16 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
                 e -> restore.setEnabled(e.getValue() != null));
 
         restore.addClickListener(e -> {
-            MemberEsf fm = grid.asSingleSelect().getValue();
-            if (fm == null) return;
-            long days = Duration.between(fm.getInvalidAt(), LocalDateTime.now()).toDays();
+            MemberEsf m = grid.asSingleSelect().getValue();
+            if (m == null) return;
+            long days = Duration.between(m.getInvalidAt(), LocalDateTime.now()).toDays();
 
             boolean needReason = (lvl >= 80 && days > 14);
             Dialog confirm = new Dialog();
             confirm.setHeaderTitle("Mitglied wiederherstellen");
 
             VerticalLayout content = new VerticalLayout();
-            content.add(new Span("Familienmitglied \"" + fm.getId() +
+            content.add(new Span("ESF-Mitgliedschaft \"" + m.getId() +
                     "\" wiederherstellen?"));
 
             TextArea reason = null;
@@ -1307,7 +1321,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
                 if (finalReason != null) {
                     r = finalReason.getValue();
                     if (r == null || r.trim().length() < 5) {
-                        Notification.show("Mindestens 5 Yeichen erforderlich", 3000,
+                        Notification.show("Mindestens 5 Zeichen erforderlich", 3000,
                                 Notification.Position.MIDDLE);
                         return;
                     }
@@ -1315,7 +1329,7 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
 
                 VaadinRequest req = VaadinRequest.getCurrent();
 
-                memberEsfService.restoreMember(currentMember, fm, currentEmployee.getLogin(), r,
+                memberEsfService.restoreMember(currentMember, m, currentEmployee.getLogin(), r,
                         req != null ? req.getRemoteAddr() : "UNKNOWN",
                         req != null ? req.getHeader("User-Agent") : "UNKNOWN");
                 confirm.close();
@@ -1348,9 +1362,9 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
 
     private void handleMemberSave(Dialog dialog, TextField firstName, TextField lastName,
                                   ComboBox<MemberGender> gender, DatePicker birthDate, TextField birthCity,
-                                  TextField birthCountry, TextField nationality, TextField languages,
-                                  Checkbox livesWithFamily, TextField income, TextArea workInfo, TextField education,
-                                  TextArea educationInfo, TextArea notes, TextField phone, TextField email) {
+                                  TextField birthCountry, TextField nationality, TextField languages, TextField income,
+                                  TextArea workInfo, TextField education, TextArea educationInfo, TextArea notes,
+                                  TextField phone, TextField email) {
         List<String> errors = validateMemberForm(firstName.getValue(), lastName.getValue(), gender.getValue(),
                 birthDate.getValue(), birthCity.getValue(), birthCountry.getValue());
 
@@ -1381,8 +1395,8 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
 
             memberEsfService.createMember(currentMember, gender.getValue(),
                     birthDate.getValue(), birthCity.getValue(), birthCountry.getValue(), nationality.getValue(),
-                    languages.getValue(), livesWithFamily.getValue(), income.getValue(), workInfo.getValue(),
-                    education.getValue(), educationInfo.getValue(), notes.getValue(), phone.getValue(), email.getValue(),
+                    languages.getValue(), income.getValue(), workInfo.getValue(), education.getValue(),
+                    educationInfo.getValue(), notes.getValue(), phone.getValue(), email.getValue(),
                     currentEmployee.getLogin(), ip, browser);
 
             dialog.close();
@@ -1458,29 +1472,30 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
             return;
         }
 
-        String state = validateConsultationDate(dateTime, currentMember.getCreatedAt());
+        String state = validateConsultationDate(dateTime, currentMember.getJoinedAt());
 
         if ("FUTURE".equals(state)) {
             showOkDialog("Ungültiges Datum", "Datum darf nicht in der Zukunft liegen");
             return;
         }
 
-        if ("BEFORE_FAMILY".equals(state)) {
-            showOkDialog("Ungültiges Datum", "Datum liegt vor Erstellung der Familie");
+        if ("BEFORE_JOINED".equals(state)) {
+            showOkDialog("Ungültiges Datum", "Datum liegt vor TN-Eintritt");
             return;
         }
 
         if ("BACKDATED".equals(state)) {
-            askBackdatedConfirmation(() -> handleOptionalFinalConsultationSave(dialog, dateTime, duration, topic, description,
-                    result, followUp));
+            askBackdatedConfirmation(() -> handleOptionalFinalConsultationSave(dialog, dateTime, duration, topic,
+                    description, result, followUp));
             return;
         }
 
         handleOptionalFinalConsultationSave(dialog, dateTime, duration, topic, description, result, followUp);
     }
 
-    private void handleOptionalFinalConsultationSave(Dialog dialog, LocalDateTime dateTime, Integer duration, String topic,
-                                                     String description, String result, LocalDateTime followUp) {
+    private void handleOptionalFinalConsultationSave(Dialog dialog, LocalDateTime dateTime, Integer duration,
+                                                     String topic, String description, String result, LocalDateTime
+                                                             followUp) {
         List<String> empty = new ArrayList<>();
         if (topic == null || topic.isBlank()) empty.add("Thema");
         if (description == null || description.isBlank()) empty.add("Beschreibung");
@@ -1590,11 +1605,11 @@ public class MemberView extends VerticalLayout implements BeforeEnterObserver {
         return errors;
     }
 
-    private String validateConsultationDate(LocalDateTime dateTime, LocalDateTime familyCreatedAt) {
+    private String validateConsultationDate(LocalDateTime dateTime, LocalDate memberJoinedAt) {
         LocalDate today = LocalDate.now();
 
         if (dateTime.toLocalDate().isAfter(today)) return "FUTURE";
-        if (dateTime.isBefore(familyCreatedAt)) return "BEFORE_FAMILY";
+        if (dateTime.toLocalDate().isBefore(memberJoinedAt)) return "BEFORE_JOINED";
         if (dateTime.toLocalDate().isBefore(today)) return "BACKDATED";
 
         return "OK";

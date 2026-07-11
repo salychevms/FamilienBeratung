@@ -3,7 +3,7 @@ package com.salychevms.familienberatung.ui.view;
 import com.salychevms.familienberatung.model.Delegation;
 import com.salychevms.familienberatung.model.Employee;
 import com.salychevms.familienberatung.model.Member;
-import com.salychevms.familienberatung.model.RecordStatus;
+import com.salychevms.familienberatung.enums.RecordStatus;
 import com.salychevms.familienberatung.service.AuthService;
 import com.salychevms.familienberatung.service.DelegationService;
 import com.salychevms.familienberatung.service.EmployeeService;

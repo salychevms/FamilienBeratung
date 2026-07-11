@@ -2,7 +2,7 @@ package com.salychevms.familienberatung.service;
 
 import com.salychevms.familienberatung.model.Employee;
 import com.salychevms.familienberatung.model.Member;
-import com.salychevms.familienberatung.model.RecordStatus;
+import com.salychevms.familienberatung.enums.RecordStatus;
 import com.salychevms.familienberatung.repository.MemberRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -99,50 +99,50 @@ public class MemberService {
     }
 
     //admin and lead and consultant and delegated
-    public void updateMember(Member f, String updatedBy, String ip, String userBrowser) {
+    public void updateMember(Member m, String updatedBy, String ip, String userBrowser) {
         try {
             if (!employeeService.hasAccess(updatedBy, 50)) {
                 log.error("Access Denied for {}", updatedBy);
                 throw new RuntimeException("Access Denied for " + updatedBy);
             }
 
-            if (f == null) {
+            if (m == null) {
                 log.error("Member not found");
                 throw new EntityNotFoundException("Member not found");
             }
-            if (f.getJoinedAt().isAfter(LocalDate.now())
-                    || f.getJoinedAt().isBefore(LocalDate.of(2026, 1, 1))) {
+            if (m.getJoinedAt().isAfter(LocalDate.now())
+                    || m.getJoinedAt().isBefore(LocalDate.of(2026, 1, 1))) {
                 log.error("Joined Date is before 2026");
                 throw new RuntimeException("Joined Date is before 2026");
             }
-            Member member = memberRepository.findById(f.getId()).orElseThrow(() ->
-                    new EntityNotFoundException("Member with Id: " + f.getId() + " not found"));
+            Member member = memberRepository.findById(m.getId()).orElseThrow(() ->
+                    new EntityNotFoundException("Member with Id: " + m.getId() + " not found"));
 
-            validator.validateBirthday(f.getBirthDate());
-            validator.validateText(f.getFirstName(), 255);
-            validator.validateText(f.getLastName(), 255);
-            validator.validateText(f.getStreet(), 255);
-            validator.validateText(f.getHouseNumber(), 255);
-            validator.validateText(f.getZip(), 255);
-            validator.validateText(f.getCity(), 255);
-            validator.validateEmail(f.getEmail());
-            validator.validateText(f.getReasonDescription(), 4000);
-            validator.validateText(f.getNotes(), 255);
+            validator.validateBirthday(m.getBirthDate());
+            validator.validateText(m.getFirstName(), 255);
+            validator.validateText(m.getLastName(), 255);
+            validator.validateText(m.getStreet(), 255);
+            validator.validateText(m.getHouseNumber(), 255);
+            validator.validateText(m.getZip(), 255);
+            validator.validateText(m.getCity(), 255);
+            validator.validateEmail(m.getEmail());
+            validator.validateText(m.getReasonDescription(), 4000);
+            validator.validateText(m.getNotes(), 255);
             validator.validateIp(ip);
 
-            member.setBirthDate(f.getBirthDate());
-            member.setJoinedAt(f.getJoinedAt());
-            member.setZeusId(f.getZeusId());
-            member.setLastName(f.getFirstName());
-            member.setLastName(f.getLastName());
-            member.setStreet(f.getStreet());
-            member.setHouseNumber(f.getHouseNumber());
-            member.setZip(f.getZip());
-            member.setCity(f.getCity());
-            member.setPhone(f.getPhone());
-            member.setEmail(f.getEmail());
-            member.setReasonDescription(f.getReasonDescription());
-            member.setNotes(f.getNotes());
+            member.setBirthDate(m.getBirthDate());
+            member.setJoinedAt(m.getJoinedAt());
+            member.setZeusId(m.getZeusId());
+            member.setLastName(m.getFirstName());
+            member.setLastName(m.getLastName());
+            member.setStreet(m.getStreet());
+            member.setHouseNumber(m.getHouseNumber());
+            member.setZip(m.getZip());
+            member.setCity(m.getCity());
+            member.setPhone(m.getPhone());
+            member.setEmail(m.getEmail());
+            member.setReasonDescription(m.getReasonDescription());
+            member.setNotes(m.getNotes());
 
             member.setUpdatedAt(LocalDateTime.now());
             member.setUpdatedBy(updatedBy);
@@ -566,12 +566,12 @@ public class MemberService {
         if (lvl == 50) {
             List<Member> members = memberRepository.findAllByAssignedEmployee(exists);
             List<Member> response = new ArrayList<>();
-            for (Member f : members) {
-                if (f.getStatus().equals(RecordStatus.INVALID)) {
-                    long days = Duration.between(f.getInvalidAt(), LocalDateTime.now()).toDays();
+            for (Member m : members) {
+                if (m.getStatus().equals(RecordStatus.INVALID)) {
+                    long days = Duration.between(m.getInvalidAt(), LocalDateTime.now()).toDays();
                     if (days > 14) continue;
                 }
-                response.add(f);
+                response.add(m);
             }
             return response;
         }

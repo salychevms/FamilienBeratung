@@ -3,9 +3,10 @@ package com.salychevms.familienberatung.ui.view;
 import com.salychevms.familienberatung.model.Consultation;
 import com.salychevms.familienberatung.model.Employee;
 import com.salychevms.familienberatung.model.Member;
-import com.salychevms.familienberatung.model.RecordStatus;
+import com.salychevms.familienberatung.enums.RecordStatus;
 import com.salychevms.familienberatung.service.AuthService;
 import com.salychevms.familienberatung.service.ConsultationService;
+import com.salychevms.familienberatung.service.EmployeeService;
 import com.salychevms.familienberatung.service.MemberService;
 import com.salychevms.familienberatung.ui.layout.MainLayout;
 import com.vaadin.flow.component.Component;
@@ -34,6 +35,7 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
     private final AuthService authService;
     private final MemberService memberService;
     private final ConsultationService consultationService;
+    private final EmployeeService employeeService;
 
     @Override
     public void beforeEnter(BeforeEnterEvent beforeEnterEvent) {
@@ -56,16 +58,18 @@ public class OverviewView extends VerticalLayout implements BeforeEnterObserver 
         top.setSpacing(false);
         top.setWidthFull();
 
-        Employee e = authService.getCurrentEmployee();
-        if (e == null) return;
+        Employee auth = authService.getCurrentEmployee();
+        if (auth == null) return;
+        Employee employee=employeeService.findByLogin(auth.getLogin());
+        if (employee == null) return;
 
-        int lvl = e.getRole().getAccessLevel();
+        int lvl = auth.getRole().getAccessLevel();
 
-        H2 title = new H2(buildTitle(e, lvl));
+        H2 title = new H2(buildTitle(employee, lvl));
 
-        int memberCount = getMembersCount(e, lvl);
-        int conCount = getConsultationsCount(e, lvl);
-        int hours = getConsultationsHours(e, lvl);
+        int memberCount = getMembersCount(employee, lvl);
+        int conCount = getConsultationsCount(employee, lvl);
+        int hours = getConsultationsHours(employee, lvl);
 
         Paragraph p1 = new Paragraph("Teilnehmerzahl: " + memberCount);
         Paragraph p2 = new Paragraph("Beratungen: " + conCount);

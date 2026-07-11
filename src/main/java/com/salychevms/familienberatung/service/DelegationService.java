@@ -3,7 +3,7 @@ package com.salychevms.familienberatung.service;
 import com.salychevms.familienberatung.model.Delegation;
 import com.salychevms.familienberatung.model.Employee;
 import com.salychevms.familienberatung.model.Member;
-import com.salychevms.familienberatung.model.RecordStatus;
+import com.salychevms.familienberatung.enums.RecordStatus;
 import com.salychevms.familienberatung.repository.DelegationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
